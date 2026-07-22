@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Alert Feed</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #12161f;
+    --panel-border: #1f2530;
+    --text: #e5e9f0;
+    --muted: #6b7280;
+    --accent: #f5a623;
+    --bull: #22c55e;
+    --bear: #ef4444;
+    --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .brand b { color: var(--text); }
+  .pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .pulse.live {
+    background: var(--bull);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+    animation: ping 1.8s ease-out infinite;
+  }
+  @keyframes ping {
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+    70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  }
+  .stats {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    gap: 18px;
+  }
+  .stats strong { color: var(--accent); font-weight: 600; }
+  .actions button {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .actions button:hover { color: var(--text); border-color: var(--muted); }
+
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .empty {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 14px;
+  }
+  .empty .big { font-size: 28px; margin-bottom: 10px; color: var(--panel-border); }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 14px;
+    animation: slidein 0.25s ease-out;
+  }
+  @keyframes slidein {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 14px;
+    background: #060810;
+  }
+  .card-time {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .card-ago {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--panel-border);
+  }
+  .card-headline {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 10px 14px;
+    background: #1a1300;
+    color: var(--accent);
+    border-bottom: 1px solid var(--panel-border);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .kv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  .kv-table tr:nth-child(odd) { background: #0e1219; }
+  .kv-table td {
+    padding: 5px 14px;
+    vertical-align: top;
+    border-top: 1px solid #191e28;
+  }
+  .kv-table td.k {
+    color: var(--muted);
+    width: 42%;
+    white-space: nowrap;
+  }
+  .kv-table td.v {
+    text-align: right;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .kv-table tr.bull td.v { color: #bbf7d0; background: rgba(34,197,94,0.22); }
+  .kv-table tr.bear td.v { color: #fecaca; background: rgba(239,68,68,0.22); }
+  .kv-table tr.neutral td.v { color: var(--text); }
+  .kv-table tr.ny td.v { color: #422006; background: #f5c518; }
+  .kv-table tr.london td.v { color: #fff; background: #9c27b0; }
+  .kv-table tr.asian td.v { color: #fff; background: #e65100; }
+
+  footer {
+    text-align: center;
+    padding: 30px 20px 50px;
+    color: var(--panel-border);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="pulse" id="pulse"></span>
+    <span>Alert Feed <b id="conn">connecting…</b></span>
+  </div>
+  <div class="stats">
+    <span><strong id="count">0</strong> received</span>
+  </div>
+  <div class="actions">
+    <button id="clearBtn">Clear all</button>
+  </div>
+</header>
+
+<main>
+  <div id="list"></div>
+  <div class="empty" id="emptyState" style="display:none;">
+    <div class="big">···</div>
+    Waiting for the first alert.<br />
+    Point a TradingView alert's webhook URL here and it'll show up instantly.
+  </div>
+</main>
+
+<footer>tv-webhook-dashboard</footer>
+
+<script>
+  const listEl = document.getElementById('list');
+  const countEl = document.getElementById('count');
+  const emptyEl = document.getElementById('emptyState');
+  const connEl = document.getElementById('conn');
+  const pulseEl = document.getElementById('pulse');
+  const clearBtn = document.getElementById('clearBtn');
+
+  let alerts = [];
+
+  function timeAgo(iso) {
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return Math.floor(s / 86400) + 'd ago';
+  }
+
+  function classify(text) {
+    const t = text.toUpperCase();
+    if (t.includes('LONG') || t.includes('BULLISH')) return 'bull';
+    if (t.includes('SHORT') || t.includes('BEARISH')) return 'bear';
+    return '';
+  }
+
+  // Per-row coloring, mirroring the on-chart Status table's logic: bullish/LONG green, bearish/SHORT
+  // red, session-colored for the Market row, plain otherwise (Time, Chart, ORB set, EMA comparison
+  // lines, etc. don't get a bull/bear read so they stay neutral).
+  function classifyRow(key, value) {
+    const k = key.toUpperCase();
+    const v = value.toUpperCase();
+    if (k === 'MARKET') {
+      if (v.includes('NEW YORK')) return 'ny';
+      if (v.includes('LONDON')) return 'london';
+      if (v.includes('ASIAN')) return 'asian';
+      return 'neutral';
+    }
+    if (v.includes('BULLISH') || v.startsWith('LONG') || v.includes(' LONG ')) return 'bull';
+    if (v.includes('BEARISH') || v.startsWith('SHORT') || v.includes(' SHORT ')) return 'bear';
+    if (v.startsWith('ABOVE')) return 'bull';
+    if (v.startsWith('BELOW')) return 'bear';
+    return 'neutral';
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function render() {
+    countEl.textContent = alerts.length;
+    emptyEl.style.display = alerts.length ? 'none' : 'block';
+    listEl.innerHTML = alerts.map(a => {
+      const body = a.raw || '';
+      const lines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const headlineLines = [];
+      const rows = [];
+      lines.forEach((line, i) => {
+        if (i === 0 || line.startsWith('•')) {
+          headlineLines.push(line);
+          return;
+        }
+        const idx = line.indexOf(': ');
+        if (idx === -1) return; // skip lines that aren't "Key: Value" (shouldn't be many)
+        rows.push([line.slice(0, idx), line.slice(idx + 2)]);
+      });
+
+      const rowsHtml = rows.map(([k, v]) => {
+        const cls = classifyRow(k, v);
+        return `<tr class="${cls}"><td class="k">${escapeHtml(k)}</td><td class="v">${escapeHtml(v)}</td></tr>`;
+      }).join('');
+
+      return `<div class="card">
+        <div class="card-top">
+          <span class="card-time">${new Date(a.receivedAt).toLocaleString()}</span>
+          <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
+        </div>
+        ${headlineLines.length ? `<div class="card-headline">${escapeHtml(headlineLines.join('\n'))}</div>` : ''}
+        <table class="kv-table">${rowsHtml}</table>
+      </div>`;
+    }).join('');
+  }
+
+  function tickAgo() {
+    document.querySelectorAll('.card-ago').forEach(el => {
+      el.textContent = timeAgo(el.dataset.ts);
+    });
+  }
+  setInterval(tickAgo, 15000);
+
+  function flashPulse() {
+    pulseEl.classList.add('live');
+    setTimeout(() => pulseEl.classList.remove('live'), 1500);
+  }
+
+  // Initial load
+  fetch('/alerts').then(r => r.json()).then(data => {
+    alerts = data;
+    render();
+  });
+
+  // Live stream
+  const es = new EventSource('/stream');
+  es.onopen = () => { connEl.textContent = 'live'; };
+  es.onerror = () => { connEl.textContent = 'reconnecting…'; };
+  es.onmessage = (e) => {
+    const alert = JSON.parse(e.data);
+    alerts.unshift(alert);
+    render();
+    flashPulse();
+  };
+
+  clearBtn.addEventListener('click', () => {
+    if (!confirm('Clear all stored alerts?')) return;
+    const token = prompt('Enter your webhook token to confirm (leave blank if you did not set one):') || '';
+    fetch('/clear?token=' + encodeURIComponent(token), { method: 'POST' }).then(r => {
+      if (r.ok) { alerts = []; render(); }
+      else alert('Could not clear (check token).');
+    });
+  });
+</script>
+
+</body>
+</html>
