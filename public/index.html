@@ -116,6 +116,32 @@
     align-items: baseline;
     padding: 10px 14px;
     background: #060810;
+    cursor: pointer;
+    user-select: none;
+    gap: 10px;
+  }
+  .card-top:hover { background: #0c0f18; }
+  .card-top-left {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+  }
+  .chevron {
+    display: inline-block;
+    color: var(--muted);
+    font-size: 11px;
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+  .card.expanded .chevron { transform: rotate(90deg); color: var(--accent); }
+  .card-summary {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .card-time {
     font-family: var(--mono);
@@ -126,6 +152,16 @@
     font-family: var(--mono);
     font-size: 11px;
     color: var(--panel-border);
+  }
+  .card-headline,
+  .kv-table {
+    display: none;
+  }
+  .card.expanded .card-headline {
+    display: block;
+  }
+  .card.expanded .kv-table {
+    display: table;
   }
   .card-headline {
     font-family: var(--mono);
@@ -173,7 +209,10 @@
      label-above-value per row instead of squeezing two columns into one narrow screen. */
   @media (max-width: 560px) {
     main { padding: 12px; }
-    .kv-table, .kv-table tbody { display: block; width: 100%; }
+    .card-top { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .card-summary { max-width: 100%; }
+    .kv-table, .kv-table tbody { width: 100%; }
+    .card.expanded .kv-table, .card.expanded .kv-table tbody { display: block; }
     .kv-table tr {
       display: block;
       border: 2px solid #ffffff;
@@ -241,6 +280,7 @@
   const clearBtn = document.getElementById('clearBtn');
 
   let alerts = [];
+  const expandedIds = new Set();
 
   function timeAgo(iso) {
     const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -303,10 +343,22 @@
         return `<tr class="${cls}"><td class="k">${escapeHtml(k)}</td><td class="v">${escapeHtml(v)}</td></tr>`;
       }).join('');
 
-      return `<div class="card">
-        <div class="card-top">
-          <span class="card-time">${new Date(a.receivedAt).toLocaleString()}</span>
-          <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
+      // One-line summary shown in the collapsed header: the ticker plus the first bullet (the main
+      // headline), so you can tell alerts apart before expanding any of them.
+      const tickerOnly = (lines[0] || '').replace(/[—\s]+$/, '');
+      const summaryText = [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
+      const isExpanded = expandedIds.has(a.id);
+
+      return `<div class="card ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
+        <div class="card-top" data-toggle="${a.id}">
+          <div class="card-top-left">
+            <span class="chevron">&#9656;</span>
+            <span class="card-summary">${escapeHtml(summaryText)}</span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0;">
+            <span class="card-time">${new Date(a.receivedAt).toLocaleString()}</span>
+            <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
+          </div>
         </div>
         ${headlineLines.length ? `<div class="card-headline">${escapeHtml(headlineLines.join('\n'))}</div>` : ''}
         <table class="kv-table">${rowsHtml}</table>
@@ -320,6 +372,22 @@
     });
   }
   setInterval(tickAgo, 15000);
+
+  // Event delegation: card headers are recreated on every render() call (new alert arriving etc.),
+  // so listen on the shared container instead of attaching a listener per card.
+  listEl.addEventListener('click', (e) => {
+    const header = e.target.closest('[data-toggle]');
+    if (!header) return;
+    const id = header.dataset.toggle;
+    const card = header.closest('.card');
+    if (expandedIds.has(id)) {
+      expandedIds.delete(id);
+      card.classList.remove('expanded');
+    } else {
+      expandedIds.add(id);
+      card.classList.add('expanded');
+    }
+  });
 
   function flashPulse() {
     pulseEl.classList.add('live');
