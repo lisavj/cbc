@@ -284,6 +284,10 @@
     ['CBC (1H)', 'CBC (1H, live'],
     ['Opening range', 'ORB set'],
     ['Structure (3m)', 'Structure (15m)', 'Structure (1H)'],
+    ['EMA cloud (3m)', 'EMA cloud (15m)', 'EMA cloud (1H)'],
+    ['VWAP', 'EMA 200'],
+    ['EMA9/20 (3)', 'EMA9/20 (15)'],
+    ['CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip'],
   ];
 
   function timeAgo(iso) {
@@ -322,6 +326,14 @@
 
   function escapeHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // "CBC (3m) last flip" etc. normally read like "LONG 7/22 18:51 ET  #1" — too long to fit 3 per
+  // row. Drops the date (keeps time) since these are grouped side by side: "LONG 18:51 #1".
+  function shortenLastFlip(key, value) {
+    if (!key.includes('last flip')) return value;
+    const m = value.match(/^(LONG|SHORT)\s+\d{1,2}\/\d{1,2}\s+(\d{1,2}:\d{2})\s+ET\s+(#\d+)/i);
+    return m ? `${m[1]} ${m[2]} ${m[3]}` : value;
   }
 
   // Arranges [key, value] pairs into rows per ROW_GROUPS: each configured group becomes one row
@@ -367,8 +379,9 @@
 
       const bodyHtml = groupRows(rows).map(group => {
         const fieldsHtml = group.map(([k, v]) => {
+          const displayV = shortenLastFlip(k, v);
           const cls = classifyRow(k, v);
-          return `<div class="field ${cls}"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></div>`;
+          return `<div class="field ${cls}"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(displayV)}</span></div>`;
         }).join('');
         return `<div class="row-group">${fieldsHtml}</div>`;
       }).join('');
