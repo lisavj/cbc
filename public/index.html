@@ -205,8 +205,8 @@
   .field.bear { background: rgba(239,68,68,0.28); }
   .field.bear .v { color: #fecaca; }
   .field.neutral { background: #0e1219; }
-  .field.ny { background: #f5c518; }
-  .field.ny .v { color: #422006; }
+  .field.ny { background: #ff9800; }
+  .field.ny .v { color: #3d1e00; }
   .field.london { background: #9c27b0; }
   .field.london .v { color: #fff; }
   .field.asian { background: #e65100; }
@@ -288,7 +288,12 @@
     ['VWAP', 'EMA 200'],
     ['EMA9/20 (3)', 'EMA9/20 (15)'],
     ['CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip'],
+    ['Buy Zone High', 'Buy Zone Low'],
   ];
+
+  // Fields whose label starts with any of these are dropped entirely from the dashboard — not
+  // grouped, not shown standalone, just skipped. Edit this list to hide/unhide fields.
+  const HIDDEN_FIELDS = ['Prev Candle', 'HTF Candle'];
 
   function timeAgo(iso) {
     const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -315,6 +320,14 @@
       if (v.includes('NEW YORK')) return 'ny';
       if (v.includes('LONDON')) return 'london';
       if (v.includes('ASIAN')) return 'asian';
+      return 'neutral';
+    }
+    if (k.startsWith('STRUCTURE')) {
+      // Matches the Pine script's v3.22 rule: green only for a full bullish structure (Higher
+      // High AND Higher Low), red only for a full bearish structure (Lower High AND Lower Low).
+      // Mixed readings (HH/LL, LH/HL) stay neutral.
+      if (v.replace(/\s/g, '') === 'HH/HL') return 'bull';
+      if (v.replace(/\s/g, '') === 'LH/LL') return 'bear';
       return 'neutral';
     }
     if (v.includes('BULLISH') || v.startsWith('LONG') || v.includes(' LONG ')) return 'bull';
@@ -374,7 +387,9 @@
         }
         const idx = line.indexOf(': ');
         if (idx === -1) return; // skip lines that aren't "Key: Value" (shouldn't be many)
-        rows.push([line.slice(0, idx), line.slice(idx + 2)]);
+        const key = line.slice(0, idx);
+        if (HIDDEN_FIELDS.some(prefix => key.startsWith(prefix))) return;
+        rows.push([key, line.slice(idx + 2)]);
       });
 
       const bodyHtml = groupRows(rows).map(group => {
