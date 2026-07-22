@@ -212,26 +212,28 @@
     .card-top { flex-direction: column; align-items: flex-start; gap: 4px; }
     .card-summary { max-width: 100%; }
     .kv-table, .kv-table tbody { width: 100%; }
-    .card.expanded .kv-table, .card.expanded .kv-table tbody { display: block; }
+    .card.expanded .kv-table { display: flex; flex-wrap: wrap; gap: 6px; }
+    .card.expanded .kv-table tbody { display: contents; }
     .kv-table tr {
-      display: block;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 132px;
       border: 2px solid #ffffff;
-      margin-top: -2px;
+      min-width: 0;
     }
     .kv-table td {
       display: block;
-      width: 100% !important;
       border: none;
       white-space: normal;
-      padding: 6px 12px;
+      padding: 5px 9px;
     }
     .kv-table td.k {
-      font-size: 11px;
-      padding-bottom: 2px;
+      font-size: 10px;
+      padding-bottom: 1px;
     }
     .kv-table td.v {
       text-align: left;
-      font-size: 14px;
+      font-size: 13px;
       padding-top: 0;
     }
   }
