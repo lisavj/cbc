@@ -101,14 +101,11 @@
   .card {
     background: var(--panel);
     border: 1px solid var(--panel-border);
-    border-left: 3px solid var(--muted);
     border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
+    overflow: hidden;
+    margin-bottom: 14px;
     animation: slidein 0.25s ease-out;
   }
-  .card.bull { border-left-color: var(--bull); }
-  .card.bear { border-left-color: var(--bear); }
   @keyframes slidein {
     from { opacity: 0; transform: translateY(-6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -117,7 +114,8 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin-bottom: 8px;
+    padding: 10px 14px;
+    background: #060810;
   }
   .card-time {
     font-family: var(--mono);
@@ -129,18 +127,45 @@
     font-size: 11px;
     color: var(--panel-border);
   }
-  .card-body {
+  .card-headline {
     font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.55;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 10px 14px;
+    background: #1a1300;
+    color: var(--accent);
+    border-bottom: 1px solid var(--panel-border);
     white-space: pre-wrap;
     word-break: break-word;
-    color: var(--text);
   }
-  .card-body .headline {
-    color: var(--accent);
+  .kv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  .kv-table tr:nth-child(odd) { background: #0e1219; }
+  .kv-table td {
+    padding: 5px 14px;
+    vertical-align: top;
+    border-top: 1px solid #191e28;
+  }
+  .kv-table td.k {
+    color: var(--muted);
+    width: 42%;
+    white-space: nowrap;
+  }
+  .kv-table td.v {
+    text-align: right;
     font-weight: 600;
+    word-break: break-word;
   }
+  .kv-table tr.bull td.v { color: #bbf7d0; background: rgba(34,197,94,0.22); }
+  .kv-table tr.bear td.v { color: #fecaca; background: rgba(239,68,68,0.22); }
+  .kv-table tr.neutral td.v { color: var(--text); }
+  .kv-table tr.ny td.v { color: #422006; background: #f5c518; }
+  .kv-table tr.london td.v { color: #fff; background: #9c27b0; }
+  .kv-table tr.asian td.v { color: #fff; background: #e65100; }
 
   footer {
     text-align: center;
@@ -202,20 +227,59 @@
     return '';
   }
 
+  // Per-row coloring, mirroring the on-chart Status table's logic: bullish/LONG green, bearish/SHORT
+  // red, session-colored for the Market row, plain otherwise (Time, Chart, ORB set, EMA comparison
+  // lines, etc. don't get a bull/bear read so they stay neutral).
+  function classifyRow(key, value) {
+    const k = key.toUpperCase();
+    const v = value.toUpperCase();
+    if (k === 'MARKET') {
+      if (v.includes('NEW YORK')) return 'ny';
+      if (v.includes('LONDON')) return 'london';
+      if (v.includes('ASIAN')) return 'asian';
+      return 'neutral';
+    }
+    if (v.includes('BULLISH') || v.startsWith('LONG') || v.includes(' LONG ')) return 'bull';
+    if (v.includes('BEARISH') || v.startsWith('SHORT') || v.includes(' SHORT ')) return 'bear';
+    if (v.startsWith('ABOVE')) return 'bull';
+    if (v.startsWith('BELOW')) return 'bear';
+    return 'neutral';
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   function render() {
     countEl.textContent = alerts.length;
     emptyEl.style.display = alerts.length ? 'none' : 'block';
     listEl.innerHTML = alerts.map(a => {
-      const body = (a.raw || '').replace(/</g, '&lt;');
-      const lines = body.split('\n');
-      const headline = lines[0] || '';
-      const rest = lines.slice(1).join('\n');
-      return `<div class="card ${classify(body)}">
+      const body = a.raw || '';
+      const lines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const headlineLines = [];
+      const rows = [];
+      lines.forEach((line, i) => {
+        if (i === 0 || line.startsWith('•')) {
+          headlineLines.push(line);
+          return;
+        }
+        const idx = line.indexOf(': ');
+        if (idx === -1) return; // skip lines that aren't "Key: Value" (shouldn't be many)
+        rows.push([line.slice(0, idx), line.slice(idx + 2)]);
+      });
+
+      const rowsHtml = rows.map(([k, v]) => {
+        const cls = classifyRow(k, v);
+        return `<tr class="${cls}"><td class="k">${escapeHtml(k)}</td><td class="v">${escapeHtml(v)}</td></tr>`;
+      }).join('');
+
+      return `<div class="card">
         <div class="card-top">
           <span class="card-time">${new Date(a.receivedAt).toLocaleString()}</span>
           <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
         </div>
-        <div class="card-body"><span class="headline">${headline}</span>${rest ? '\n' + rest : ''}</div>
+        ${headlineLines.length ? `<div class="card-headline">${escapeHtml(headlineLines.join('\n'))}</div>` : ''}
+        <table class="kv-table">${rowsHtml}</table>
       </div>`;
     }).join('');
   }
