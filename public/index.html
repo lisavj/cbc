@@ -169,6 +169,34 @@
   .kv-table tr.london td.v { color: #fff; background: #9c27b0; }
   .kv-table tr.asian td.v { color: #fff; background: #e65100; }
 
+  /* Phones: side-by-side columns get too cramped once labels are long, so stack
+     label-above-value per row instead of squeezing two columns into one narrow screen. */
+  @media (max-width: 560px) {
+    main { padding: 12px; }
+    .kv-table, .kv-table tbody { display: block; width: 100%; }
+    .kv-table tr {
+      display: block;
+      border: 2px solid #ffffff;
+      margin-top: -2px;
+    }
+    .kv-table td {
+      display: block;
+      width: 100% !important;
+      border: none;
+      white-space: normal;
+      padding: 6px 12px;
+    }
+    .kv-table td.k {
+      font-size: 11px;
+      padding-bottom: 2px;
+    }
+    .kv-table td.v {
+      text-align: left;
+      font-size: 14px;
+      padding-top: 0;
+    }
+  }
+
   footer {
     text-align: center;
     padding: 30px 20px 50px;
