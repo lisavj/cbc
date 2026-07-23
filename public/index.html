@@ -179,9 +179,28 @@
     border-bottom: 1px solid var(--panel-border);
     white-space: pre-wrap;
     word-break: break-word;
-    cursor: help;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
   }
-  .card-headline:hover { background: #241900; }
+  .headline-text { flex: 1 1 auto; }
+  .info-icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(245,166,35,0.25);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--sans);
+    cursor: help;
+    user-select: none;
+  }
+  .info-icon:hover { background: rgba(245,166,35,0.45); }
 
   .modal-overlay {
     display: none;
@@ -472,6 +491,13 @@
       if (v.replace(/\s/g, '') === 'LH/LL') return 'bear';
       return 'neutral';
     }
+    // "3min - Above Both" / "15min - Below Both" / etc. — the direction lives in the LABEL here,
+    // not the value (the value is just the raw EMA9/EMA20/price ordering text).
+    if (/^\d+min - /i.test(key)) {
+      if (k.includes('ABOVE BOTH')) return 'bull';
+      if (k.includes('BELOW BOTH')) return 'bear';
+      return 'neutral';
+    }
     if (v.includes('BULLISH') || v.startsWith('LONG') || v.includes(' LONG ')) return 'bull';
     if (v.includes('BEARISH') || v.startsWith('SHORT') || v.includes(' SHORT ')) return 'bear';
     if (v.startsWith('ABOVE')) return 'bull';
@@ -594,7 +620,7 @@
             <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
           </div>
         </div>
-        ${headlineLines.length ? `<div class="card-headline" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">${escapeHtml(headlineLines.join('\n'))}</div>` : ''}
+        ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${escapeHtml(headlineLines.join('\n'))}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }).join('');
@@ -610,7 +636,7 @@
   // Event delegation: card headers are recreated on every render() call (new alert arriving etc.),
   // so listen on the shared container instead of attaching a listener per card.
   listEl.addEventListener('click', (e) => {
-    const headline = e.target.closest('.card-headline');
+    const headline = e.target.closest('.info-icon');
     if (headline) {
       const lines = decodeURIComponent(headline.dataset.headline).split('\n');
       showDefinitions(lines);
