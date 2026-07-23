@@ -173,7 +173,61 @@
     border-bottom: 1px solid var(--panel-border);
     white-space: pre-wrap;
     word-break: break-word;
+    cursor: help;
   }
+  .card-headline:hover { background: #241900; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 18px 20px;
+    font-family: var(--sans);
+  }
+  .modal-box h3 {
+    margin: 0 0 4px;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+  }
+  .modal-box p {
+    margin: 6px 0 16px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .modal-box .none {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .modal-close {
+    display: block;
+    margin: 8px auto 0;
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--muted);
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 12.5px;
+  }
+  .modal-close:hover { color: var(--text); border-color: var(--muted); }
   .row-group {
     display: flex;
     flex-wrap: wrap;
@@ -256,6 +310,10 @@
 
 <footer>tv-webhook-dashboard</footer>
 
+<div class="modal-overlay" id="defModal">
+  <div class="modal-box" id="defModalBox"></div>
+</div>
+
 <script>
   const listEl = document.getElementById('list');
   const countEl = document.getElementById('count');
@@ -294,6 +352,84 @@
   // Fields whose label starts with any of these are dropped entirely from the dashboard — not
   // grouped, not shown standalone, just skipped. Edit this list to hide/unhide fields.
   const HIDDEN_FIELDS = ['Prev Candle', 'HTF Candle'];
+
+  // ---------------------------------------------------------------------
+  // ALERT TYPE DEFINITIONS — same text as the (i) tooltips next to each alert
+  // checkbox in the Pine script's Alerts settings group. Checked in order,
+  // first match per headline bullet line wins. Update this if the script's
+  // own tooltips change, to keep them in sync.
+  // ---------------------------------------------------------------------
+  const ALERT_TYPE_DEFS = [
+    {
+      test: (l) => /A\+ Setup/i.test(l),
+      title: 'A+ Setup (Long/Short)',
+      def: 'Fires once when: (1) confirmed HTF CBC direction, (2) chart-timeframe EMA cloud, and (3) HTF EMA cloud all align in the same direction, (4) price is already CONFIRMED on the trade\'s side of VWAP (above VWAP for Long, below VWAP for Short), AND (5) price is still ANTICIPATORY on the Opening Range — hasn\'t broken the ORB high (Long) / ORB low (Short) yet, i.e. before that breakout confirms.'
+    },
+    {
+      test: (l) => /ORB Retest/i.test(l),
+      title: 'ORB Retest / Break & Base (Long/Short)',
+      def: 'Fires once on the classic ORB playbook: (1) price already closed outside the session\'s Opening Range (the initial breakout), (2) price pulled back and retested the broken level from the other side, and (3) a bar then closed back in the breakout direction, confirming the level flipped from resistance to support (Long) or support to resistance (Short). Only fires within the configured "Max bars to wait for retest" of the original breakout.'
+    },
+    {
+      test: (l) => /Outside HTF ORB/i.test(l),
+      title: 'Outside HTF ORB (Bullish/Bearish)',
+      def: 'Fires once when price closes outside the current session\'s Opening Range — above the ORB high (Bullish) or below the ORB low (Bearish). Uses whichever session\'s OR is currently active (Asian/London/New York).'
+    },
+    {
+      test: (l) => /VWAP Break/i.test(l),
+      title: 'VWAP Break (Bullish/Bearish)',
+      def: 'Fires once when price closes on the opposite side of VWAP from where it was the prior bar (a VWAP cross), either direction.'
+    },
+    {
+      test: (l) => /EMA 200 Break/i.test(l),
+      title: 'EMA 200 Break (Bullish/Bearish)',
+      def: 'Fires once when price closes on the opposite side of EMA 200 from where it was the prior bar (an EMA200 cross), either direction.'
+    },
+    {
+      test: (l) => /Agreement/i.test(l) && /early\/unconfirmed/i.test(l),
+      title: 'LTF + HTF Agreement - Early (unconfirmed HTF)',
+      def: 'Fires once, as soon as the chart timeframe agrees with the HTF\'s LIVE, still-forming state — before that HTF bar closes, tagged UNCONFIRMED. If the live HTF state reverses before its bar closes, no confirmed alert follows — you only got the early heads-up. If it holds, a confirmed "LTF + HTF Agreement" alert fires automatically once that HTF bar closes.'
+    },
+    {
+      test: (l) => /Agreement/i.test(l),
+      title: 'LTF + HTF Agreement (Long/Short)',
+      def: 'Fires the moment the chart timeframe and the CONFIRMED (last closed) HTF bar both agree — both Long or both Short — i.e. entering agreement, not repeated every bar while still in agreement.'
+    },
+    {
+      test: (l) => /HTF\(/i.test(l) && /CBC Flip/i.test(l) && /(UNCONFIRMED|still forming)/i.test(l),
+      title: 'HTF CBC Flip - Early (unconfirmed, still forming)',
+      def: 'Fires once, as soon as the HTF\'s LIVE, still-forming state would flip — before that HTF bar closes, tagged UNCONFIRMED. If the live HTF state reverses before its bar closes, no confirmed alert follows. If it holds, a confirmed "HTF CBC Flip" alert fires automatically once that HTF bar closes.'
+    },
+    {
+      test: (l) => /HTF\(/i.test(l) && /CBC Flip/i.test(l),
+      title: 'HTF CBC Flip (Long/Short)',
+      def: 'Fires once the HTF bar has fully CLOSED and its CBC flipped (last closed HTF bar only). Confirmed — won\'t fire on a signal that reverses before that HTF bar closes.'
+    },
+    {
+      test: (l) => /LTF\(/i.test(l) && /CBC Flip/i.test(l) && /(UNCONFIRMED|mid-candle)/i.test(l),
+      title: 'LTF CBC Flip - Early (unconfirmed, mid-candle)',
+      def: 'Fires once, as soon as the LIVE still-forming candle would trigger a flip — before the bar closes, tagged UNCONFIRMED. If price reverses before close, no confirmed alert follows. If it holds, a confirmed "LTF CBC Flip" alert fires automatically at that bar\'s actual close.'
+    },
+    {
+      test: (l) => /LTF\(/i.test(l) && /CBC Flip/i.test(l),
+      title: 'LTF CBC Flip (Long/Short)',
+      def: 'Fires once the bar has fully CLOSED and the chart-timeframe CBC flipped. Confirmed — won\'t fire on a signal that reverses before close.'
+    },
+  ];
+
+  function getDefinitionsForHeadline(headlineLines) {
+    const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    const seen = new Set();
+    const results = [];
+    bulletLines.forEach(line => {
+      const match = ALERT_TYPE_DEFS.find(d => d.test(line));
+      if (match && !seen.has(match.title)) {
+        seen.add(match.title);
+        results.push(match);
+      }
+    });
+    return results;
+  }
 
   function timeAgo(iso) {
     const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -418,7 +554,7 @@
             <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
           </div>
         </div>
-        ${headlineLines.length ? `<div class="card-headline">${escapeHtml(headlineLines.join('\n'))}</div>` : ''}
+        ${headlineLines.length ? `<div class="card-headline" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">${escapeHtml(headlineLines.join('\n'))}</div>` : ''}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }).join('');
@@ -434,6 +570,12 @@
   // Event delegation: card headers are recreated on every render() call (new alert arriving etc.),
   // so listen on the shared container instead of attaching a listener per card.
   listEl.addEventListener('click', (e) => {
+    const headline = e.target.closest('.card-headline');
+    if (headline) {
+      const lines = decodeURIComponent(headline.dataset.headline).split('\n');
+      showDefinitions(lines);
+      return;
+    }
     const header = e.target.closest('[data-toggle]');
     if (!header) return;
     const id = header.dataset.toggle;
@@ -445,6 +587,23 @@
       expandedIds.add(id);
       card.classList.add('expanded');
     }
+  });
+
+  const defModal = document.getElementById('defModal');
+  const defModalBox = document.getElementById('defModalBox');
+
+  function showDefinitions(headlineLines) {
+    const defs = getDefinitionsForHeadline(headlineLines);
+    const content = defs.length
+      ? defs.map(d => `<h3>${escapeHtml(d.title)}</h3><p>${escapeHtml(d.def)}</p>`).join('')
+      : '<p class="none">No matching alert-type definition found for this headline.</p>';
+    defModalBox.innerHTML = content + '<button class="modal-close" id="defModalCloseBtn">Close</button>';
+    defModal.classList.add('open');
+    document.getElementById('defModalCloseBtn').addEventListener('click', () => defModal.classList.remove('open'));
+  }
+
+  defModal.addEventListener('click', (e) => {
+    if (e.target === defModal) defModal.classList.remove('open');
   });
 
   function flashPulse() {
