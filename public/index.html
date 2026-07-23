@@ -153,6 +153,12 @@
     font-size: 11px;
     color: var(--panel-border);
   }
+  .chart-link {
+    text-decoration: none;
+    font-size: 14px;
+    opacity: 0.7;
+  }
+  .chart-link:hover { opacity: 1; }
   .card-headline,
   .field-body {
     display: none;
@@ -477,6 +483,38 @@
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  // Converts the "Chart" field's timeframe text (e.g. "3m", "15m", "1H", "4H", "1D") into
+  // TradingView's chart URL "interval" format (minutes as a plain number, or D/W/M for daily+).
+  function tfToInterval(tf) {
+    if (!tf) return null;
+    let m = tf.match(/^(\d+)\s*m$/i);
+    if (m) return m[1];
+    m = tf.match(/^(\d+)\s*h$/i);
+    if (m) return String(parseInt(m[1], 10) * 60);
+    m = tf.match(/^(\d+)\s*d$/i);
+    if (m) return m[1] === '1' ? 'D' : m[1] + 'D';
+    m = tf.match(/^(\d+)\s*w$/i);
+    if (m) return m[1] === '1' ? 'W' : m[1] + 'W';
+    return null;
+  }
+
+  // Builds a TradingView chart link from the alert's ticker + "Chart" field, if present. TradingView
+  // chart URLs are universal links — on a phone with the TradingView app installed, this hands off to
+  // the app automatically; otherwise it opens the web chart in whatever browser you're logged into.
+  function buildChartUrl(tickerOnly, rows) {
+    if (!tickerOnly) return null;
+    const chartField = rows.find(([k]) => k === 'Chart');
+    let tf = null;
+    if (chartField) {
+      const parts = chartField[1].trim().split(/\s+/);
+      tf = parts[parts.length - 1]; // "MES1!  3m" -> "3m"
+    }
+    const interval = tfToInterval(tf);
+    let url = 'https://www.tradingview.com/chart/?symbol=' + encodeURIComponent(tickerOnly);
+    if (interval) url += '&interval=' + encodeURIComponent(interval);
+    return url;
+  }
+
   // "CBC (3m) last flip" etc. normally read like "LONG 7/22 18:51 ET  #1" — too long to fit 3 per
   // row. Drops the date (keeps time) since these are grouped side by side: "LONG 18:51 #1".
   function shortenLastFlip(key, value) {
@@ -542,6 +580,7 @@
       const tickerOnly = (lines[0] || '').replace(/[—\s]+$/, '');
       const summaryText = [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
       const isExpanded = expandedIds.has(a.id);
+      const chartUrl = buildChartUrl(tickerOnly, rows);
 
       return `<div class="card ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
         <div class="card-top" data-toggle="${a.id}">
@@ -550,6 +589,7 @@
             <span class="card-summary">${escapeHtml(summaryText)}</span>
           </div>
           <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0;">
+            ${chartUrl ? `<a class="chart-link" href="${chartUrl}" target="_blank" rel="noopener" title="Open chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''}
             <span class="card-time">${new Date(a.receivedAt).toLocaleString()}</span>
             <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
           </div>
