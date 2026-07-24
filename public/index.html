@@ -146,12 +146,12 @@
   .card-time {
     font-family: var(--mono);
     font-size: 12px;
-    color: var(--muted);
+    color: var(--text);
   }
   .card-ago {
     font-family: var(--mono);
     font-size: 11px;
-    color: var(--panel-border);
+    color: var(--muted);
   }
   .chart-link {
     text-decoration: none;
@@ -300,6 +300,23 @@
     .field .k { font-size: 9.5px; }
   }
 
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #symbolFilter {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #symbolFilter:focus { outline: 1px solid var(--accent); }
+
   footer {
     text-align: center;
     padding: 30px 20px 50px;
@@ -320,6 +337,9 @@
     <span><strong id="count">0</strong> received</span>
   </div>
   <div class="actions">
+    <select id="symbolFilter">
+      <option value="all">All symbols</option>
+    </select>
     <button id="clearBtn">Clear all</button>
   </div>
 </header>
@@ -346,9 +366,21 @@
   const connEl = document.getElementById('conn');
   const pulseEl = document.getElementById('pulse');
   const clearBtn = document.getElementById('clearBtn');
+  const symbolFilterEl = document.getElementById('symbolFilter');
+  symbolFilterEl.addEventListener('change', () => {
+    activeFilter = symbolFilterEl.value;
+    render();
+  });
 
   let alerts = [];
+  let activeFilter = 'all';
   const expandedIds = new Set();
+
+  // Extracts the ticker from an alert's raw text (its first line, e.g. "MES1! —" -> "MES1!").
+  function getSymbol(raw) {
+    const firstLine = (raw || '').split('\n')[0] || '';
+    return firstLine.replace(/[—\s]+$/, '').trim();
+  }
 
   // ---------------------------------------------------------------------
   // ROW GROUPING — edit this to control exactly which fields share a row.
@@ -573,9 +605,20 @@
   }
 
   function render() {
-    countEl.textContent = alerts.length;
-    emptyEl.style.display = alerts.length ? 'none' : 'block';
-    listEl.innerHTML = alerts.map(a => {
+    // Populate the symbol filter dropdown from whatever tickers have shown up so far, preserving
+    // the current selection (and falling back to "all" if the selected symbol has since rolled off).
+    const symbols = Array.from(new Set(alerts.map(a => getSymbol(a.raw)).filter(Boolean))).sort();
+    const prevValue = symbolFilterEl.value || activeFilter;
+    symbolFilterEl.innerHTML = '<option value="all">All symbols</option>' +
+      symbols.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    symbolFilterEl.value = symbols.includes(prevValue) ? prevValue : 'all';
+    activeFilter = symbolFilterEl.value;
+
+    const filtered = activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter);
+
+    countEl.textContent = activeFilter === 'all' ? alerts.length : `${filtered.length} of ${alerts.length}`;
+    emptyEl.style.display = filtered.length ? 'none' : 'block';
+    listEl.innerHTML = filtered.map(a => {
       const body = a.raw || '';
       const lines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const headlineLines = [];
