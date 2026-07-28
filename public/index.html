@@ -573,12 +573,21 @@
     ['VWAP', 'EMA 200'],
     ['EMA9/20 (3)', 'EMA9/20 (15)'],
     ['CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip'],
-    ['Entry Zone High', 'Entry Zone Low'],
   ];
 
   // Fields whose label starts with any of these are dropped entirely from the dashboard — not
   // grouped, not shown standalone, just skipped. Edit this list to hide/unhide fields.
   const HIDDEN_FIELDS = ['Prev Candle', 'HTF Candle'];
+
+  // Fields that are hidden from the raw field-body table specifically because
+  // buildHeadlineHighlights already folds them into a compact headline line — unlike
+  // HIDDEN_FIELDS above, these must stay in `rows` (that's what buildHeadlineHighlights reads),
+  // they're just excluded when building the field-body rows further down.
+  const FIELDS_SHOWN_ONLY_IN_HEADLINE = [
+    'Entry Zone High', 'Entry Zone Low', 'Entry Zone',
+    'Buy Zone High', 'Buy Zone Low',
+    'Entry', 'Suggested stop',
+  ];
 
   // Builds the extra lines appended into the headline banner, below the bullet points. Edit this
   // function to change which fields combine onto which line, or the separator between them.
@@ -609,9 +618,11 @@
       lines.push(colorizeBullBear(raw));
     }
 
-    const buyHigh = get('Entry Zone High');
-    const buyLow = get('Entry Zone Low');
-    const zoneDir = get('Entry Zone'); // "LONG" or "SHORT"
+    // Support both the current "Entry Zone High/Low" naming and the older pre-rename "Buy Zone
+    // High/Low" naming some live alerts still send, so this compacts either way.
+    const buyHigh = get('Entry Zone High') || get('Buy Zone High');
+    const buyLow = get('Entry Zone Low') || get('Buy Zone Low');
+    const zoneDir = get('Entry Zone'); // "LONG" or "SHORT" — only present on the newer naming
     if (buyHigh || buyLow) {
       const priceStr = get('Price');
       const priceNum = parseFloat(priceStr);
@@ -622,6 +633,19 @@
       const buyText = `Entry Zone: ${buyLow || '—'} to ${buyHigh || '—'}  (${priceLabel}: ${priceStr || '—'})`;
       const dirClass = zoneDir === 'LONG' ? 'hl-bull' : zoneDir === 'SHORT' ? 'hl-bear' : null;
       lines.push(dirClass ? `<span class="${dirClass}">${escapeHtml(buyText)}</span>` : escapeHtml(buyText));
+    }
+
+    // The suggested entry price (A+ Setup / ORB Retest) and stop (EMA9/20 Zone entries) — same
+    // "look for entry" moment as the zone above, so it's folded onto its own compact line rather
+    // than left as a separate full-width field-body row.
+    const entryLine = get('Entry');
+    const stopLine = get('Suggested stop');
+    if (entryLine || stopLine) {
+      const parts = [
+        entryLine ? `Entry: ${entryLine}` : '',
+        stopLine ? `Stop: ${stopLine}` : '',
+      ].filter(Boolean).join('   ');
+      lines.push(escapeHtml(parts));
     }
 
     return lines;
@@ -810,7 +834,18 @@
       ['EMA60', bullBearClass(get('EMA cloud (1H)'))],
     ].filter(([, cls]) => cls);
 
-    const groups = [cbc, st, ema].filter(g => g.length);
+    // ENTRY badge: flags that this alert carries a "look for entry" moment — an Entry Zone
+    // (either naming), a suggested Entry price, or a Suggested stop. Colored by the zone's
+    // LONG/SHORT direction when available (the newer "Entry Zone" naming carries it); falls back
+    // to a neutral gray badge when only the older Buy Zone naming or a bare Entry/stop line is
+    // present, since there's no direction field to color it by in that case.
+    const hasEntryInfo = get('Entry Zone High') || get('Entry Zone Low') || get('Buy Zone High') || get('Buy Zone Low') || get('Entry') || get('Suggested stop');
+    const entryDir = get('Entry Zone');
+    const entry = hasEntryInfo
+      ? [['ENTRY', entryDir === 'LONG' ? 'badge-bull' : entryDir === 'SHORT' ? 'badge-bear' : 'badge-neutral']]
+      : [];
+
+    const groups = [cbc, st, ema, entry].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls]) => `<span class="badge ${cls}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
@@ -1081,7 +1116,8 @@
       const headlineTextHtml = colorizeBullBear(headlineLines.join('\n'));
       const headlineHtml = headlineTextHtml + (highlightLines.length ? '\n' + highlightLines.join('\n') : '');
 
-      const bodyHtml = groupRows(rows).map(group => {
+      const bodyRows = rows.filter(([k]) => !FIELDS_SHOWN_ONLY_IN_HEADLINE.some(prefix => k.startsWith(prefix)));
+      const bodyHtml = groupRows(bodyRows).map(group => {
         const fieldsHtml = group.map(([k, v]) => {
           const displayV = shortenLastFlip(k, v);
           const cls = classifyRow(k, v);
@@ -1105,6 +1141,7 @@
         <div class="card-top" data-toggle="${a.id}">
           <div class="card-top-left">
             <span class="chevron">&#9656;</span>
+            ${typePillHtml}
             <span class="card-summary">${escapeHtml(summaryText)}</span>
           </div>
           <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0;">
@@ -1114,7 +1151,7 @@
           </div>
         </div>
         ${badgeRowHtml}
-        ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span>${typePillHtml}<span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
+        ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }).join('');
