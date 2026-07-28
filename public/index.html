@@ -228,9 +228,9 @@
   .type-pill.pill-neutral { background: #444441; color: #d3d1c7; }
 
   /* Single-line badge strip: CONFIRMED/UNCONFIRMED, then CBC3/15/60, then ST3/15/60, then EMA3/15/60 —
-     only rendered while the card is expanded, same gating pattern as .card-headline/.field-body above. */
+     always visible (even collapsed), unlike .card-headline/.field-body below which stay expand-only. */
   .badge-row {
-    display: none;
+    display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
@@ -238,7 +238,6 @@
     padding: 8px 14px;
     border-bottom: 1px solid var(--panel-border);
   }
-  .card.expanded .badge-row { display: flex; }
   .badge-row .badge {
     font-size: 10px;
     font-weight: 600;
@@ -1114,8 +1113,8 @@
             <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
           </div>
         </div>
-        ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span>${typePillHtml}<span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
         ${badgeRowHtml}
+        ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span>${typePillHtml}<span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }).join('');
