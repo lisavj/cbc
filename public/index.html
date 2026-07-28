@@ -113,6 +113,7 @@
   .card.status-aplus { border: 2px solid #22d3ee; }
   .card.status-confirmed { border: 2px solid #22c55e; }
   .card.status-unconfirmed { border: 2px solid #fde047; }
+  .card.status-fail { border: 2px solid #ef4444; }
   @keyframes slidein {
     from { opacity: 0; transform: translateY(-6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -221,11 +222,15 @@
     border-radius: 9999px;
     white-space: nowrap;
   }
-  .type-pill.pill-flip { background: #0f6e56; color: #e1f5ee; }
+  .type-pill.pill-flip-confirmed,
+  .type-pill.pill-agreement-confirmed { background: #3b6d11; color: #eaf3de; }
+  .type-pill.pill-flip-unconfirmed,
+  .type-pill.pill-agreement-unconfirmed { background: #854f0b; color: #faeeda; }
   .type-pill.pill-agreement { background: #534ab7; color: #eeedfe; }
   .type-pill.pill-emazone { background: #993c1d; color: #faece7; }
   .type-pill.pill-aplus { background: #185fa5; color: #e6f1fb; }
   .type-pill.pill-neutral { background: #444441; color: #d3d1c7; }
+  .type-pill.pill-orbfail { background: #a32d2d; color: #fcebeb; }
 
   /* Single-line badge strip: CONFIRMED/UNCONFIRMED, then CBC3/15/60, then ST3/15/60, then EMA3/15/60 —
      always visible (even collapsed), unlike .card-headline/.field-body below which stay expand-only. */
@@ -254,6 +259,12 @@
   .badge.badge-bull { background: #3b6d11; color: #eaf3de; }
   .badge.badge-bear { background: #a32d2d; color: #fcebeb; }
   .badge.badge-neutral { background: #444441; color: #d3d1c7; }
+  /* Ring around a CBC badge whose LIVE/still-forming reading has diverged from the last CONFIRMED
+     reading — i.e. it's mid-flip. Ring color is the LIVE direction, independent of the badge's own
+     fill (which stays the CONFIRMED direction) — e.g. a red CBC15 badge with a green ring means
+     "last confirmed bar was Bearish, but the live/still-forming bar is already reading Bullish". */
+  .badge.badge-ring-bull { box-shadow: 0 0 0 2px #4ade80; }
+  .badge.badge-ring-bear { box-shadow: 0 0 0 2px #f87171; }
 
   /* Colors-off ("plain mode"): neutralizes every colored row/badge/highlight in the app. */
   body.plain-mode .field.bull,
@@ -279,10 +290,12 @@
   body.plain-mode .type-pill {
     background: #262b33 !important;
     color: var(--text) !important;
+    box-shadow: none !important;
   }
   body.plain-mode .card.status-aplus,
   body.plain-mode .card.status-confirmed,
-  body.plain-mode .card.status-unconfirmed {
+  body.plain-mode .card.status-unconfirmed,
+  body.plain-mode .card.status-fail {
     border-color: var(--panel-border) !important;
   }
 
@@ -681,6 +694,11 @@
       def: 'Fires once when: (1) confirmed HTF CBC direction, (2) chart-timeframe EMA cloud, and (3) HTF EMA cloud all align in the same direction, (4) price is already CONFIRMED on the trade\'s side of VWAP (above VWAP for Long, below VWAP for Short), AND (5) price is still ANTICIPATORY on the Opening Range — hasn\'t broken the ORB high (Long) / ORB low (Short) yet, i.e. before that breakout confirms.'
     },
     {
+      test: (l) => /ORB Retest Fail/i.test(l),
+      title: 'ORB Retest Fail (Long/Short)',
+      def: 'Fires once when an ORB Retest / Break & Base setup fails: price broke out beyond the ORB high (Long) or low (Short), then fully round-tripped through the OPPOSITE side of the range before ever confirming the base — invalidating the setup. The other outcome of the same setup as "ORB Retest / Break & Base" below, gated by the same alert toggle.'
+    },
+    {
       test: (l) => /ORB Retest/i.test(l),
       title: 'ORB Retest / Break & Base (Long/Short)',
       def: 'Fires once on the classic ORB playbook: (1) price already closed outside the session\'s Opening Range (the initial breakout), (2) price pulled back and retested the broken level from the other side, and (3) a bar then closed back in the breakout direction, confirming the level flipped from resistance to support (Long) or support to resistance (Short). Only fires within the configured "Max bars to wait for retest" of the original breakout.'
@@ -752,14 +770,18 @@
 
   // Card border color: A+ Setup alerts are always confirmed-only (per the Pine script, they
   // only ever fire in the confirmed batch), so they get their own distinct color rather than
-  // just falling under "confirmed". Otherwise: any UNCONFIRMED/early bullet -> yellow border,
-  // no such bullet (and at least one bullet at all) -> green border. Alerts with no parseable
-  // bullets (the plain-text fallback path) get no status class / default border.
+  // just falling under "confirmed". ORB Retest Fail is technically a "confirmed" (certain, not
+  // early/unconfirmed) outcome too, but it's bad news, not a setup to act on — so it gets its own
+  // red border rather than the same green as an actionable confirmed setup. Otherwise: any
+  // UNCONFIRMED/early bullet -> yellow border, no such bullet (and at least one bullet at all) ->
+  // green border. Alerts with no parseable bullets (the plain-text fallback path) get no status
+  // class / default border.
   function classifyAlertStatus(headlineLines) {
     const bulletLines = headlineLines.filter(l => l.startsWith('•'));
     if (!bulletLines.length) return '';
     const joined = bulletLines.join(' ');
     if (/A\+ Setup/i.test(joined)) return 'status-aplus';
+    if (/ORB Retest Fail/i.test(joined)) return 'status-fail';
     if (/UNCONFIRMED|early\/unconfirmed/i.test(joined)) return 'status-unconfirmed';
     return 'status-confirmed';
   }
@@ -771,14 +793,20 @@
     const bulletLines = headlineLines.filter(l => l.startsWith('•'));
     if (!bulletLines.length) return null;
     const joined = bulletLines.join(' ');
+    const isUnconfirmed = /UNCONFIRMED|early\/unconfirmed/i.test(joined);
     if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
-    if (/CBC Flip/i.test(joined)) return { label: 'FLIP', cls: 'pill-flip' };
-    if (/Agreement/i.test(joined)) return { label: 'AGREEMENT', cls: 'pill-agreement' };
+    // FLIP is the one pill whose color tracks confirmation state directly (green = confirmed,
+    // yellow = still early/unconfirmed), since a flip's whole meaning changes on whether the HTF
+    // bar has actually closed yet — unlike the other types where confirmed/unconfirmed is already
+    // covered by the CONFIRMED/UNCONFIRMED badge alone.
+    if (/CBC Flip/i.test(joined)) return { label: 'FLIP', cls: isUnconfirmed ? 'pill-flip-unconfirmed' : 'pill-flip-confirmed' };
+    if (/Agreement/i.test(joined)) return { label: 'AGREEMENT', cls: isUnconfirmed ? 'pill-agreement-unconfirmed' : 'pill-agreement-confirmed' };
     if (/EMA9\/20 Zone/i.test(joined)) return { label: 'EMA ZONE', cls: 'pill-emazone' };
     // Remaining alert types don't have a dedicated color yet — shown as a plain gray pill rather than
     // inventing new colors for them.
     if (/VWAP Break/i.test(joined)) return { label: 'VWAP', cls: 'pill-neutral' };
     if (/EMA 200 Break/i.test(joined)) return { label: 'EMA200', cls: 'pill-neutral' };
+    if (/ORB Retest Fail/i.test(joined)) return { label: 'ORB FAIL', cls: 'pill-orbfail' };
     if (/ORB Retest/i.test(joined)) return { label: 'ORB RETEST', cls: 'pill-neutral' };
     if (/Outside HTF ORB/i.test(joined)) return { label: 'ORB', cls: 'pill-neutral' };
     return null;
@@ -802,6 +830,19 @@
     return null;
   }
 
+  // Flags a CBC badge whose LIVE/still-forming reading has already diverged from the last
+  // CONFIRMED reading — i.e. it's mid-flip, about to confirm the other way if the HTF/MTF bar
+  // closes as it currently stands. Only HTF (15m) and MTF (60m/1H) have a separate live reading at
+  // all (LTF is the chart's own bar, always "confirmed" the instant it closes, so CBC3 never gets
+  // a ring). Colored by the LIVE direction, not the confirmed one — e.g. confirmed still reads
+  // Bearish (red fill) but live has already flipped Bullish -> green ring around the red badge.
+  function liveDivergenceRing(confirmedVal, liveVal) {
+    if (!confirmedVal || !liveVal || confirmedVal === liveVal) return null;
+    if (liveVal === 'Bullish') return 'badge-ring-bull';
+    if (liveVal === 'Bearish') return 'badge-ring-bear';
+    return null;
+  }
+
   // Builds the single-line badge strip: CONFIRMED/UNCONFIRMED, then CBC3/15/60, then ST3/15/60, then
   // EMA3/15/60 — each timeframe badge is only included if that field was actually present in this
   // alert's body (fields can be toggled off in the Pine script, or MTF/HTF can be disabled entirely).
@@ -817,9 +858,9 @@
       : '';
 
     const cbc = [
-      ['CBC3', bullBearClass(get('CBC (3m)'))],
-      ['CBC15', bullBearClass(get('CBC (15m)'))],
-      ['CBC60', bullBearClass(get('CBC (1H)'))],
+      ['CBC3', bullBearClass(get('CBC (3m)')), null],
+      ['CBC15', bullBearClass(get('CBC (15m)')), liveDivergenceRing(get('CBC (15m)'), get('CBC (15m, live/unconfirmed)'))],
+      ['CBC60', bullBearClass(get('CBC (1H)')), liveDivergenceRing(get('CBC (1H)'), get('CBC (1H, live/unconfirmed)'))],
     ].filter(([, cls]) => cls);
 
     const st = [
@@ -846,7 +887,7 @@
       : [];
 
     const groups = [cbc, st, ema, entry].filter(g => g.length);
-    const groupsHtml = groups.map(g => g.map(([label, cls]) => `<span class="badge ${cls}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
+    const groupsHtml = groups.map(g => g.map(([label, cls, ring]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
     return `<div class="badge-row">${statusBadge}${statusBadge && groupsHtml ? '<span class="badge-divider">|</span>' : ''}${groupsHtml}</div>`;
