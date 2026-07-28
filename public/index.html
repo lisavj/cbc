@@ -211,6 +211,51 @@
   .hl-bull { color: #4ade80; font-weight: 700; }
   .hl-bear { color: #f87171; font-weight: 700; }
 
+  /* Type pill (FLIP / AGREEMENT / EMA ZONE / A+) sits inline in the headline row, next to the info icon. */
+  .type-pill {
+    flex-shrink: 0;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+  .type-pill.pill-flip { background: #0f6e56; color: #e1f5ee; }
+  .type-pill.pill-agreement { background: #534ab7; color: #eeedfe; }
+  .type-pill.pill-emazone { background: #993c1d; color: #faece7; }
+  .type-pill.pill-aplus { background: #185fa5; color: #e6f1fb; }
+  .type-pill.pill-neutral { background: #444441; color: #d3d1c7; }
+
+  /* Single-line badge strip: CONFIRMED/UNCONFIRMED, then CBC3/15/60, then ST3/15/60, then EMA3/15/60 —
+     only rendered while the card is expanded, same gating pattern as .card-headline/.field-body above. */
+  .badge-row {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .card.expanded .badge-row { display: flex; }
+  .badge-row .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+  .badge-row .badge-divider {
+    color: var(--panel-border);
+    font-size: 11px;
+  }
+  .badge.badge-confirmed { background: #3b6d11; color: #eaf3de; }
+  .badge.badge-unconfirmed { background: #854f0b; color: #faeeda; }
+  .badge.badge-bull { background: #3b6d11; color: #eaf3de; }
+  .badge.badge-bear { background: #a32d2d; color: #fcebeb; }
+  .badge.badge-neutral { background: #444441; color: #d3d1c7; }
+
   /* Colors-off ("plain mode"): neutralizes every colored row/badge/highlight in the app. */
   body.plain-mode .field.bull,
   body.plain-mode .field.bear,
@@ -230,6 +275,16 @@
   body.plain-mode .hl-bear {
     color: inherit !important;
     font-weight: inherit !important;
+  }
+  body.plain-mode .badge,
+  body.plain-mode .type-pill {
+    background: #262b33 !important;
+    color: var(--text) !important;
+  }
+  body.plain-mode .card.status-aplus,
+  body.plain-mode .card.status-confirmed,
+  body.plain-mode .card.status-unconfirmed {
+    border-color: var(--panel-border) !important;
   }
 
   .modal-overlay {
@@ -686,12 +741,91 @@
     return 'status-confirmed';
   }
 
+  // Small colored pill for the headline row: what KIND of confirmed setup this is (flip, agreement,
+  // EMA zone touch, or A+). Independent of classifyAlertStatus's confirmed/unconfirmed border — this
+  // is about the setup family, not how sure we are of it.
+  function classifyTypePill(headlineLines) {
+    const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    if (!bulletLines.length) return null;
+    const joined = bulletLines.join(' ');
+    if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
+    if (/CBC Flip/i.test(joined)) return { label: 'FLIP', cls: 'pill-flip' };
+    if (/Agreement/i.test(joined)) return { label: 'AGREEMENT', cls: 'pill-agreement' };
+    if (/EMA9\/20 Zone/i.test(joined)) return { label: 'EMA ZONE', cls: 'pill-emazone' };
+    // Remaining alert types don't have a dedicated color yet — shown as a plain gray pill rather than
+    // inventing new colors for them.
+    if (/VWAP Break/i.test(joined)) return { label: 'VWAP', cls: 'pill-neutral' };
+    if (/EMA 200 Break/i.test(joined)) return { label: 'EMA200', cls: 'pill-neutral' };
+    if (/ORB Retest/i.test(joined)) return { label: 'ORB RETEST', cls: 'pill-neutral' };
+    if (/Outside HTF ORB/i.test(joined)) return { label: 'ORB', cls: 'pill-neutral' };
+    return null;
+  }
+
+  // Splits a "Structure (Nm)" value like "HH / HL" into its Higher-High/Lower-High and
+  // Higher-Low/Lower-Low halves and classifies bull (both High side) / bear (both Low side) /
+  // neutral (mixed) — matching the Pine script's own stricter "both sides must agree" coloring rule.
+  function structureDirClass(value) {
+    if (!value) return null;
+    const parts = value.split('/').map(s => s.trim());
+    const hi = parts[0], lo = parts[1];
+    if (hi === 'HH' && lo === 'HL') return 'badge-bull';
+    if (hi === 'LH' && lo === 'LL') return 'badge-bear';
+    return 'badge-neutral';
+  }
+
+  function bullBearClass(value) {
+    if (value === 'Bullish') return 'badge-bull';
+    if (value === 'Bearish') return 'badge-bear';
+    return null;
+  }
+
+  // Builds the single-line badge strip: CONFIRMED/UNCONFIRMED, then CBC3/15/60, then ST3/15/60, then
+  // EMA3/15/60 — each timeframe badge is only included if that field was actually present in this
+  // alert's body (fields can be toggled off in the Pine script, or MTF/HTF can be disabled entirely).
+  function buildBadgeRow(rows, headlineLines) {
+    const get = (label) => {
+      const r = rows.find(([k]) => k === label);
+      return r ? r[1] : null;
+    };
+    const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    const isUnconfirmed = /UNCONFIRMED|early\/unconfirmed/i.test(bulletLines.join(' '));
+    const statusBadge = bulletLines.length
+      ? `<span class="badge ${isUnconfirmed ? 'badge-unconfirmed' : 'badge-confirmed'}">${isUnconfirmed ? 'UNCONFIRMED' : 'CONFIRMED'}</span>`
+      : '';
+
+    const cbc = [
+      ['CBC3', bullBearClass(get('CBC (3m)'))],
+      ['CBC15', bullBearClass(get('CBC (15m)'))],
+      ['CBC60', bullBearClass(get('CBC (1H)'))],
+    ].filter(([, cls]) => cls);
+
+    const st = [
+      ['ST3', structureDirClass(get('Structure (3m)'))],
+      ['ST15', structureDirClass(get('Structure (15m)'))],
+      ['ST60', structureDirClass(get('Structure (1H)'))],
+    ].filter(([, cls]) => cls);
+
+    const ema = [
+      ['EMA3', bullBearClass(get('EMA cloud (3m)'))],
+      ['EMA15', bullBearClass(get('EMA cloud (15m)'))],
+      ['EMA60', bullBearClass(get('EMA cloud (1H)'))],
+    ].filter(([, cls]) => cls);
+
+    const groups = [cbc, st, ema].filter(g => g.length);
+    const groupsHtml = groups.map(g => g.map(([label, cls]) => `<span class="badge ${cls}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
+
+    if (!statusBadge && !groupsHtml) return '';
+    return `<div class="badge-row">${statusBadge}${statusBadge && groupsHtml ? '<span class="badge-divider">|</span>' : ''}${groupsHtml}</div>`;
+  }
+
   // Which type-filter title(s) apply to a given alert. Falls back to OTHER_TYPE for alerts that
   // don't match any known type (foreign alerts, or a bullet-point wording that's changed since).
   function getAlertTypeTitles(headlineLines) {
     const matches = getDefinitionsForHeadline(headlineLines).map(d => d.title);
     return matches.length ? matches : [OTHER_TYPE];
   }
+
+
 
   // ---- Alert Types filter panel wiring ----
   const typeFilterBtn = document.getElementById('typeFilterBtn');
@@ -964,6 +1098,9 @@
       const isExpanded = expandedIds.has(a.id);
       const chartUrl = buildChartUrl(tickerOnly, rows);
       const statusClass = classifyAlertStatus(headlineLines);
+      const typePill = classifyTypePill(headlineLines);
+      const typePillHtml = typePill ? `<span class="type-pill ${typePill.cls}">${typePill.label}</span>` : '';
+      const badgeRowHtml = buildBadgeRow(rows, headlineLines);
 
       return `<div class="card ${statusClass} ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
         <div class="card-top" data-toggle="${a.id}">
@@ -977,7 +1114,8 @@
             <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
           </div>
         </div>
-        ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
+        ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span>${typePillHtml}<span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
+        ${badgeRowHtml}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }).join('');
