@@ -108,6 +108,11 @@
     margin-bottom: 14px;
     animation: slidein 0.25s ease-out;
   }
+  /* Status border colors: A+ Setup alerts get blue, confirmed alerts get green, and
+     early/unconfirmed alerts get yellow — matches how these are eyeballed on the chart. */
+  .card.status-aplus { border: 2px solid #22d3ee; }
+  .card.status-confirmed { border: 2px solid #22c55e; }
+  .card.status-unconfirmed { border: 2px solid #fde047; }
   @keyframes slidein {
     from { opacity: 0; transform: translateY(-6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -667,6 +672,20 @@
   const ALL_TYPE_TITLES = ALERT_TYPE_DEFS.map(d => d.title).concat([OTHER_TYPE]);
   const enabledTypes = new Set(ALL_TYPE_TITLES); // all enabled by default
 
+  // Card border color: A+ Setup alerts are always confirmed-only (per the Pine script, they
+  // only ever fire in the confirmed batch), so they get their own distinct color rather than
+  // just falling under "confirmed". Otherwise: any UNCONFIRMED/early bullet -> yellow border,
+  // no such bullet (and at least one bullet at all) -> green border. Alerts with no parseable
+  // bullets (the plain-text fallback path) get no status class / default border.
+  function classifyAlertStatus(headlineLines) {
+    const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    if (!bulletLines.length) return '';
+    const joined = bulletLines.join(' ');
+    if (/A\+ Setup/i.test(joined)) return 'status-aplus';
+    if (/UNCONFIRMED|early\/unconfirmed/i.test(joined)) return 'status-unconfirmed';
+    return 'status-confirmed';
+  }
+
   // Which type-filter title(s) apply to a given alert. Falls back to OTHER_TYPE for alerts that
   // don't match any known type (foreign alerts, or a bullet-point wording that's changed since).
   function getAlertTypeTitles(headlineLines) {
@@ -944,8 +963,9 @@
       const summaryText = [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
       const isExpanded = expandedIds.has(a.id);
       const chartUrl = buildChartUrl(tickerOnly, rows);
+      const statusClass = classifyAlertStatus(headlineLines);
 
-      return `<div class="card ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
+      return `<div class="card ${statusClass} ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
         <div class="card-top" data-toggle="${a.id}">
           <div class="card-top-left">
             <span class="chevron">&#9656;</span>
@@ -1044,7 +1064,7 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url); 
+    URL.revokeObjectURL(url);
   });
 
   clearBtn.addEventListener('click', () => {
