@@ -886,7 +886,18 @@
       ? [['ENTRY', entryDir === 'LONG' ? 'badge-bull' : entryDir === 'SHORT' ? 'badge-bear' : 'badge-neutral']]
       : [];
 
-    const groups = [cbc, st, ema, entry].filter(g => g.length);
+    // OR IN / OR OUT: whether price is currently outside the session's Opening Range (a breakout,
+    // green — same visual weight as a bullish/confirmed reading elsewhere) or still inside it
+    // (gray/neutral — nothing's happened yet). "Off"/"—"/"Before open"/"Pending" aren't a real
+    // in/out state yet, so no badge shows for those.
+    const orValue = get('Opening range');
+    const or = /Above range|Below range/i.test(orValue || '')
+      ? [['OR OUT', 'badge-bull']]
+      : /Inside range/i.test(orValue || '')
+        ? [['OR IN', 'badge-neutral']]
+        : [];
+
+    const groups = [cbc, st, ema, entry, or].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls, ring]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
