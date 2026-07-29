@@ -222,12 +222,13 @@
     border-radius: 9999px;
     white-space: nowrap;
   }
-  .type-pill.pill-flip-confirmed,
-  .type-pill.pill-agreement-confirmed { background: #3b6d11; color: #eaf3de; }
-  .type-pill.pill-flip-unconfirmed,
-  .type-pill.pill-agreement-unconfirmed { background: #854f0b; color: #faeeda; }
-  .type-pill.pill-agreement { background: #534ab7; color: #eeedfe; }
-  .type-pill.pill-emazone { background: #993c1d; color: #faece7; }
+  .type-pill.pill-flip-long,
+  .type-pill.pill-agreement-long,
+  .type-pill.pill-emazone-long,
+  .type-pill.pill-orbsuccess { background: #3b6d11; color: #eaf3de; }
+  .type-pill.pill-flip-short,
+  .type-pill.pill-agreement-short,
+  .type-pill.pill-emazone-short { background: #a32d2d; color: #fcebeb; }
   .type-pill.pill-aplus { background: #185fa5; color: #e6f1fb; }
   .type-pill.pill-neutral { background: #444441; color: #d3d1c7; }
   .type-pill.pill-orbfail { background: #a32d2d; color: #fcebeb; }
@@ -794,28 +795,48 @@
     return 'status-confirmed';
   }
 
-  // Small colored pill for the headline row: what KIND of confirmed setup this is (flip, agreement,
-  // EMA zone touch, or A+). Independent of classifyAlertStatus's confirmed/unconfirmed border — this
-  // is about the setup family, not how sure we are of it.
+  // Small colored pill for the headline row: what KIND of setup this is (flip, agreement, EMA
+  // zone touch, ORB retest, or A+), colored by the DIRECTION stated in that specific bullet line
+  // (long=green, short=red) rather than by confirmation state — the CONFIRMED/UNCONFIRMED oval in
+  // the badge row already covers confirmation, so this pill is purely "which way."
   function classifyTypePill(headlineLines) {
     const bulletLines = headlineLines.filter(l => l.startsWith('•'));
     if (!bulletLines.length) return null;
     const joined = bulletLines.join(' ');
-    const isUnconfirmed = /UNCONFIRMED|early\/unconfirmed/i.test(joined);
+    // Direction is read off the SPECIFIC bullet line for this type, not the whole merged alert —
+    // a bundled alert can carry multiple bullets (e.g. FLIP + AGREEMENT together), and each one's
+    // own LONG/SHORT word is what matters for its own pill. Case-SENSITIVE on purpose: the actual
+    // direction token is always true uppercase right after the colon ("...Agreement: LONG (..."),
+    // while the parenthetical history note uses lowercase ("...ltf was short, now long") — matching
+    // case-insensitively would grab that lowercase word instead of the real direction.
+    const lineDirection = (line) => /\bSHORT\b/.test(line) ? 'SHORT' : /\bLONG\b/.test(line) ? 'LONG' : null;
+
     if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
-    // FLIP is the one pill whose color tracks confirmation state directly (green = confirmed,
-    // yellow = still early/unconfirmed), since a flip's whole meaning changes on whether the HTF
-    // bar has actually closed yet — unlike the other types where confirmed/unconfirmed is already
-    // covered by the CONFIRMED/UNCONFIRMED badge alone.
-    if (/CBC Flip/i.test(joined)) return { label: 'FLIP', cls: isUnconfirmed ? 'pill-flip-unconfirmed' : 'pill-flip-confirmed' };
-    if (/Agreement/i.test(joined)) return { label: 'AGREEMENT', cls: isUnconfirmed ? 'pill-agreement-unconfirmed' : 'pill-agreement-confirmed' };
-    if (/EMA9\/20 Zone/i.test(joined)) return { label: 'EMA ZONE', cls: 'pill-emazone' };
+
+    const flipLine = bulletLines.find(l => /CBC Flip/i.test(l));
+    if (flipLine) {
+      return { label: 'FLIP', cls: lineDirection(flipLine) === 'SHORT' ? 'pill-flip-short' : 'pill-flip-long' };
+    }
+
+    const agreementLine = bulletLines.find(l => /Agreement/i.test(l));
+    if (agreementLine) {
+      return { label: 'AGREEMENT', cls: lineDirection(agreementLine) === 'SHORT' ? 'pill-agreement-short' : 'pill-agreement-long' };
+    }
+
+    const emaZoneLine = bulletLines.find(l => /EMA9\/20 Zone/i.test(l));
+    if (emaZoneLine) {
+      return { label: 'EMA ZONE', cls: lineDirection(emaZoneLine) === 'SHORT' ? 'pill-emazone-short' : 'pill-emazone-long' };
+    }
+
     // Remaining alert types don't have a dedicated color yet — shown as a plain gray pill rather than
     // inventing new colors for them.
     if (/VWAP Break/i.test(joined)) return { label: 'VWAP', cls: 'pill-neutral' };
     if (/EMA 200 Break/i.test(joined)) return { label: 'EMA200', cls: 'pill-neutral' };
+    // ORB Retest: outside the range and held (success) is green; a failed retest that round-tripped
+    // back inside/through the range is red — colored by outcome, not by long/short direction, since
+    // "outside vs. back inside" is the meaningful distinction here, not which way it broke.
     if (/ORB Retest Fail/i.test(joined)) return { label: 'ORB FAIL', cls: 'pill-orbfail' };
-    if (/ORB Retest/i.test(joined)) return { label: 'ORB RETEST', cls: 'pill-neutral' };
+    if (/ORB Retest/i.test(joined)) return { label: 'ORB RETEST', cls: 'pill-orbsuccess' };
     if (/Outside HTF ORB/i.test(joined)) return { label: 'ORB', cls: 'pill-neutral' };
     return null;
   }
