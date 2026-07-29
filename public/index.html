@@ -455,6 +455,10 @@
     cursor: pointer;
   }
   .type-filter-row input { flex-shrink: 0; }
+  .type-filter-divider {
+    border-top: 1px solid var(--panel-border);
+    margin: 6px 0;
+  }
   .type-filter-actions {
     display: flex;
     justify-content: space-between;
@@ -611,24 +615,28 @@
     };
     const lines = [];
 
-    const struct15 = get('Structure (15m)');
-    const cloud15 = get('EMA cloud (15m)');
-    if (struct15 || cloud15) {
-      const raw = [
-        struct15 ? `Structure (15m): ${struct15}` : '',
-        cloud15 ? `EMA cloud (15m): ${cloud15}` : '',
-      ].filter(Boolean).join('   ');
-      lines.push(colorizeBullBear(raw));
-    }
+    // Structure (15m)/(MTF) and EMA cloud (15m)/(MTF) — redundant with the ST15/ST60/EMA15/EMA60
+    // badges above, so this is off by default. Toggle via the checkbox under Alert Types.
+    if (showHeadlineDetail) {
+      const struct15 = get('Structure (15m)');
+      const cloud15 = get('EMA cloud (15m)');
+      if (struct15 || cloud15) {
+        const raw = [
+          struct15 ? `Structure (15m): ${struct15}` : '',
+          cloud15 ? `EMA cloud (15m): ${cloud15}` : '',
+        ].filter(Boolean).join('   ');
+        lines.push(colorizeBullBear(raw));
+      }
 
-    const cloudMtf = get('EMA cloud (1H)'); // MTF = Max Timeframe, defaults to 60min/1H
-    const structMtf = get('Structure (1H)');
-    if (cloudMtf || structMtf) {
-      const raw = [
-        cloudMtf ? `EMA Cloud(MTF): ${cloudMtf}` : '',
-        structMtf ? `Structure (MTF): ${structMtf}` : '',
-      ].filter(Boolean).join('   *   ');
-      lines.push(colorizeBullBear(raw));
+      const cloudMtf = get('EMA cloud (1H)'); // MTF = Max Timeframe, defaults to 60min/1H
+      const structMtf = get('Structure (1H)');
+      if (cloudMtf || structMtf) {
+        const raw = [
+          cloudMtf ? `EMA Cloud(MTF): ${cloudMtf}` : '',
+          structMtf ? `Structure (MTF): ${structMtf}` : '',
+        ].filter(Boolean).join('   *   ');
+        lines.push(colorizeBullBear(raw));
+      }
     }
 
     // Support both the current "Entry Zone High/Low" naming and the older pre-rename "Buy Zone
@@ -917,12 +925,18 @@
   const typeFilterBtn = document.getElementById('typeFilterBtn');
   const typeFilterPanel = document.getElementById('typeFilterPanel');
 
+  let showHeadlineDetail = false; // Structure (15m/MTF) + EMA cloud (15m/MTF) lines in the headline — off
+                                   // by default since the ST/EMA badges already show this compactly.
+
   function renderTypeFilterPanel() {
     const rowsHtml = ALL_TYPE_TITLES.map((title, i) => {
       const checked = enabledTypes.has(title) ? 'checked' : '';
       return `<label class="type-filter-row"><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
     }).join('');
-    typeFilterPanel.innerHTML = rowsHtml + `<div class="type-filter-actions">
+    const detailChecked = showHeadlineDetail ? 'checked' : '';
+    typeFilterPanel.innerHTML = rowsHtml + `<div class="type-filter-divider"></div>
+      <label class="type-filter-row"><input type="checkbox" id="headlineDetailCheckbox" ${detailChecked}> Show Structure/EMA cloud detail in headline</label>
+      <div class="type-filter-actions">
       <button type="button" id="typeFilterAll">All</button>
       <button type="button" id="typeFilterNone">None</button>
     </div>`;
@@ -978,6 +992,11 @@
       const title = decodeURIComponent(e.target.dataset.typeTitle);
       if (e.target.checked) enabledTypes.add(title);
       else enabledTypes.delete(title);
+      render();
+      return;
+    }
+    if (e.target.id === 'headlineDetailCheckbox') {
+      showHeadlineDetail = e.target.checked;
       render();
     }
   });
