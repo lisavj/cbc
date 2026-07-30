@@ -818,6 +818,21 @@
       def: 'Fires once when price closes on the opposite side of EMA 200 from where it was the prior bar (an EMA200 cross), either direction.'
     },
     {
+      test: (l) => /EMA9\/20 Cross/i.test(l),
+      title: 'EMA9/20 Cross (Bullish/Bearish)',
+      def: 'Fires once when the chart-timeframe EMA9 crosses EMA20, either direction — the crossing MOMENT, distinct from the EMA cloud direction already in every alert (which just reports whichever state currently holds, not when it changed).'
+    },
+    {
+      test: (l) => /Pivot Cross:/i.test(l),
+      title: 'Pivot Point Cross (PP/R1/R2/R3/S1/S2/S3)',
+      def: 'Fires once per level the instant price closes on the opposite side of that Daily Standard Pivot Point level from where it was the prior bar. PP/R1/S1 always checked; R2/S2 and R3/S3 only if those tiers are enabled in the Pivot Points input group. More than one level CAN legitimately fire on the same bar, unlike Level Proximity above.'
+    },
+    {
+      test: (l) => /MapleStax CBC Started/i.test(l),
+      title: 'Startup / Connected',
+      def: 'Fires exactly once, the moment the script enters real-time mode — confirms the connection is live without waiting for any other condition to trigger first. Not gated by the alert session-window toggles.'
+    },
+    {
       test: (l) => /Agreement/i.test(l) && /early\/unconfirmed/i.test(l),
       title: 'LTF + HTF Agreement - Early (unconfirmed HTF)',
       def: 'Fires once, as soon as the chart timeframe agrees with the HTF\'s LIVE, still-forming state — before that HTF bar closes, tagged UNCONFIRMED. If the live HTF state reverses before its bar closes, no confirmed alert follows — you only got the early heads-up. If it holds, a confirmed "LTF + HTF Agreement" alert fires automatically once that HTF bar closes.'
@@ -930,10 +945,26 @@
       return { label: 'EMA ZONE', cls: lineDirection(emaZoneLine) === 'SHORT' ? 'pill-emazone-short' : 'pill-emazone-long' };
     }
 
+    const ema920CrossLine = bulletLines.find(l => /EMA9\/20 Cross/i.test(l));
+    if (ema920CrossLine) {
+      return { label: 'EMA9/20', cls: /\bBearish\b/.test(ema920CrossLine) ? 'pill-flip-short' : 'pill-flip-long' };
+    }
+
+    // Pivot Point Cross: dynamic label like Level Proximity above — shows which specific level
+    // fired (PP/R1/R2/R3/S1/S2/S3), not a fixed word, since one alert type covers all 7.
+    const pivotCrossLine = bulletLines.find(l => /Pivot Cross:/i.test(l));
+    if (pivotCrossLine) {
+      const m = pivotCrossLine.match(/Pivot Cross:\s*(\S+)\s+(Bullish|Bearish)/i);
+      const level = m ? m[1].toUpperCase() : 'PIVOT';
+      const isBearish = m && m[2].toLowerCase() === 'bearish';
+      return { label: level, cls: isBearish ? 'pill-flip-short' : 'pill-flip-long' };
+    }
+
     // Remaining alert types don't have a dedicated color yet — shown as a plain gray pill rather than
     // inventing new colors for them.
     if (/VWAP Break/i.test(joined)) return { label: 'VWAP', cls: 'pill-neutral' };
     if (/EMA 200 Break/i.test(joined)) return { label: 'EMA200', cls: 'pill-neutral' };
+    if (/MapleStax CBC Started/i.test(joined)) return { label: 'CONNECTED', cls: 'pill-neutral' };
     // ORB Retest: outside the range and held (success) is green; a failed retest that round-tripped
     // back inside/through the range is red — colored by outcome, not by long/short direction, since
     // "outside vs. back inside" is the meaningful distinction here, not which way it broke.
