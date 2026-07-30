@@ -575,9 +575,72 @@
   const expandedIds = new Set();
 
   // Extracts the ticker from an alert's raw text (its first line, e.g. "MES1! —" -> "MES1!").
+  // CBC Wire messages (a separate companion script — see parseCbcWireAlert below) carry no
+  // symbol at all in their pipe-delimited payload, so without this they'd each show up as their
+  // own garbage "symbol" (the whole raw string) in the filter dropdown — one per alert.
   function getSymbol(raw) {
+    if (parseCbcWireAlert(raw)) return 'CBC Wire';
     const firstLine = (raw || '').split('\n')[0] || '';
     return firstLine.replace(/[—\s]+$/, '').trim();
+  }
+
+  // CBC Wire is a separate companion Pine script (not MapleStax CBC) that fires compact
+  // pipe-delimited alerts instead of the "Key: Value" format this dashboard was built to parse —
+  // e.g. "LEVEL|BB_ABOVE|approaching|7500|7498|below|62e4769d|0.66|15". Returns null for anything
+  // that isn't one of CBC Wire's 4 known channels, so normal MapleStax parsing proceeds untouched.
+  function humanizeCbcWireLevelName(name) {
+    if (name === 'VWAP') return 'VWAP';
+    if (name === 'BB_ABOVE' || name === 'BB_BELOW') return 'Bill Breaker';
+    if (name === 'YDH') return 'YDH';
+    if (name === 'YDL') return 'YDL';
+    const emaM = name.match(/^EMA(20|200)_/);
+    if (emaM) return 'EMA ' + emaM[1];
+    const pivotM = name.match(/^PIVOT_(HIGH|LOW)_/);
+    if (pivotM) return 'Pivot ' + (pivotM[1] === 'HIGH' ? 'High' : 'Low');
+    return name;
+  }
+
+  function parseCbcWireAlert(raw) {
+    const text = (raw || '').trim();
+    const parts = text.split('|');
+    const channel = parts[0];
+    if (!['LEVEL', 'CBC', 'EMA', 'HEARTBEAT', 'STARTUP'].includes(channel)) return null;
+
+    if (channel === 'LEVEL') {
+      const [, name, phase, levelVal, price, direction] = parts;
+      const tf = parts[8];
+      const dist = Math.abs(parseFloat(price) - parseFloat(levelVal)).toFixed(2);
+      const humanName = humanizeCbcWireLevelName(name);
+      const levelLabel = (name === 'BB_ABOVE' || name === 'BB_BELOW') ? `${humanName} ${levelVal}` : humanName;
+      const phaseWord = phase === 'crossing' ? 'Crossing' : 'Approaching';
+      return {
+        tf, isBull: direction === 'above',
+        summary: `${phaseWord} ${levelLabel}`,
+        detail: `Price ${price} is ${dist} points ${direction} ${humanName} (${levelVal})`,
+      };
+    }
+    if (channel === 'CBC' || channel === 'EMA') {
+      const [, tf, dir, price] = parts;
+      const label = channel === 'CBC' ? 'CBC Flip' : 'EMA9/20 Cross';
+      return {
+        tf, isBull: dir === 'bullish',
+        summary: `${label}: ${dir === 'bullish' ? 'Bullish' : 'Bearish'}`,
+        detail: `Price ${price}`,
+      };
+    }
+    if (channel === 'HEARTBEAT') {
+      const tf = parts[1];
+      let detail = 'No signal this bar';
+      if (parts[4] === 'LEVEL') {
+        const [name, phase, levelVal, price] = [parts[5], parts[6], parts[7], parts[8]];
+        detail = `Nearby: ${phase} ${humanizeCbcWireLevelName(name)} (${levelVal}), price ${price}`;
+      }
+      return { tf, isBull: null, summary: 'Heartbeat', detail };
+    }
+    // STARTUP|<tf>|<userId>|<version>
+    const tf = parts[1];
+    const version = parts[3];
+    return { tf, isBull: null, summary: 'Connected', detail: `Timeframe ${tf}m discovered (CBC Wire v${version})` };
   }
 
   // ---------------------------------------------------------------------
@@ -965,7 +1028,28 @@
         ? [['OR IN', 'badge-neutral']]
         : [];
 
-    const groups = [cbc, st, ema, entry, or].filter(g => g.length);
+    // EMA9/20 zone position badges: the "<N>min - Above Both/Below Both/Between" rows show where
+    // price sits relative to that timeframe's own EMA9/EMA20 pair — Above Both (green), Below Both
+    // (red), or Between them (gray/neutral). The timeframe NUMBER is embedded right in the field's
+    // KEY (not a fixed 3/15 — whatever the chart/HTF timeframe actually is, 3m/15m/60m/etc.), so
+    // this scans for any row matching that pattern rather than looking up fixed labels.
+    const emaZonePhaseClass = (phase) => phase === 'Above Both' ? 'badge-bull' : phase === 'Below Both' ? 'badge-bear' : 'badge-neutral';
+    const emaZonePhaseShort = (phase) => phase === 'Above Both' ? 'ABOVE' : phase === 'Below Both' ? 'BELOW' : 'BETWEEN';
+    const emazone = rows
+      .filter(([k]) => /^\d+min - (Above Both|Below Both|Between)$/.test(k))
+      .map(([k]) => {
+        const m = k.match(/^(\d+)min - (Above Both|Below Both|Between)$/);
+        return [`${m[1]}m ${emaZonePhaseShort(m[2])}`, emaZonePhaseClass(m[2])];
+      });
+
+    // VWAP / EMA 200 badges — same color rule the field-body table already uses for these rows
+    // (classifyRow: value starting with "Above" -> green, "Below" -> red).
+    const vwapVal = get('VWAP');
+    const vwap = /^Above/i.test(vwapVal || '') ? [['VWAP ABOVE', 'badge-bull']] : /^Below/i.test(vwapVal || '') ? [['VWAP BELOW', 'badge-bear']] : [];
+    const ema200Val = get('EMA 200');
+    const ema200 = /^Above/i.test(ema200Val || '') ? [['EMA200 ABOVE', 'badge-bull']] : /^Below/i.test(ema200Val || '') ? [['EMA200 BELOW', 'badge-bear']] : [];
+
+    const groups = [cbc, st, ema, entry, or, emazone, vwap, ema200].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls, ring]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
@@ -1193,6 +1277,27 @@
     countEl.textContent = activeFilter === 'all' ? alerts.length : `${filtered.length} of ${alerts.length}`;
     emptyEl.style.display = filtered.length ? 'none' : 'block';
     listEl.innerHTML = filtered.map(a => {
+      const cbcWire = parseCbcWireAlert(a.raw);
+      if (cbcWire) {
+        const isExpandedWire = expandedIds.has(a.id);
+        const statusCls = cbcWire.isBull === true ? 'status-confirmed' : cbcWire.isBull === false ? 'status-fail' : '';
+        const pillCls = cbcWire.isBull === true ? 'pill-flip-long' : cbcWire.isBull === false ? 'pill-flip-short' : 'pill-neutral';
+        return `<div class="card ${statusCls} ${isExpandedWire ? 'expanded' : ''}" data-id="${a.id}">
+          <div class="card-top" data-toggle="${a.id}">
+            <div class="card-top-left">
+              <span class="chevron">&#9656;</span>
+              <span class="type-pill ${pillCls}">${escapeHtml(cbcWire.tf)}m</span>
+              <span class="card-summary">CBC Wire — ${escapeHtml(cbcWire.summary)}</span>
+            </div>
+            <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0;">
+              <span class="card-time">${new Date(a.receivedAt).toLocaleString()}</span>
+              <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
+            </div>
+          </div>
+          <div class="card-headline"><span class="headline-text">${escapeHtml(cbcWire.detail)}</span></div>
+        </div>`;
+      }
+
       const body = a.raw || '';
       const lines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const headlineLines = [];
