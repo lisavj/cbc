@@ -780,9 +780,24 @@
   // ---------------------------------------------------------------------
   const ALERT_TYPE_DEFS = [
     {
+      test: (l) => /VWAP (Crossing|Approaching):/i.test(l),
+      title: 'VWAP Proximity (Bullish/Bearish)',
+      def: 'Fires once when price crosses (within the configured Crossing distance) or approaches (within the configured Approaching distance) VWAP. Fires once per "visit" — won\'t repeat every bar while price stays in the same band.'
+    },
+    {
+      test: (l) => /EMA (20|200) (Crossing|Approaching):/i.test(l),
+      title: 'EMA Proximity (Bullish/Bearish)',
+      def: 'Fires once when price crosses or approaches EMA 20 or EMA 200 (chart timeframe). Fires once per "visit" — won\'t repeat every bar while price stays in the same band.'
+    },
+    {
+      test: (l) => /Bill Breaker \d/i.test(l),
+      title: 'Bill Breaker Proximity (Bullish/Bearish)',
+      def: 'Fires once when price crosses or approaches the nearest 100-point round-number level above/below price. Fires once per "visit" per specific round number — approaching 2900 and later approaching 3000 are treated as separate events.'
+    },
+    {
       test: (l) => /\b(Crossing|Approaching):\s*(Bullish|Bearish)/i.test(l),
-      title: 'Level Proximity (VWAP/EMA/Pivot/YDH/YDL/ORB/Bill Breaker)',
-      def: 'Fires once when price crosses (within the configured Crossing distance) or approaches (within the configured Approaching distance, but farther than Crossing) any of: VWAP, EMA 20, EMA 200, Bill Breakers (100-pt round numbers), 1-bar-lookback swing pivots (crossing only), Yesterday\'s High/Low, or the current session\'s Opening Range High/Low. A crossing on any level always beats an approaching on any level. Fires once per "visit" — won\'t repeat every bar while price stays in the same band.'
+      title: 'Level Proximity (Pivot/YDH/YDL/ORB)',
+      def: 'Fires once when price crosses (within the configured Crossing distance) or approaches (within the configured Approaching distance, but farther than Crossing) a 1-bar-lookback swing pivot (crossing only), Yesterday\'s High/Low, or the current session\'s Opening Range High/Low. A crossing on any level always beats an approaching on any level. Fires once per "visit" — won\'t repeat every bar while price stays in the same band.'
     },
     {
       test: (l) => /Price Enters HTF EMA9\/20 Zone/i.test(l),
@@ -882,7 +897,11 @@
 
   const OTHER_TYPE = 'Other (unrecognized)';
   const ALL_TYPE_TITLES = ALERT_TYPE_DEFS.map(d => d.title).concat([OTHER_TYPE]);
-  const enabledTypes = new Set(ALL_TYPE_TITLES); // all enabled by default
+  // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
+  // Proximity types (VWAP/EMA20/EMA200/Bill Breakers are common levels price crosses constantly),
+  // unlike Pivot/YDH/YDL/ORB proximity which fires far less often and stays on by default.
+  const DEFAULT_OFF_TYPES = ['VWAP Proximity (Bullish/Bearish)', 'EMA Proximity (Bullish/Bearish)', 'Bill Breaker Proximity (Bullish/Bearish)'];
+  const enabledTypes = new Set(ALL_TYPE_TITLES.filter(t => !DEFAULT_OFF_TYPES.includes(t)));
 
   // Card border color: A+ Setup alerts are always confirmed-only (per the Pine script, they
   // only ever fire in the confirmed batch), so they get their own distinct color rather than
@@ -1420,7 +1439,6 @@
       const bodyHtml =
         `<div class="section-label">Context</div>` +
         groups.slice(0, 2).map(renderGroup).join('') +
-        (badgeRowHtml ? `<div class="section-label">CBC / Structure / EMA</div>${badgeRowHtml}` : '') +
         groups.slice(2).map(renderGroup).join('');
 
       // One-line summary shown in the collapsed header: the ticker plus the first bullet (the main
