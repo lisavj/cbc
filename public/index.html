@@ -629,8 +629,8 @@
         lines.push(colorizeBullBear(raw));
       }
 
-      const cloudMtf = get('EMA cloud (1H)'); // MTF = Max Timeframe, defaults to 60min/1H
-      const structMtf = get('Structure (1H)');
+      const cloudMtf = getMtf(get, 'EMA cloud'); // MTF = Max Timeframe, defaults to 60min/1H
+      const structMtf = getMtf(get, 'Structure');
       if (cloudMtf || structMtf) {
         const raw = [
           cloudMtf ? `EMA Cloud(MTF): ${cloudMtf}` : '',
@@ -853,6 +853,18 @@
     return 'badge-neutral';
   }
 
+  // Looks up an MTF field (CBC/Structure/EMA cloud) trying every label format the Pine script
+  // might actually send. The on-chart Status table displays the MTF timeframe as "1H" via
+  // htf_tf_disp(), but the ALERT EMAILS use the raw mtf_timeframe input value directly (e.g.
+  // "Structure (" + mtf_timeframe + ")") — which defaults to "60", not "1H". So an alert really
+  // contains "Structure (60)", not "Structure (1H)", even though the chart itself shows "1H".
+  // Tries "1H" first (in case a custom setup already uses that as the literal input string), then
+  // falls back to the "60" default. If the MTF Timeframe input is changed to something else
+  // entirely (e.g. "240"), this specific badge will need that value added here too.
+  function getMtf(get, prefix) {
+    return get(`${prefix} (1H)`) ?? get(`${prefix} (60)`);
+  }
+
   function bullBearClass(value) {
     if (value === 'Bullish') return 'badge-bull';
     if (value === 'Bearish') return 'badge-bear';
@@ -889,19 +901,19 @@
     const cbc = [
       ['CBC3', bullBearClass(get('CBC (3m)')), null],
       ['CBC15', bullBearClass(get('CBC (15m)')), liveDivergenceRing(get('CBC (15m)'), get('CBC (15m, live/unconfirmed)'))],
-      ['CBC60', bullBearClass(get('CBC (1H)')), liveDivergenceRing(get('CBC (1H)'), get('CBC (1H, live/unconfirmed)'))],
+      ['CBC60', bullBearClass(getMtf(get, 'CBC')), liveDivergenceRing(getMtf(get, 'CBC'), get('CBC (1H, live/unconfirmed)') ?? get('CBC (60, live/unconfirmed)'))],
     ].filter(([, cls]) => cls);
 
     const st = [
       ['ST3', structureDirClass(get('Structure (3m)'))],
       ['ST15', structureDirClass(get('Structure (15m)'))],
-      ['ST60', structureDirClass(get('Structure (1H)'))],
+      ['ST60', structureDirClass(getMtf(get, 'Structure'))],
     ].filter(([, cls]) => cls);
 
     const ema = [
       ['EMA3', bullBearClass(get('EMA cloud (3m)'))],
       ['EMA15', bullBearClass(get('EMA cloud (15m)'))],
-      ['EMA60', bullBearClass(get('EMA cloud (1H)'))],
+      ['EMA60', bullBearClass(getMtf(get, 'EMA cloud'))],
     ].filter(([, cls]) => cls);
 
     // ENTRY badge: flags that this alert carries a "look for entry" moment — an Entry Zone
@@ -946,8 +958,8 @@
   const typeFilterBtn = document.getElementById('typeFilterBtn');
   const typeFilterPanel = document.getElementById('typeFilterPanel');
 
-  let showHeadlineDetail = false; // Structure (15m/MTF) + EMA cloud (15m/MTF) lines in the headline — off
-                                   // by default since the ST/EMA badges already show this compactly.
+  let showHeadlineDetail = true; // Structure (15m/MTF) + EMA cloud (15m/MTF) lines in the headline — on
+                                  // by default; uncheck below if you'd rather rely on just the ST/EMA badges.
 
   function renderTypeFilterPanel() {
     const rowsHtml = ALL_TYPE_TITLES.map((title, i) => {
