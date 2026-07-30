@@ -575,11 +575,12 @@
   const expandedIds = new Set();
 
   // Extracts the ticker from an alert's raw text (its first line, e.g. "MES1! —" -> "MES1!").
-  // CBC Wire messages (a separate companion script — see parseCbcWireAlert below) carry no
-  // symbol at all in their pipe-delimited payload, so without this they'd each show up as their
-  // own garbage "symbol" (the whole raw string) in the filter dropdown — one per alert.
+  // CBC Wire messages (a separate companion script — see parseCbcWireAlert below) didn't carry a
+  // symbol at all before v0.67; older messages fall back to a generic "CBC Wire" filter bucket so
+  // they at least don't pollute the dropdown with garbage (the whole raw string as a "symbol").
   function getSymbol(raw) {
-    if (parseCbcWireAlert(raw)) return 'CBC Wire';
+    const wireAlert = parseCbcWireAlert(raw);
+    if (wireAlert) return wireAlert.symbol || 'CBC Wire';
     const firstLine = (raw || '').split('\n')[0] || '';
     return firstLine.replace(/[—\s]+$/, '').trim();
   }
@@ -600,6 +601,13 @@
     return name;
   }
 
+  // Detects whether a LEVEL message's first field is a known level name (old format, no ticker)
+  // or something else (new v0.67+ format, ticker inserted there instead).
+  function isKnownCbcWireLevelName(s) {
+    return s === 'VWAP' || s === 'YDH' || s === 'YDL' || s === 'ORH' || s === 'ORL' ||
+      /^BB_(ABOVE|BELOW)$/.test(s) || /^EMA(20|200)_/.test(s) || /^PIVOT_(HIGH|LOW)_/.test(s);
+  }
+
   function parseCbcWireAlert(raw) {
     const text = (raw || '').trim();
     const parts = text.split('|');
@@ -607,40 +615,56 @@
     if (!['LEVEL', 'CBC', 'EMA', 'HEARTBEAT', 'STARTUP'].includes(channel)) return null;
 
     if (channel === 'LEVEL') {
-      const [, name, phase, levelVal, price, direction] = parts;
-      const tf = parts[8];
+      // v0.67+ inserts the ticker right after "LEVEL|" — detect by checking whether that field
+      // is a recognized level name (old format, no ticker) or something else (new format).
+      const hasTicker = !isKnownCbcWireLevelName(parts[1]);
+      const o = hasTicker ? 1 : 0;
+      const symbol = hasTicker ? parts[1] : null;
+      const [name, phase, levelVal, price, direction] = [parts[1 + o], parts[2 + o], parts[3 + o], parts[4 + o], parts[5 + o]];
+      const tf = parts[8 + o]; // last field
       const dist = Math.abs(parseFloat(price) - parseFloat(levelVal)).toFixed(2);
       const humanName = humanizeCbcWireLevelName(name);
       const levelLabel = (name === 'BB_ABOVE' || name === 'BB_BELOW') ? `${humanName} ${levelVal}` : humanName;
       const phaseWord = phase === 'crossing' ? 'Crossing' : 'Approaching';
       return {
-        tf, isBull: direction === 'above',
+        symbol, tf, isBull: direction === 'above',
         summary: `${phaseWord} ${levelLabel}`,
         detail: `Price ${price} is ${dist} points ${direction} ${humanName} (${levelVal})`,
       };
     }
     if (channel === 'CBC' || channel === 'EMA') {
-      const [, tf, dir, price] = parts;
+      // v0.67+ inserts ticker right after the channel name — old tf_label is always plain
+      // digits, so a non-numeric field here means it's the new ticker-first format.
+      const hasTicker = !/^\d+$/.test(parts[1]);
+      const o = hasTicker ? 1 : 0;
+      const symbol = hasTicker ? parts[1] : null;
+      const tf = parts[1 + o], dir = parts[2 + o], price = parts[3 + o];
       const label = channel === 'CBC' ? 'CBC Flip' : 'EMA9/20 Cross';
       return {
-        tf, isBull: dir === 'bullish',
+        symbol, tf, isBull: dir === 'bullish',
         summary: `${label}: ${dir === 'bullish' ? 'Bullish' : 'Bearish'}`,
         detail: `Price ${price}`,
       };
     }
     if (channel === 'HEARTBEAT') {
-      const tf = parts[1];
+      const hasTicker = !/^\d+$/.test(parts[1]);
+      const o = hasTicker ? 1 : 0;
+      const symbol = hasTicker ? parts[1] : null;
+      const tf = parts[1 + o];
       let detail = 'No signal this bar';
-      if (parts[4] === 'LEVEL') {
-        const [name, phase, levelVal, price] = [parts[5], parts[6], parts[7], parts[8]];
+      if (parts[4 + o] === 'LEVEL') {
+        const [name, phase, levelVal, price] = [parts[5 + o], parts[6 + o], parts[7 + o], parts[8 + o]];
         detail = `Nearby: ${phase} ${humanizeCbcWireLevelName(name)} (${levelVal}), price ${price}`;
       }
-      return { tf, isBull: null, summary: 'Heartbeat', detail };
+      return { symbol, tf, isBull: null, summary: 'Heartbeat', detail };
     }
-    // STARTUP|<tf>|<userId>|<version>
-    const tf = parts[1];
-    const version = parts[3];
-    return { tf, isBull: null, summary: 'Connected', detail: `Timeframe ${tf}m discovered (CBC Wire v${version})` };
+    // STARTUP|[<ticker>|]<tf>|<userId>|<version>
+    const hasTicker = !/^\d+$/.test(parts[1]);
+    const o = hasTicker ? 1 : 0;
+    const symbol = hasTicker ? parts[1] : null;
+    const tf = parts[1 + o];
+    const version = parts[3 + o];
+    return { symbol, tf, isBull: null, summary: 'Connected', detail: `Timeframe ${tf}m discovered (CBC Wire v${version})` };
   }
 
   // ---------------------------------------------------------------------
@@ -1287,7 +1311,7 @@
             <div class="card-top-left">
               <span class="chevron">&#9656;</span>
               <span class="type-pill ${pillCls}">${escapeHtml(cbcWire.tf)}m</span>
-              <span class="card-summary">CBC Wire — ${escapeHtml(cbcWire.summary)}</span>
+              <span class="card-summary">${cbcWire.symbol ? escapeHtml(cbcWire.symbol) : 'CBC Wire'} — ${escapeHtml(cbcWire.summary)}</span>
             </div>
             <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0;">
               <span class="card-time">${new Date(a.receivedAt).toLocaleString()}</span>
