@@ -864,8 +864,14 @@
   }
 
   function bullBearClass(value) {
-    if (value === 'Bullish') return 'badge-bull';
-    if (value === 'Bearish') return 'badge-bear';
+    // startsWith, not exact equality — the Pine script tags the HTF CBC value with a
+    // trailing " [A+ SETUP]" specifically on A+ Setup alerts (e.g. "Bullish [A+ SETUP]"
+    // instead of plain "Bullish"), which an exact match would silently reject, dropping
+    // the CBC15 badge on every A+ alert. startsWith tolerates that suffix (or any other
+    // future tag) without breaking the plain case.
+    if (!value) return null;
+    if (value.startsWith('Bullish')) return 'badge-bull';
+    if (value.startsWith('Bearish')) return 'badge-bear';
     return null;
   }
 
