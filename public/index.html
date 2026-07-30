@@ -691,6 +691,11 @@
   // ---------------------------------------------------------------------
   const ALERT_TYPE_DEFS = [
     {
+      test: (l) => /\b(Crossing|Approaching):\s*(Bullish|Bearish)/i.test(l),
+      title: 'Level Proximity (VWAP/EMA/Pivot/YDH/YDL/ORB/Bill Breaker)',
+      def: 'Fires once when price crosses (within the configured Crossing distance) or approaches (within the configured Approaching distance, but farther than Crossing) any of: VWAP, EMA 20, EMA 200, Bill Breakers (100-pt round numbers), 1-bar-lookback swing pivots (crossing only), Yesterday\'s High/Low, or the current session\'s Opening Range High/Low. A crossing on any level always beats an approaching on any level. Fires once per "visit" — won\'t repeat every bar while price stays in the same band.'
+    },
+    {
       test: (l) => /Price Enters HTF EMA9\/20 Zone/i.test(l),
       title: 'Price Enters HTF EMA9/20 Zone - Entry',
       def: 'Fires once when: the CONFIRMED HTF direction is bullish (or bearish), AND price just entered the zone BETWEEN the HTF\'s own EMA9 and EMA20 (having been outside it the prior bar) — a pullback into the HTF\'s own moving-average zone during an already-established trend, worth watching for an entry. Message includes a suggested stop-loss at the HTF\'s own EMA20 level.'
@@ -810,6 +815,18 @@
     const lineDirection = (line) => /\bSHORT\b/.test(line) ? 'SHORT' : /\bLONG\b/.test(line) ? 'LONG' : null;
 
     if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
+
+    // Level Proximity Alerts: unlike every other pill, the label itself is DYNAMIC — it shows
+    // whichever specific level fired (e.g. "EMA 200", "VWAP", "BILL BRK 2900", "YDH"), not a fixed
+    // word, since this one alert type covers 7+ different levels. Bullet format is always
+    // "<Level> Crossing/Approaching: Bullish/Bearish (...)" — label is everything before that.
+    const proxLine = bulletLines.find(l => /\b(Crossing|Approaching):\s*(Bullish|Bearish)/i.test(l));
+    if (proxLine) {
+      const m = proxLine.match(/^•\s*(.+?)\s+(Crossing|Approaching):\s*(Bullish|Bearish)/i);
+      const levelName = m ? m[1].replace(/^Bill Breaker\s+/i, 'BILL BRK ') : 'LEVEL';
+      const isBearish = m && m[3].toLowerCase() === 'bearish';
+      return { label: levelName.toUpperCase(), cls: isBearish ? 'pill-flip-short' : 'pill-flip-long' };
+    }
 
     const flipLine = bulletLines.find(l => /CBC Flip/i.test(l));
     if (flipLine) {
