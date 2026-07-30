@@ -351,6 +351,16 @@
     font-size: 12.5px;
   }
   .modal-close:hover { color: var(--text); border-color: var(--muted); }
+  .section-label {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 12px 4px;
+    background: var(--panel);
+  }
   .row-group {
     display: flex;
     flex-wrap: wrap;
@@ -582,20 +592,27 @@
   const ROW_GROUPS = [
     ['Time', 'Market'],
     ['Chart', 'Price'],
-    ['CBC (3m)'],
-    ['CBC (15m)', 'CBC (15m, live'],
-    ['CBC (1H)', 'CBC (1H, live'],
     ['Opening range', 'ORB set'],
-    ['Structure (3m)', 'Structure (15m)', 'Structure (1H)'],
-    ['EMA cloud (3m)', 'EMA cloud (15m)', 'EMA cloud (1H)'],
     ['VWAP', 'EMA 200'],
     ['EMA9/20 (3)', 'EMA9/20 (15)'],
-    ['CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip'],
+    ['CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip', 'CBC (60) last flip'],
   ];
 
   // Fields whose label starts with any of these are dropped entirely from the dashboard — not
   // grouped, not shown standalone, just skipped. Edit this list to hide/unhide fields.
   const HIDDEN_FIELDS = ['Prev Candle', 'HTF Candle'];
+
+  // Fields that are hidden from the raw field-body table specifically because they're now shown
+  // as compact badges instead (same badges as the always-visible strip above) — CBC/Structure/EMA
+  // cloud direction readings, plus the live/unconfirmed CBC variants (now reflected by the ring
+  // around the CBC15/CBC60 badge instead of their own row). EXACT match, not prefix — "CBC (3m)"
+  // is a prefix of "CBC (3m) last flip" too, which must stay a full text row, not get swallowed.
+  const FIELDS_SHOWN_ONLY_AS_BADGES = [
+    'CBC (3m)', 'CBC (15m)', 'CBC (1H)', 'CBC (60)',
+    'CBC (15m, live/unconfirmed)', 'CBC (1H, live/unconfirmed)', 'CBC (60, live/unconfirmed)',
+    'Structure (3m)', 'Structure (15m)', 'Structure (1H)', 'Structure (60)',
+    'EMA cloud (3m)', 'EMA cloud (15m)', 'EMA cloud (1H)', 'EMA cloud (60)',
+  ];
 
   // Fields that are hidden from the raw field-body table specifically because
   // buildHeadlineHighlights already folds them into a compact headline line — unlike
@@ -1196,15 +1213,30 @@
       const headlineTextHtml = colorizeBullBear(headlineLines.join('\n'));
       const headlineHtml = headlineTextHtml + (highlightLines.length ? '\n' + highlightLines.join('\n') : '');
 
-      const bodyRows = rows.filter(([k]) => !FIELDS_SHOWN_ONLY_IN_HEADLINE.some(prefix => k.startsWith(prefix)));
-      const bodyHtml = groupRows(bodyRows).map(group => {
+      const badgeRowHtml = buildBadgeRow(rows, headlineLines);
+
+      const bodyRows = rows.filter(([k]) =>
+        !FIELDS_SHOWN_ONLY_IN_HEADLINE.some(prefix => k.startsWith(prefix)) &&
+        !FIELDS_SHOWN_ONLY_AS_BADGES.includes(k)
+      );
+      const groups = groupRows(bodyRows);
+      // groups[0] is always Time/Market, groups[1] is always Chart/Price (per ROW_GROUPS order
+      // above) — rendered under a "Context" header, then the same badge row shown up top gets
+      // reused verbatim under its own header (guarantees it's pixel-identical, not a re-styled
+      // copy), then everything else follows with no header.
+      const renderGroup = (group) => {
         const fieldsHtml = group.map(([k, v]) => {
           const displayV = shortenLastFlip(k, v);
           const cls = classifyRow(k, v);
           return `<div class="field ${cls}"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(displayV)}</span></div>`;
         }).join('');
         return `<div class="row-group">${fieldsHtml}</div>`;
-      }).join('');
+      };
+      const bodyHtml =
+        `<div class="section-label">Context</div>` +
+        groups.slice(0, 2).map(renderGroup).join('') +
+        (badgeRowHtml ? `<div class="section-label">CBC / Structure / EMA</div>${badgeRowHtml}` : '') +
+        groups.slice(2).map(renderGroup).join('');
 
       // One-line summary shown in the collapsed header: the ticker plus the first bullet (the main
       // headline), so you can tell alerts apart before expanding any of them.
@@ -1215,7 +1247,6 @@
       const statusClass = classifyAlertStatus(headlineLines);
       const typePill = classifyTypePill(headlineLines);
       const typePillHtml = typePill ? `<span class="type-pill ${typePill.cls}">${typePill.label}</span>` : '';
-      const badgeRowHtml = buildBadgeRow(rows, headlineLines);
 
       return `<div class="card ${statusClass} ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
         <div class="card-top" data-toggle="${a.id}">
