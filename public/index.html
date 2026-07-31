@@ -685,6 +685,7 @@
     ['CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip', 'CBC (60) last flip'],
     ['Pivot R1', 'Pivot R2', 'Pivot R3'],
     ['Pivot S1', 'Pivot S2', 'Pivot S3'],
+    ['3min - ', '15min - ', '60min - '],
   ];
 
   // Fields whose label starts with any of these are dropped entirely from the dashboard — not
@@ -701,6 +702,7 @@
     'CBC (15m, live/unconfirmed)', 'CBC (1H, live/unconfirmed)', 'CBC (60, live/unconfirmed)',
     'Structure (3m)', 'Structure (15m)', 'Structure (1H)', 'Structure (60)',
     'EMA cloud (3m)', 'EMA cloud (15m)', 'EMA cloud (1H)', 'EMA cloud (60)',
+    'CBC Flip Level (3m)', 'CBC Flip Level (15m)', 'CBC Flip Level (1H)', 'CBC Flip Level (60)',
   ];
 
   // Fields that are hidden from the raw field-body table specifically because
@@ -1125,7 +1127,7 @@
     const ema200Val = get('EMA 200');
     const ema200 = /^Above/i.test(ema200Val || '') ? [['EMA200 ABOVE', 'badge-bull']] : /^Below/i.test(ema200Val || '') ? [['EMA200 BELOW', 'badge-bear']] : [];
 
-    const groups = [cbc, st, ema, entry, or, emazone, vwap, ema200].filter(g => g.length);
+    const groups = [cbc, st, ema, emazone, entry, or, vwap, ema200].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls, ring]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
@@ -1419,6 +1421,27 @@
 
       const badgeRowHtml = buildBadgeRow(rows, headlineLines);
 
+      // CBC Flip Level: combined into one row (3m/15m/60 side by side) instead of 3 separate
+      // full-width rows, formatted as "<price>-<tf>". Colored by the OPPOSITE of that timeframe's
+      // CURRENT CBC state — e.g. if CBC15 currently reads Bullish, its flip level is colored RED,
+      // since crossing that price is what would flip it TO bearish (the color it's about to
+      // become, not the color it currently is).
+      const getRow = (label) => { const r = rows.find(([k]) => k === label); return r ? r[1] : null; };
+      const oppositeOf = (val) => val === 'Bullish' ? 'bear' : val === 'Bearish' ? 'bull' : 'neutral';
+      const flipPrice = (val) => { const m = (val || '').match(/^([\d.]+)/); return m ? m[1] : val; };
+      const flip3 = getRow('CBC Flip Level (3m)');
+      const flip15 = getRow('CBC Flip Level (15m)');
+      const flip60 = getRow('CBC Flip Level (1H)') || getRow('CBC Flip Level (60)');
+      const flipLevelRowHtml = (flip3 || flip15 || flip60) ? `<div class="row-group">${
+        [
+          flip3 ? [flip3, '3', getRow('CBC (3m)')] : null,
+          flip15 ? [flip15, '15', getRow('CBC (15m)')] : null,
+          flip60 ? [flip60, '60', getMtf(getRow, 'CBC')] : null,
+        ].filter(Boolean).map(([val, tf, nowVal]) =>
+          `<div class="field ${oppositeOf(nowVal)}"><span class="k">CBC Flip Level</span><span class="v">${escapeHtml(flipPrice(val))}-${tf}</span></div>`
+        ).join('')
+      }</div>` : '';
+
       const bodyRows = rows.filter(([k]) =>
         !FIELDS_SHOWN_ONLY_IN_HEADLINE.some(prefix => k.startsWith(prefix)) &&
         !FIELDS_SHOWN_ONLY_AS_BADGES.includes(k)
@@ -1439,6 +1462,7 @@
       const bodyHtml =
         `<div class="section-label">Context</div>` +
         groups.slice(0, 2).map(renderGroup).join('') +
+        flipLevelRowHtml +
         groups.slice(2).map(renderGroup).join('');
 
       // One-line summary shown in the collapsed header: the ticker plus the first bullet (the main
