@@ -842,8 +842,8 @@
       def: 'Fires once when the chart-timeframe EMA9 crosses EMA20, either direction — the crossing MOMENT, distinct from the EMA cloud direction already in every alert (which just reports whichever state currently holds, not when it changed).'
     },
     {
-      test: (l) => /Pivot Cross:/i.test(l),
-      title: 'Pivot Point Cross (PP/R1/R2/R3/S1/S2/S3)',
+      test: (l) => /Key Level Alert:/i.test(l),
+      title: 'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)',
       def: 'Fires once per level the instant price closes on the opposite side of that Daily Standard Pivot Point level from where it was the prior bar. PP/R1/S1 always checked; R2/S2 and R3/S3 only if those tiers are enabled in the Pivot Points input group. More than one level CAN legitimately fire on the same bar, unlike Level Proximity above.'
     },
     {
@@ -973,12 +973,12 @@
       return { label: 'EMA9/20', cls: /\bBearish\b/.test(ema920CrossLine) ? 'pill-flip-short' : 'pill-flip-long' };
     }
 
-    // Pivot Point Cross: dynamic label like Level Proximity above — shows which specific level
+    // Key Level Alert: dynamic label like Level Proximity above — shows which specific level
     // fired (PP/R1/R2/R3/S1/S2/S3), not a fixed word, since one alert type covers all 7.
-    const pivotCrossLine = bulletLines.find(l => /Pivot Cross:/i.test(l));
-    if (pivotCrossLine) {
-      const m = pivotCrossLine.match(/Pivot Cross:\s*(\S+)\s+(Bullish|Bearish)/i);
-      const level = m ? m[1].toUpperCase() : 'PIVOT';
+    const keyLevelLine = bulletLines.find(l => /Key Level Alert:/i.test(l));
+    if (keyLevelLine) {
+      const m = keyLevelLine.match(/Key Level Alert:\s*(\S+)\s+(Bullish|Bearish)/i);
+      const level = m ? m[1].toUpperCase() : 'LEVEL';
       const isBearish = m && m[2].toLowerCase() === 'bearish';
       return { label: level, cls: isBearish ? 'pill-flip-short' : 'pill-flip-long' };
     }
@@ -1465,10 +1465,18 @@
         flipLevelRowHtml +
         groups.slice(2).map(renderGroup).join('');
 
-      // One-line summary shown in the collapsed header: the ticker plus the first bullet (the main
-      // headline), so you can tell alerts apart before expanding any of them.
+      // One-line summary shown in the collapsed header: normally the ticker plus the first bullet.
+      // Key Level Alert gets a custom format instead, since "Key Level Alert: S1 Bearish (crossed
+      // below 4103.4)" alone doesn't tell you the CURRENT price at a glance — this pulls that from
+      // the alert's own "Price" field and spells out "<ticker> crossing <above/below> <level> —
+      // price: <current>, <level>: <level value>".
       const tickerOnly = (lines[0] || '').replace(/[—\s]+$/, '');
-      const summaryText = [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
+      const keyLevelBulletLine = headlineLines.find(l => /Key Level Alert:/i.test(l));
+      const keyLevelMatch = keyLevelBulletLine && keyLevelBulletLine.match(/Key Level Alert:\s*(\S+)\s+(?:Bullish|Bearish)\s*\(crossed (above|below) ([\d.]+)\)/i);
+      const keyLevelSummary = keyLevelMatch
+        ? `${tickerOnly} crossing ${keyLevelMatch[2].toLowerCase()} ${keyLevelMatch[1]} — price: ${(rows.find(([k]) => k === 'Price') || [])[1] || '—'}, ${keyLevelMatch[1]}: ${keyLevelMatch[3]}`
+        : null;
+      const summaryText = keyLevelSummary || [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
       const isExpanded = expandedIds.has(a.id);
       const chartUrl = buildChartUrl(tickerOnly, rows);
       const statusClass = classifyAlertStatus(headlineLines);
