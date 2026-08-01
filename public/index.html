@@ -285,6 +285,7 @@
     font-size: 11px;
   }
   .badge.badge-confirmed { background: #3b6d11; color: #eaf3de; }
+  .badge.badge-price { background: #993c1d; color: #faece7; }
   .badge.badge-unconfirmed { background: #854f0b; color: #faeeda; }
   .badge.badge-bull { background: #3b6d11; color: #eaf3de; }
   .badge.badge-bear { background: #a32d2d; color: #fcebeb; }
@@ -1156,7 +1157,12 @@
     const ema200Val = get('EMA 200');
     const ema200 = /^Above/i.test(ema200Val || '') ? [['EMA200 ABOVE', 'badge-bull']] : /^Below/i.test(ema200Val || '') ? [['EMA200 BELOW', 'badge-bear']] : [];
 
-    const groups = [cbc, st, ema, emazone, entry, or, vwap, ema200].filter(g => g.length);
+    // Price badge — the current bar's close, always shown first (orange) so it's visible at a
+    // glance without expanding the card, same value as the "Price" row in the field-body table.
+    const priceVal = get('Price');
+    const price = priceVal ? [[priceVal, 'badge-price']] : [];
+
+    const groups = [price, cbc, st, ema, emazone, entry, or, vwap, ema200].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls, ring]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
@@ -1334,6 +1340,16 @@
     return m ? `${m[1]} ${m[2]} ${m[3]}` : value;
   }
 
+  // "CBC (3m) last flip" / "CBC (15m) last flip" / "CBC (1H) last flip" as full labels waste
+  // horizontal space when shown 3-up in one row — compacted to just "3-"/"15-"/"60-" prefixes.
+  function shortenLastFlipLabel(key) {
+    if (!key.includes('last flip')) return key;
+    const m = key.match(/\((\d+)m\)/) || key.match(/\((1H|60)\)/);
+    if (!m) return key;
+    const tf = m[1] === '1H' ? '60' : m[1];
+    return `${tf}-`;
+  }
+
   // Arranges [key, value] pairs into rows per ROW_GROUPS: each configured group becomes one row
   // (in the order fields are found — a group with a missing field just renders fewer chips that
   // row), and anything left over becomes its own single-field row, in original order.
@@ -1483,8 +1499,9 @@
       const renderGroup = (group) => {
         const fieldsHtml = group.map(([k, v]) => {
           const displayV = shortenLastFlip(k, v);
+          const displayK = shortenLastFlipLabel(k);
           const cls = classifyRow(k, v);
-          return `<div class="field ${cls}"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(displayV)}</span></div>`;
+          return `<div class="field ${cls}"><span class="k">${escapeHtml(displayK)}</span><span class="v">${escapeHtml(displayV)}</span></div>`;
         }).join('');
         return `<div class="row-group">${fieldsHtml}</div>`;
       };
@@ -1645,7 +1662,7 @@
   // Initial load
   fetch('/alerts').then(r => r.json()).then(data => {
     alerts = data;
-    render(); 
+    render();
   });
 
   // Live stream
