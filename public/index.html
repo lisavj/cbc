@@ -736,7 +736,7 @@
     'EMA cloud (3m)', 'EMA cloud (15m)', 'EMA cloud (1H)', 'EMA cloud (60)',
     'CBC Flip Level (3m)', 'CBC Flip Level (15m)', 'CBC Flip Level (1H)', 'CBC Flip Level (60)',
     'CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip', 'CBC (60) last flip',
-    'Price',
+    'Price', 'Opening range', 'VWAP', 'EMA 200', 'HTF Trailing Stop',
   ];
 
   // Fields that are hidden from the raw field-body table specifically because
@@ -1544,7 +1544,7 @@
         return `<div class="row-group">${fieldsHtml}</div>`;
       };
       const bodyHtml =
-        `<div class="section-label">Context</div>` +
+        (groups.slice(0, 2).length ? `<div class="section-label">Context</div>` : '') +
         groups.slice(0, 2).map(renderGroup).join('') +
         flipLevelRowHtml +
         groups.slice(2).map(renderGroup).join('');
