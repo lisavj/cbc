@@ -144,6 +144,32 @@
     flex-shrink: 0;
   }
   .card.expanded .chevron { transform: rotate(90deg); color: var(--accent); }
+  .symbol-cockpit { margin-bottom: 20px; }
+  .symbol-cockpit-header {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    padding: 6px 4px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .tier-section { margin-bottom: 10px; }
+  .tier-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .tier-count { opacity: 0.75; }
+  .tier-actionable .tier-label { background: #341010; color: #e6a3a3; }
+  .tier-forming .tier-label { background: #4a3308; color: #f2c98a; }
+  .tier-context .tier-label { background: #1c2028; color: #7a7d87; }
   .card-summary {
     font-family: var(--mono);
     font-size: 12px;
@@ -1357,7 +1383,7 @@
 
     countEl.textContent = activeFilter === 'all' ? alerts.length : `${filtered.length} of ${alerts.length}`;
     emptyEl.style.display = filtered.length ? 'none' : 'block';
-    listEl.innerHTML = filtered.map(a => {
+    function renderCard(a) {
       const cbcWire = parseCbcWireAlert(a.raw);
       if (cbcWire) {
         const isExpandedWire = expandedIds.has(a.id);
@@ -1502,6 +1528,65 @@
         ${badgeRowHtml}
         ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
         <div class="field-body">${bodyHtml}</div>
+      </div>`;
+    }
+
+    // Tier classification: "actionable" alerts have a live, freshly-confirmed setup worth acting
+    // on now; "forming" are unconfirmed/early signals or warnings worth watching; everything else
+    // ("context") is informational — levels, crosses, proximity, connection pings. CBC Wire and
+    // unrecognized types default to context since they carry no trade-entry information.
+    const ACTIONABLE_TITLES = new Set([
+      'A+ Setup (Long/Short)', 'ORB Retest / Break & Base (Long/Short)', 'Outside HTF ORB (Bullish/Bearish)',
+      'Price Enters HTF EMA9/20 Zone - Entry', 'LTF + HTF Agreement (Long/Short)', 'HTF CBC Flip (Long/Short)',
+      'LTF CBC Flip (Long/Short)',
+    ]);
+    const FORMING_TITLES = new Set([
+      'LTF + HTF Agreement - Early (unconfirmed HTF)', 'HTF CBC Flip - Early (unconfirmed, still forming)',
+      'LTF CBC Flip - Early (unconfirmed, mid-candle)', 'ORB Retest Fail (Long/Short)',
+    ]);
+    function classifyTier(headlineLines) {
+      const types = getAlertTypeTitles(headlineLines);
+      if (types.some(t => ACTIONABLE_TITLES.has(t))) return 'actionable';
+      if (types.some(t => FORMING_TITLES.has(t))) return 'forming';
+      return 'context';
+    }
+
+    // Group by symbol (cockpit), then bucket each symbol's alerts into the 3 tiers above.
+    const bySymbolGroups = new Map();
+    filtered.forEach(a => {
+      const sym = getSymbol(a.raw);
+      if (!bySymbolGroups.has(sym)) bySymbolGroups.set(sym, { actionable: [], forming: [], context: [] });
+      const lines = (a.raw || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
+      bySymbolGroups.get(sym)[classifyTier(headlineLines)].push(a);
+    });
+    // Symbols ordered by most recent activity (their newest alert's timestamp), matching the
+    // existing "most recent first" expectation from the old flat chronological feed.
+    const symbolOrder = Array.from(bySymbolGroups.keys()).sort((s1, s2) => {
+      const t = sym => Math.max(...['actionable', 'forming', 'context'].flatMap(k => bySymbolGroups.get(sym)[k].map(a => a.receivedAt)), 0);
+      return t(s2) - t(s1);
+    });
+
+    const TIER_META = {
+      actionable: { label: 'Actionable now', cls: 'tier-actionable' },
+      forming: { label: 'Forming', cls: 'tier-forming' },
+      context: { label: 'Context', cls: 'tier-context' },
+    };
+    listEl.innerHTML = symbolOrder.map(sym => {
+      const g = bySymbolGroups.get(sym);
+      const tiersHtml = ['actionable', 'forming', 'context'].map(tier => {
+        const items = g[tier];
+        if (!items.length) return '';
+        const meta = TIER_META[tier];
+        const cardsHtml = items.map(renderCard).join('');
+        return `<div class="tier-section ${meta.cls}">
+          <div class="tier-label">${meta.label} <span class="tier-count">${items.length}</span></div>
+          ${cardsHtml}
+        </div>`;
+      }).join('');
+      return `<div class="symbol-cockpit">
+        <div class="symbol-cockpit-header">${escapeHtml(sym || 'Unknown')}</div>
+        ${tiersHtml}
       </div>`;
     }).join('');
   }
