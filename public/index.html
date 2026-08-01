@@ -168,7 +168,7 @@
   }
   .tier-count { opacity: 0.75; }
   .tier-actionable .tier-label { background: #341010; color: #e6a3a3; }
-  .tier-forming .tier-label { background: #4a3308; color: #f2c98a; }
+  .tier-forming .tier-label { background: #854f0b; color: #faeeda; }
   .tier-context .tier-label { background: #1c2028; color: #7a7d87; }
   .card-summary {
     font-family: var(--mono);
@@ -433,6 +433,7 @@
   @media (max-width: 560px) {
     main { padding: 12px; }
     .card-top { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .card-top-left { width: 100%; }
     .card-summary { max-width: 100%; }
     .field { min-width: 78px; font-size: 11.5px; padding: 6px 9px; }
     .field .k { font-size: 9.5px; }
@@ -733,6 +734,7 @@
     'Structure (3m)', 'Structure (15m)', 'Structure (1H)', 'Structure (60)',
     'EMA cloud (3m)', 'EMA cloud (15m)', 'EMA cloud (1H)', 'EMA cloud (60)',
     'CBC Flip Level (3m)', 'CBC Flip Level (15m)', 'CBC Flip Level (1H)', 'CBC Flip Level (60)',
+    'CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip', 'CBC (60) last flip',
   ];
 
   // Fields that are hidden from the raw field-body table specifically because
@@ -1162,7 +1164,23 @@
     const priceVal = get('Price');
     const price = priceVal ? [[priceVal, 'badge-price']] : [];
 
-    const groups = [price, cbc, st, ema, emazone, entry, or, vwap, ema200].filter(g => g.length);
+    // Last-flip badges — "CBC (3m) last flip" etc. moved out of the field-body table entirely
+    // (now badge-only) since 3 full rows of "LONG 8/1 08:45 ET #2" style text was a lot of space
+    // for what's really just "when did this timeframe last flip". Compact to "3-08:45 #2".
+    function lastFlipBadge(tf, key) {
+      const val = get(key);
+      if (!val) return null;
+      const m = val.match(/^(LONG|SHORT)\s+\d{1,2}\/\d{1,2}\s+(\d{1,2}:\d{2})\s+ET\s+(#\d+)/i);
+      if (!m) return null;
+      return [`${tf}-${m[2]} ${m[3]}`, m[1].toUpperCase() === 'SHORT' ? 'badge-bear' : 'badge-bull'];
+    }
+    const lastFlip = [
+      lastFlipBadge('3', 'CBC (3m) last flip'),
+      lastFlipBadge('15', 'CBC (15m) last flip'),
+      (lastFlipBadge('60', 'CBC (1H) last flip') || lastFlipBadge('60', 'CBC (60) last flip')),
+    ].filter(Boolean);
+
+    const groups = [price, cbc, st, ema, emazone, entry, or, vwap, ema200, lastFlip].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls, ring]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
