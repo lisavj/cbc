@@ -286,6 +286,7 @@
   }
   .badge.badge-confirmed { background: #3b6d11; color: #eaf3de; }
   .badge.badge-price { background: #993c1d; color: #faece7; }
+  .badge.badge-sl { background: #14532d; color: #dcfce7; }
   .badge.badge-unconfirmed { background: #854f0b; color: #faeeda; }
   .badge.badge-bull { background: #3b6d11; color: #eaf3de; }
   .badge.badge-bear { background: #a32d2d; color: #fcebeb; }
@@ -1131,9 +1132,18 @@
     // green — same visual weight as a bullish/confirmed reading elsewhere) or still inside it
     // (gray/neutral — nothing's happened yet). "Off"/"—"/"Before open"/"Pending" aren't a real
     // in/out state yet, so no badge shows for those.
+    // Extracts the trailing "+X.XX"/"-X.XX" style offset already present in these fields' raw
+    // values (e.g. "Above range +2.40" -> "+2.40"), so badges can show the number, not just the
+    // direction word.
+    function extractNum(val) {
+      const m = (val || '').match(/([+-]\d+\.?\d*)/);
+      return m ? m[1] : '';
+    }
+
     const orValue = get('Opening range');
+    const orNum = extractNum(orValue);
     const or = /Above range|Below range/i.test(orValue || '')
-      ? [['OR OUT', 'badge-bull']]
+      ? [[`OR OUT${orNum ? ' ' + orNum : ''}`, 'badge-bull']]
       : /Inside range/i.test(orValue || '')
         ? [['OR IN', 'badge-neutral']]
         : [];
@@ -1153,11 +1163,20 @@
       });
 
     // VWAP / EMA 200 badges — same color rule the field-body table already uses for these rows
-    // (classifyRow: value starting with "Above" -> green, "Below" -> red).
+    // (classifyRow: value starting with "Above" -> green, "Below" -> red). Numeric offset appended
+    // since "VWAP BELOW" alone doesn't say how far below.
     const vwapVal = get('VWAP');
-    const vwap = /^Above/i.test(vwapVal || '') ? [['VWAP ABOVE', 'badge-bull']] : /^Below/i.test(vwapVal || '') ? [['VWAP BELOW', 'badge-bear']] : [];
+    const vwapNum = extractNum(vwapVal);
+    const vwap = /^Above/i.test(vwapVal || '') ? [[`VWAP ABOVE${vwapNum ? ' ' + vwapNum : ''}`, 'badge-bull']] : /^Below/i.test(vwapVal || '') ? [[`VWAP BELOW${vwapNum ? ' ' + vwapNum : ''}`, 'badge-bear']] : [];
     const ema200Val = get('EMA 200');
-    const ema200 = /^Above/i.test(ema200Val || '') ? [['EMA200 ABOVE', 'badge-bull']] : /^Below/i.test(ema200Val || '') ? [['EMA200 BELOW', 'badge-bear']] : [];
+    const ema200Num = extractNum(ema200Val);
+    const ema200 = /^Above/i.test(ema200Val || '') ? [[`EMA200 ABOVE${ema200Num ? ' ' + ema200Num : ''}`, 'badge-bull']] : /^Below/i.test(ema200Val || '') ? [[`EMA200 BELOW${ema200Num ? ' ' + ema200Num : ''}`, 'badge-bear']] : [];
+
+    // HTF SL badge — same value as the "HTF Trailing Stop" row and the on-chart "HTF SL" line,
+    // surfaced in the preview too so the stop level is visible without expanding the card.
+    const htfStopVal = get('HTF Trailing Stop');
+    const htfStopPrice = htfStopVal ? (htfStopVal.match(/^([\d.]+)/) || [])[1] : null;
+    const htfSl = htfStopPrice ? [[`HTF SL ${htfStopPrice}`, 'badge-sl']] : [];
 
     // Price badge — the current bar's close, always shown first (orange) so it's visible at a
     // glance without expanding the card, same value as the "Price" row in the field-body table.
@@ -1180,7 +1199,7 @@
       (lastFlipBadge('60', 'CBC (1H) last flip') || lastFlipBadge('60', 'CBC (60) last flip')),
     ].filter(Boolean);
 
-    const groups = [price, cbc, st, ema, emazone, entry, or, vwap, ema200, lastFlip].filter(g => g.length);
+    const groups = [price, cbc, st, ema, emazone, entry, or, vwap, ema200, lastFlip, htfSl].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls, ring]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
