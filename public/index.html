@@ -87,6 +87,74 @@
   }
   .actions button:hover { color: var(--text); border-color: var(--muted); }
 
+  .view-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 2px;
+  }
+  .view-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .view-tab-btn:hover { color: var(--text); }
+  .view-tab-btn.active {
+    background: var(--accent);
+    color: #1a1400;
+    font-weight: 600;
+  }
+
+  .faq-toolbar { margin-bottom: 16px; }
+  #faqSearch {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 8px;
+  }
+  #faqSearch:focus { outline: none; border-color: var(--accent); }
+  .faq-item {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+  }
+  .faq-q {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 14px;
+    margin: 0 0 10px 0;
+  }
+  .faq-a {
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .faq-a p { margin: 0 0 10px 0; }
+  .faq-a ul { margin: 4px 0 10px 20px; padding: 0; }
+  .faq-a li { margin-bottom: 4px; }
+  .faq-a strong { color: var(--text); }
+  .faq-a .faq-rule {
+    background: rgba(245, 166, 35, 0.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin-top: 12px;
+  }
+  .faq-empty { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+
   main {
     max-width: 880px;
     margin: 0 auto;
@@ -553,6 +621,10 @@
     <a href="https://www.financialjuice.com/home" target="_blank" rel="noopener">News</a>
   </div>
   <div class="actions">
+    <div class="view-tabs" id="viewTabs">
+      <button class="view-tab-btn active" id="tabAlertsBtn" data-view="alerts">Alerts</button>
+      <button class="view-tab-btn" id="tabFaqBtn" data-view="faq">FAQ</button>
+    </div>
     <select id="symbolFilter">
       <option value="all">All symbols</option>
     </select>
@@ -561,6 +633,7 @@
       <div class="type-filter-panel" id="typeFilterPanel"></div>
     </div>
     <button id="colorToggleBtn">Colors: On</button>
+    <button id="entryZoneToggleBtn">Entry Zone: Off</button>
     <button id="downloadBtn">Download</button>
     <button id="clearBtn">Clear all</button>
   </div>
@@ -572,6 +645,13 @@
     <div class="big">···</div>
     Waiting for the first alert.<br />
     Point a TradingView alert's webhook URL here and it'll show up instantly.
+  </div>
+
+  <div id="faqView" style="display:none;">
+    <div class="faq-toolbar">
+      <input type="text" id="faqSearch" placeholder="Search FAQ…" />
+    </div>
+    <div id="faqList"></div>
   </div>
 </main>
 
@@ -596,6 +676,142 @@
     document.body.classList.toggle('plain-mode', !colorsOn);
     colorToggleBtn.textContent = colorsOn ? 'Colors: On' : 'Colors: Off';
   });
+  // Entry Zone line (the "Entry Zone: X to Y (Price: Z)" line folded into the headline banner) —
+  // defaults OFF per request; toggling re-renders the list since, unlike the color toggle above,
+  // this actually changes what HTML gets built rather than just flipping a CSS class.
+  const entryZoneToggleBtn = document.getElementById('entryZoneToggleBtn');
+  let showEntryZone = false;
+  entryZoneToggleBtn.addEventListener('click', () => {
+    showEntryZone = !showEntryZone;
+    entryZoneToggleBtn.textContent = showEntryZone ? 'Entry Zone: On' : 'Entry Zone: Off';
+    render();
+  });
+  // ---------------------------------------------------------------------
+  // FAQ TAB
+  // To add a new FAQ item, just add another object to this array —
+  // { q: "Question text", a: "<p>HTML answer body…</p>" }.
+  // The `a` field accepts basic HTML (p, ul/li, strong, div.faq-rule for a
+  // highlighted callout box) so answers can be formatted like the one below.
+  // ---------------------------------------------------------------------
+  const FAQ_ITEMS = [
+    {
+      q: "What is the recommended workflow for trading NQ/MNQ with CBC?",
+      a: `
+        <p>The MapleStax CBC system is designed around a simple, repeatable workflow that combines <strong>High Timeframe (HTF) context</strong> with <strong>Low Timeframe (LTF) execution</strong>.</p>
+        <p>Most traders use:</p>
+        <ul>
+          <li><strong>HTF = 15-minute chart</strong> (bigger-picture bias)</li>
+          <li><strong>LTF = 3-minute chart</strong> (precise entries)</li>
+        </ul>
+        <p><strong>Recommended Step-by-Step Workflow</strong></p>
+        <ul>
+          <li><strong>1. Check the HTF first (15-minute chart).</strong> Look at the overall CBC bias and EMA Cloud. Is the 15m CBC bullish or bearish? Is the EMA Cloud green (bullish) or red (bearish)? This gives you the dominant daily direction.</li>
+          <li><strong>2. Wait for LTF alignment (3-minute chart).</strong> Look for a CBC flip on the 3m chart in the same direction as the 15m bias. A lone LTF flip against the HTF is usually ignored.</li>
+          <li><strong>3. Confirm confluence at key levels.</strong> The best setups happen when the LTF CBC flip occurs near VWAP, ORB High/Low, YDH/YDL or PMH/PML, round numbers, or inside/at the edge of the EMA Cloud.</li>
+          <li><strong>4. Use the BRSG Zone (Buy Red Sell Green) as a visual cue.</strong> When the previous candle color disagrees with the CBC direction (e.g., a green candle forming while CBC is bearish), the BRSG Zone often highlights high-probability "against-the-candle" entries.</li>
+          <li><strong>5. Enter, manage, and exit.</strong> Enter on the CBC flip or a pullback into the cloud/levels. Use the CBC flip-level dashes as initial stop placement. Trail or exit on the next opposite CBC flip or when price reaches the next major level. CBC Wire voice callouts keep you updated in real time.</li>
+        </ul>
+        <div class="faq-rule">
+          <strong>Golden Rule:</strong> Only take trades where LTF + HTF CBC, EMA Cloud, and at least one key level all agree. This confluence filter dramatically reduces noise and improves your win rate.
+        </div>
+        <p style="margin-top:10px;">Experienced traders often add one more layer: they only trade in the direction of the higher-timeframe trend and use the voice alerts as a second set of eyes while journaling or managing multiple charts.</p>
+        <p style="margin-top:10px;"><strong>Does this apply beyond NQ/MNQ?</strong> Yes — the CBC methodology is symbol-agnostic. The same HTF/LTF alignment + confluence approach works on MES, MGC, and other liquid futures; just watch for round-number levels appropriate to that instrument (e.g. $50/$100 increments on gold vs. 100-point "Bill Breaker" levels on NQ).</p>
+        <p style="margin-top:10px;"><strong>Why 15-minute HTF instead of 10-minute?</strong> The script's own "Auto" HTF setting already defaults to a 15-minute HTF whenever the chart timeframe is 5 minutes or less (and 3-minute HTF otherwise) — so using a 15m HTF with a 3m LTF chart matches the script's built-in default with no manual override needed.</p>
+        <p style="margin-top:10px;"><strong>Does the Pine script actually implement these alerts?</strong> Yes. It includes dedicated toggles for LTF CBC Flip, HTF CBC Flip, LTF+HTF Agreement (confirmed and early/unconfirmed), A+ Setup (HTF CBC + both EMA clouds + VWAP side + pre-ORB-breakout), VWAP Break, EMA9/20 Cross, ORB Break, and ORB Retest/Break-&-Base — plus a separate Level Proximity alert covering VWAP, round numbers ("Bill Breakers"), YDH/YDL, and ORB High/Low. The BRSG Zone, EMA Cloud, and CBC flip-level dashes described above are all built into the indicator as well.</p>
+      `
+    },
+    {
+      q: "Advanced tips: Pullbacks, false signals, scaling, and confluence — does the Pine script cover these concepts?",
+      a: `
+        <p>Once you've mastered the basics of CBC flips, EMA Cloud, and key levels, these advanced concepts help filter noise, improve timing, and maximize edge in the NQ/MNQ market. Below, each concept is followed by a note on whether the script covers it natively.</p>
+
+        <p><strong>1. Pullbacks (The Highest-Probability Entries)</strong></p>
+        <p>Instead of chasing every CBC flip, wait for a pullback into the EMA Cloud or a key level.</p>
+        <ul>
+          <li>Green cloud + pullback to the 20 EMA on a bullish CBC = excellent long entry.</li>
+          <li>Red cloud + pullback to the 20 EMA on a bearish CBC = excellent short entry. The EMA 20 touch dots in the indicator highlight these exact moments. Many experienced traders only take flip + cloud-pullback setups.</li>
+        </ul>
+        <div class="faq-rule"><strong>Script coverage:</strong> Yes — the "EMA20 touch dots" toggle plots a marker every time price crosses/touches EMA(20), which is exactly the pullback moment described here. It's built in and on by default (LTF Signals group).</div>
+
+        <p style="margin-top:14px;"><strong>2. Filtering False Signals</strong></p>
+        <p>Not every CBC flip is tradable. Common filters:</p>
+        <ul>
+          <li><strong>HTF disagreement</strong> — Ignore LTF flips that go against the HTF CBC bias and cloud.</li>
+          <li><strong>No key-level confluence</strong> — Flips in the middle of nowhere (away from VWAP, ORB, YDH/YDL, etc.) are usually lower-probability.</li>
+          <li><strong>Chop days</strong> — When price is oscillating inside the ORB or between round numbers with frequent flips, sit on your hands. CBC Wire's voice callouts will let you hear the chop in real time.</li>
+          <li><strong>BRSG Zone misuse</strong> — The zone is only powerful when everything else aligns — treat it as a confirmation, not a primary signal.</li>
+        </ul>
+        <div class="faq-rule"><strong>Script coverage:</strong> Partial. HTF disagreement and key-level confluence are directly supported — the LTF+HTF Agreement alert only fires when both timeframes align, and the Level Proximity alert flags VWAP/round-number/YDH-YDL/ORB proximity separately, so you can require both before entering. There's no dedicated "chop detector," but the ORB Retest alert's minimum-breakout-distance filter (a % of the OR range) filters out some of that noise, and the voice/alert cadence itself will naturally reveal choppy back-and-forth flips if you're watching it live. BRSG is a visual zone only — the script doesn't auto-enforce "confirmation not signal," that discipline is on the trader.</div>
+
+        <p style="margin-top:14px;"><strong>3. Scaling In and Out</strong></p>
+        <ul>
+          <li><strong>Scale in:</strong> Add to a winning position on the first clean pullback after your initial entry (especially if it retests the EMA Cloud or flip-level).</li>
+          <li><strong>Scale out:</strong> Take partial profits at the next major level (opposite ORB side, VWAP, YDH/YDL) while letting the remainder run until the next opposite CBC flip.</li>
+          <li>Use the strength of confluence to guide size: 3+ factors lining up = larger size; marginal setups = smaller size or skip.</li>
+        </ul>
+        <div class="faq-rule"><strong>Script coverage:</strong> No. Scaling in/out and position sizing are trade-management decisions the script doesn't make for you — it has no position-sizing or partial-exit logic. What it does give you are the trigger points to scale on/at: EMA20 touch dots (scale-in pullback), the CBC flip-level dashes (stop reference), and the key-level alerts (scale-out targets) — but the actual scaling is manual.</div>
+
+        <p style="margin-top:14px;"><strong>4. Confluence Checklist (The Real Edge)</strong></p>
+        <p>Strongest setups almost always have 4–5 factors aligning:</p>
+        <ul>
+          <li>LTF CBC flip</li>
+          <li>HTF CBC agreement</li>
+          <li>EMA Cloud in the same direction</li>
+          <li>Price at/near a major level (VWAP, ORB, YDH/YDL)</li>
+          <li>BRSG Zone visual cue (optional but powerful)</li>
+        </ul>
+        <div class="faq-rule"><strong>Script coverage:</strong> Every individual ingredient is covered by its own alert/plot (LTF flip, HTF agreement, EMA cloud color, level proximity, BRSG zone) — but there's no single "4/5 confluence score" alert that bundles them into one composite signal. You currently have to cross-reference the separate alerts/status table yourself to build the checklist. The closest built-in shortcut is the "A+ Setup" alert, which does combine several of these (HTF CBC + both EMA clouds + VWAP side + pre-breakout ORB) into one fire.</div>
+
+        <p style="margin-top:14px;">When all of these line up, many traders describe it as "the chart basically tells you what to do."</p>
+        <p><strong>Pro Tip:</strong> Use CBC Wire voice callouts as your "second brain." Let the voice keep you honest while you focus on execution and journaling.</p>
+      `
+    }
+  ];
+
+  const faqListEl = document.getElementById('faqList');
+  const faqSearchEl = document.getElementById('faqSearch');
+  const faqViewEl = document.getElementById('faqView');
+  const mainListEl = listEl;
+  const emptyStateEl = emptyEl;
+
+  function renderFaq(filterText) {
+    const q = (filterText || '').trim().toLowerCase();
+    const items = FAQ_ITEMS.filter(item =>
+      !q || item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q)
+    );
+    if (!items.length) {
+      faqListEl.innerHTML = '<div class="faq-empty">No FAQ items match your search.</div>';
+      return;
+    }
+    faqListEl.innerHTML = items.map(item => `
+      <div class="faq-item">
+        <div class="faq-q">${item.q}</div>
+        <div class="faq-a">${item.a}</div>
+      </div>
+    `).join('');
+  }
+  renderFaq('');
+  faqSearchEl.addEventListener('input', () => renderFaq(faqSearchEl.value));
+
+  const tabAlertsBtn = document.getElementById('tabAlertsBtn');
+  const tabFaqBtn = document.getElementById('tabFaqBtn');
+  function setView(view) {
+    const isFaq = view === 'faq';
+    tabAlertsBtn.classList.toggle('active', !isFaq);
+    tabFaqBtn.classList.toggle('active', isFaq);
+    faqViewEl.style.display = isFaq ? 'block' : 'none';
+    mainListEl.style.display = isFaq ? 'none' : '';
+    if (isFaq) {
+      emptyStateEl.style.display = 'none';
+    } else {
+      // restore the empty-state visibility to whatever it should be based on content
+      emptyStateEl.style.display = mainListEl.children.length ? 'none' : 'block';
+    }
+  }
+  tabAlertsBtn.addEventListener('click', () => setView('alerts'));
+  tabFaqBtn.addEventListener('click', () => setView('faq'));
+  // ---------------------------------------------------------------------
+
   const symbolFilterEl = document.getElementById('symbolFilter');
   symbolFilterEl.addEventListener('change', () => {
     activeFilter = symbolFilterEl.value;
@@ -765,19 +981,21 @@
 
     // Support both the current "Entry Zone High/Low" naming and the older pre-rename "Buy Zone
     // High/Low" naming some live alerts still send, so this compacts either way.
-    const buyHigh = get('Entry Zone High') || get('Buy Zone High');
-    const buyLow = get('Entry Zone Low') || get('Buy Zone Low');
-    const zoneDir = get('Entry Zone'); // "LONG" or "SHORT" — only present on the newer naming
-    if (buyHigh || buyLow) {
-      const priceStr = get('Price');
-      const priceNum = parseFloat(priceStr);
-      const lowNum = parseFloat(buyLow);
-      const highNum = parseFloat(buyHigh);
-      const inZone = !isNaN(priceNum) && !isNaN(lowNum) && !isNaN(highNum) && priceNum >= lowNum && priceNum <= highNum;
-      const priceLabel = inZone ? 'Enter Price' : 'Price';
-      const buyText = `Entry Zone: ${buyLow || '—'} to ${buyHigh || '—'}  (${priceLabel}: ${priceStr || '—'})`;
-      const dirClass = zoneDir === 'LONG' ? 'hl-bull' : zoneDir === 'SHORT' ? 'hl-bear' : null;
-      lines.push(dirClass ? `<span class="${dirClass}">${escapeHtml(buyText)}</span>` : escapeHtml(buyText));
+    if (showEntryZone) {
+      const buyHigh = get('Entry Zone High') || get('Buy Zone High');
+      const buyLow = get('Entry Zone Low') || get('Buy Zone Low');
+      const zoneDir = get('Entry Zone'); // "LONG" or "SHORT" — only present on the newer naming
+      if (buyHigh || buyLow) {
+        const priceStr = get('Price');
+        const priceNum = parseFloat(priceStr);
+        const lowNum = parseFloat(buyLow);
+        const highNum = parseFloat(buyHigh);
+        const inZone = !isNaN(priceNum) && !isNaN(lowNum) && !isNaN(highNum) && priceNum >= lowNum && priceNum <= highNum;
+        const priceLabel = inZone ? 'Enter Price' : 'Price';
+        const buyText = `Entry Zone: ${buyLow || '—'} to ${buyHigh || '—'}  (${priceLabel}: ${priceStr || '—'})`;
+        const dirClass = zoneDir === 'LONG' ? 'hl-bull' : zoneDir === 'SHORT' ? 'hl-bear' : null;
+        lines.push(dirClass ? `<span class="${dirClass}">${escapeHtml(buyText)}</span>` : escapeHtml(buyText));
+      }
     }
 
     // The suggested entry price (A+ Setup / ORB Retest) and stop (EMA9/20 Zone entries) — same
@@ -1549,18 +1767,41 @@
         flipLevelRowHtml +
         groups.slice(2).map(renderGroup).join('');
 
-      // One-line summary shown in the collapsed header: normally the ticker plus the first bullet.
-      // Key Level Alert gets a custom format instead, since "Key Level Alert: S1 Bearish (crossed
-      // below 4103.4)" alone doesn't tell you the CURRENT price at a glance — this pulls that from
-      // the alert's own "Price" field and spells out "<ticker> crossing <above/below> <level> —
-      // price: <current>, <level>: <level value>".
+      // One-line summary shown in the collapsed header — tightened to match CBC Wire's terse
+      // voice-signal phrasing ("3m CBC bullish @ 29548.75", "ydh crossing", "NY ORB-L approaching")
+      // instead of the full "<Type>: <Direction> (<detail>)" bullet text. Full detail is still one
+      // tap away in the expanded headline/tooltip — this is just what you see scanning the list.
       const tickerOnly = (lines[0] || '').replace(/[—\s]+$/, '');
-      const keyLevelBulletLine = headlineLines.find(l => /Key Level Alert:/i.test(l));
-      const keyLevelMatch = keyLevelBulletLine && keyLevelBulletLine.match(/Key Level Alert:\s*(\S+)\s+(?:Bullish|Bearish)\s*\(crossed (above|below) ([\d.]+)\)/i);
-      const keyLevelSummary = keyLevelMatch
-        ? `${tickerOnly} crossing ${keyLevelMatch[2].toLowerCase()} ${keyLevelMatch[1]} — price: ${(rows.find(([k]) => k === 'Price') || [])[1] || '—'}, ${keyLevelMatch[1]}: ${keyLevelMatch[3]}`
-        : null;
-      const summaryText = keyLevelSummary || [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
+      const priceNow = (rows.find(([k]) => k === 'Price') || [])[1];
+
+      function buildCompactSummary() {
+        const bullet = headlineLines.find(l => l.startsWith('•')) || '';
+
+        // Combined or plain HTF/LTF CBC Flip: "HTF(15) CBC Flip: LONG (confirmed...)" -> "15m CBC bullish"
+        let m = bullet.match(/(?:HTF|LTF)\((\d+)\)\s*CBC Flip(?:\s*\+\s*(?:LTF|HTF)\(\d+\)\s*Agreement)?:\s*(LONG|SHORT)/i);
+        if (m) return `${tickerOnly} ${m[1]}m CBC ${m[2].toUpperCase() === 'LONG' ? 'bullish' : 'bearish'}${priceNow ? ' @ ' + priceNow : ''}`;
+
+        // Agreement alone: "LTF(3) short + HTF(15) Agreement: SHORT (...)"
+        m = bullet.match(/(?:LTF|HTF)\((\d+)\).*?Agreement:\s*(LONG|SHORT)/i);
+        if (m) return `${tickerOnly} ${m[1]}m Agreement ${m[2].toUpperCase() === 'LONG' ? 'bullish' : 'bearish'}${priceNow ? ' @ ' + priceNow : ''}`;
+
+        // EMA9/20 Cross: "EMA9/20 Cross: Bullish (crossed above)"
+        m = bullet.match(/EMA9\/20 Cross:\s*(Bullish|Bearish)/i);
+        if (m) {
+          const chartTf = (getRow('Chart') || '').match(/(\d+)m\s*$/);
+          return `${tickerOnly}${chartTf ? ' ' + chartTf[1] + 'm' : ''} ema9/20 crossing`;
+        }
+
+        // Level Proximity / Key Level Alert: "<Level> Crossing/Approaching: Bullish/Bearish (...)"
+        // or "Key Level Alert: <Level> Bullish/Bearish (crossed above/below N)"
+        m = bullet.match(/^•\s*Key Level Alert:\s*(\S+)\s+(?:Bullish|Bearish)\s*\(crossed (above|below) ([\d.]+)\)/i);
+        if (m) return `${tickerOnly} ${m[1]} crossing${priceNow ? ' @ ' + priceNow : ''}`;
+        m = bullet.match(/^•\s*(.+?)\s+(Crossing|Approaching):/i);
+        if (m) return `${tickerOnly} ${m[1].toLowerCase()} ${m[2].toLowerCase()}`;
+
+        return null;
+      }
+      const summaryText = buildCompactSummary() || [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
       const isExpanded = expandedIds.has(a.id);
       const chartUrl = buildChartUrl(tickerOnly, rows);
       const statusClass = classifyAlertStatus(headlineLines);
