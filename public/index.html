@@ -670,19 +670,26 @@
   const clearBtn = document.getElementById('clearBtn');
   const downloadBtn = document.getElementById('downloadBtn');
   const colorToggleBtn = document.getElementById('colorToggleBtn');
-  let colorsOn = true;
+  let colorsOn = localStorage.getItem('colorsOn') !== 'false'; // default true
+  document.body.classList.toggle('plain-mode', !colorsOn);
+  colorToggleBtn.textContent = colorsOn ? 'Colors: On' : 'Colors: Off';
   colorToggleBtn.addEventListener('click', () => {
     colorsOn = !colorsOn;
+    localStorage.setItem('colorsOn', String(colorsOn));
     document.body.classList.toggle('plain-mode', !colorsOn);
     colorToggleBtn.textContent = colorsOn ? 'Colors: On' : 'Colors: Off';
   });
   // Entry Zone line (the "Entry Zone: X to Y (Price: Z)" line folded into the headline banner) —
   // defaults OFF per request; toggling re-renders the list since, unlike the color toggle above,
-  // this actually changes what HTML gets built rather than just flipping a CSS class.
+  // this actually changes what HTML gets built rather than just flipping a CSS class. Both toggles
+  // persist across sessions via localStorage (this page runs standalone in a real browser, not
+  // inside Claude's sandboxed artifact preview, so localStorage is safe to use here).
   const entryZoneToggleBtn = document.getElementById('entryZoneToggleBtn');
-  let showEntryZone = false;
+  let showEntryZone = localStorage.getItem('showEntryZone') === 'true'; // default false
+  entryZoneToggleBtn.textContent = showEntryZone ? 'Entry Zone: On' : 'Entry Zone: Off';
   entryZoneToggleBtn.addEventListener('click', () => {
     showEntryZone = !showEntryZone;
+    localStorage.setItem('showEntryZone', String(showEntryZone));
     entryZoneToggleBtn.textContent = showEntryZone ? 'Entry Zone: On' : 'Entry Zone: Off';
     render();
   });
