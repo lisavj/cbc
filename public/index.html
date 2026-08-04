@@ -1073,6 +1073,11 @@
       def: 'Fires once when: (1) confirmed HTF CBC direction, (2) chart-timeframe EMA cloud, and (3) HTF EMA cloud all align in the same direction, (4) price is already CONFIRMED on the trade\'s side of VWAP (above VWAP for Long, below VWAP for Short), AND (5) price is still ANTICIPATORY on the Opening Range — hasn\'t broken the ORB high (Long) / ORB low (Short) yet, i.e. before that breakout confirms.'
     },
     {
+      test: (l) => /VWAP Bounce/i.test(l),
+      title: 'VWAP Bounce - High R:R (Long/Short)',
+      def: 'Fires once when a CBC flip happens right at VWAP while price is clear of the nearest major support/resistance level (Pivot Points PP/R1/R2/R3/S1/S2/S3, or the current session\'s ORB high/low) by at least a minimum distance — nothing structural nearby to cap the move, so reward is high relative to risk. Minimum distance is auto by symbol root (MES/MGC=6, M2K=4, MNQ=60, other=6), overridable in Settings.'
+    },
+    {
       test: (l) => /ORB Retest Fail/i.test(l),
       title: 'ORB Retest Fail (Long/Short)',
       def: 'Fires once when an ORB Retest / Break & Base setup fails: price broke out beyond the ORB high (Long) or low (Short), then fully round-tripped through the OPPOSITE side of the range before ever confirming the base — invalidating the setup. The other outcome of the same setup as "ORB Retest / Break & Base" below, gated by the same alert toggle.'
@@ -1188,6 +1193,7 @@
     if (!bulletLines.length) return '';
     const joined = bulletLines.join(' ');
     if (/A\+ Setup/i.test(joined)) return 'status-aplus';
+    if (/VWAP Bounce/i.test(joined)) return 'status-aplus';
     if (/ORB Retest Fail/i.test(joined)) return 'status-fail';
     if (/UNCONFIRMED|early\/unconfirmed/i.test(joined)) return 'status-unconfirmed';
     return 'status-confirmed';
@@ -1210,6 +1216,7 @@
     const lineDirection = (line) => /\bSHORT\b/.test(line) ? 'SHORT' : /\bLONG\b/.test(line) ? 'LONG' : null;
 
     if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
+    if (/VWAP Bounce/i.test(joined)) return { label: 'VWAP BOUNCE', cls: 'pill-aplus' };
 
     // Level Proximity Alerts: unlike every other pill, the label itself is DYNAMIC — it shows
     // whichever specific level fired (e.g. "EMA 200", "VWAP", "BILL BRK 2900", "YDH"), not a fixed
