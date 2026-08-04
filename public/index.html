@@ -1118,6 +1118,15 @@
       def: 'Fires once, as soon as the chart timeframe agrees with the HTF\'s LIVE, still-forming state — before that HTF bar closes, tagged UNCONFIRMED. If the live HTF state reverses before its bar closes, no confirmed alert follows — you only got the early heads-up. If it holds, a confirmed "LTF + HTF Agreement" alert fires automatically once that HTF bar closes.'
     },
     {
+      // Distinguishes a CONFIRMED Agreement bullet that fires purely because the LTF just caught up
+      // to an HTF that did NOT change on this bar (bullet is worded "LTF(...) ... + HTF(...) Agreement",
+      // no "HTF CBC Flip" prefix) from a genuine HTF-side flip, which is worded "HTF(...) CBC Flip +
+      // LTF(...) Agreement" and still falls through to the type below, staying visible by default.
+      test: (l) => /^•\s*LTF\(/i.test(l) && /Agreement/i.test(l),
+      title: 'LTF + HTF Agreement - LTF Joined Unchanged HTF',
+      def: 'Fires when the chart timeframe flips to join an HTF direction that did NOT change on this bar — the HTF was already sitting there; only the LTF caught up. Distinct from a genuine HTF-side flip, which fires as the separate "LTF + HTF Agreement (Long/Short)" combined bullet (worded "HTF(...) CBC Flip + LTF(...) Agreement") regardless of this toggle. Off by default since this case is usually not new information.'
+    },
+    {
       test: (l) => /Agreement/i.test(l),
       title: 'LTF + HTF Agreement (Long/Short)',
       def: 'Fires the moment the chart timeframe and the CONFIRMED (last closed) HTF bar both agree — both Long or both Short — i.e. entering agreement, not repeated every bar while still in agreement.'
@@ -1163,7 +1172,7 @@
   // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
   // Proximity types (VWAP/EMA20/EMA200/Bill Breakers are common levels price crosses constantly),
   // unlike Pivot/YDH/YDL/ORB proximity which fires far less often and stays on by default.
-  const DEFAULT_OFF_TYPES = ['VWAP Proximity (Bullish/Bearish)', 'EMA Proximity (Bullish/Bearish)', 'Bill Breaker Proximity (Bullish/Bearish)'];
+  const DEFAULT_OFF_TYPES = ['VWAP Proximity (Bullish/Bearish)', 'EMA Proximity (Bullish/Bearish)', 'Bill Breaker Proximity (Bullish/Bearish)', 'LTF + HTF Agreement - LTF Joined Unchanged HTF'];
   const enabledTypes = new Set(ALL_TYPE_TITLES.filter(t => !DEFAULT_OFF_TYPES.includes(t)));
 
   // Card border color: A+ Setup alerts are always confirmed-only (per the Pine script, they
