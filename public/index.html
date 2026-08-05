@@ -112,6 +112,51 @@
     font-weight: 600;
   }
 
+  .symbol-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .symbol-tab-btn {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .symbol-tab-btn:hover { color: var(--text); border-color: var(--muted); }
+  .symbol-tab-btn.active {
+    background: var(--accent);
+    color: #1a1400;
+    border-color: var(--accent);
+  }
+  .symbol-tab-count {
+    margin-left: 7px;
+    opacity: 0.65;
+    font-weight: 400;
+  }
+  .symbol-tab-btn.active .symbol-tab-count { opacity: 0.75; }
+
+  .tier-label {
+    cursor: pointer;
+    user-select: none;
+  }
+  .tier-label:hover { opacity: 0.85; }
+  .tier-chevron {
+    display: inline-block;
+    margin-right: 6px;
+    transition: transform 0.15s ease;
+    font-size: 10px;
+  }
+  .tier-cards.collapsed { display: none; }
+  .tier-label.collapsed .tier-chevron { transform: rotate(-90deg); }
+
   .faq-toolbar { margin-bottom: 16px; }
   #faqSearch {
     width: 100%;
@@ -627,9 +672,6 @@
       <button class="view-tab-btn active" id="tabAlertsBtn" data-view="alerts">Alerts</button>
       <button class="view-tab-btn" id="tabFaqBtn" data-view="faq">FAQ</button>
     </div>
-    <select id="symbolFilter">
-      <option value="all">All symbols</option>
-    </select>
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
       <div class="type-filter-panel" id="typeFilterPanel"></div>
@@ -642,6 +684,7 @@
 </header>
 
 <main>
+  <div class="symbol-tabs" id="symbolTabs"></div>
   <div id="list"></div>
   <div class="empty" id="emptyState" style="display:none;">
     <div class="big">···</div>
@@ -810,6 +853,7 @@
     tabFaqBtn.classList.toggle('active', isFaq);
     faqViewEl.style.display = isFaq ? 'block' : 'none';
     mainListEl.style.display = isFaq ? 'none' : '';
+    symbolTabsEl.style.display = isFaq ? 'none' : '';
     if (isFaq) {
       emptyStateEl.style.display = 'none';
     } else {
@@ -821,15 +865,20 @@
   tabFaqBtn.addEventListener('click', () => setView('faq'));
   // ---------------------------------------------------------------------
 
-  const symbolFilterEl = document.getElementById('symbolFilter');
-  symbolFilterEl.addEventListener('change', () => {
-    activeFilter = symbolFilterEl.value;
+  const symbolTabsEl = document.getElementById('symbolTabs');
+  symbolTabsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.symbol-tab-btn');
+    if (!btn) return;
+    activeFilter = btn.dataset.symbol;
     render();
   });
 
   let alerts = [];
   let activeFilter = 'all';
   const expandedIds = new Set();
+  // Tracks which (symbol :: tier) sections are collapsed — e.g. "MES1!::forming" — so the state
+  // survives across render() calls (a new alert arriving, a filter change, etc.), not just clicks.
+  const collapsedTiers = new Set();
 
   // Extracts the ticker from an alert's raw text (its first line, e.g. "MES1! —" -> "MES1!").
   // CBC Wire messages (a separate companion script — see parseCbcWireAlert below) didn't carry a
@@ -1655,14 +1704,14 @@
   }
 
   function render() {
-    // Populate the symbol filter dropdown from whatever tickers have shown up so far, preserving
-    // the current selection (and falling back to "all" if the selected symbol has since rolled off).
+    // Build the symbol tab bar from whatever tickers have shown up so far, preserving the current
+    // selection (and falling back to "all" if the selected symbol has since rolled off).
     const symbols = Array.from(new Set(alerts.map(a => getSymbol(a.raw)).filter(Boolean))).sort();
-    const prevValue = symbolFilterEl.value || activeFilter;
-    symbolFilterEl.innerHTML = '<option value="all">All symbols</option>' +
-      symbols.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-    symbolFilterEl.value = symbols.includes(prevValue) ? prevValue : 'all';
-    activeFilter = symbolFilterEl.value;
+    activeFilter = symbols.includes(activeFilter) ? activeFilter : 'all';
+    const countBySymbol = {};
+    symbols.forEach(s => { countBySymbol[s] = alerts.filter(a => getSymbol(a.raw) === s).length; });
+    symbolTabsEl.innerHTML = `<button class="symbol-tab-btn ${activeFilter === 'all' ? 'active' : ''}" data-symbol="all">All<span class="symbol-tab-count">${alerts.length}</span></button>` +
+      symbols.map(s => `<button class="symbol-tab-btn ${activeFilter === s ? 'active' : ''}" data-symbol="${escapeHtml(s)}">${escapeHtml(s)}<span class="symbol-tab-count">${countBySymbol[s]}</span></button>`).join('');
 
     const bySymbol = activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter);
     const filtered = bySymbol.filter(a => {
@@ -1900,9 +1949,11 @@
         if (!items.length) return '';
         const meta = TIER_META[tier];
         const cardsHtml = items.map(renderCard).join('');
+        const tierKey = `${sym}::${tier}`;
+        const isCollapsed = collapsedTiers.has(tierKey);
         return `<div class="tier-section ${meta.cls}">
-          <div class="tier-label">${meta.label} <span class="tier-count">${items.length}</span></div>
-          ${cardsHtml}
+          <div class="tier-label ${isCollapsed ? 'collapsed' : ''}" data-tier-key="${escapeHtml(tierKey)}"><span class="tier-chevron">▾</span>${meta.label} <span class="tier-count">${items.length}</span></div>
+          <div class="tier-cards ${isCollapsed ? 'collapsed' : ''}">${cardsHtml}</div>
         </div>`;
       }).join('');
       return `<div class="symbol-cockpit">
@@ -1926,6 +1977,21 @@
     if (headline) {
       const lines = decodeURIComponent(headline.dataset.headline).split('\n');
       showDefinitions(lines);
+      return;
+    }
+    const tierLabel = e.target.closest('.tier-label');
+    if (tierLabel) {
+      const key = tierLabel.dataset.tierKey;
+      const cardsEl = tierLabel.nextElementSibling;
+      if (collapsedTiers.has(key)) {
+        collapsedTiers.delete(key);
+        tierLabel.classList.remove('collapsed');
+        cardsEl.classList.remove('collapsed');
+      } else {
+        collapsedTiers.add(key);
+        tierLabel.classList.add('collapsed');
+        cardsEl.classList.add('collapsed');
+      }
       return;
     }
     const header = e.target.closest('[data-toggle]');
