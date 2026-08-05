@@ -280,6 +280,13 @@
     margin-bottom: 6px;
   }
   .tier-count { opacity: 0.75; }
+  .tier-truncated-note {
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 10px 4px 4px;
+    font-style: italic;
+  }
   .tier-actionable .tier-label { background: #341010; color: #e6a3a3; }
   .tier-forming .tier-label { background: #854f0b; color: #faeeda; }
   .tier-context .tier-label { background: #1c2028; color: #7a7d87; }
@@ -560,7 +567,18 @@
     flex-wrap: wrap;
     row-gap: 8px;
   }
-  #symbolFilter {
+  .tier-limit-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tier-limit-label {
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  #tierLimitSelect {
     background: var(--panel);
     border: 1px solid var(--panel-border);
     color: var(--text);
@@ -570,7 +588,7 @@
     border-radius: 6px;
     cursor: pointer;
   }
-  #symbolFilter:focus { outline: 1px solid var(--accent); }
+  #tierLimitSelect:focus { outline: 1px solid var(--accent); }
   .type-filter-wrap { position: relative; }
   #typeFilterBtn {
     background: var(--panel);
@@ -678,6 +696,16 @@
     </div>
     <button id="colorToggleBtn">Colors: On</button>
     <button id="entryZoneToggleBtn">Entry Zone: Off</button>
+    <div class="tier-limit-wrap">
+      <label for="tierLimitSelect" class="tier-limit-label">Show per tier</label>
+      <select id="tierLimitSelect">
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="all">All</option>
+      </select>
+    </div>
     <button id="downloadBtn">Download</button>
     <button id="clearBtn">Clear all</button>
   </div>
@@ -879,6 +907,18 @@
   // Tracks which (symbol :: tier) sections are collapsed — e.g. "MES1!::forming" — so the state
   // survives across render() calls (a new alert arriving, a filter change, etc.), not just clicks.
   const collapsedTiers = new Set();
+  // Every (symbol :: tier) key defaults to collapsed the FIRST time it's ever rendered — tracked
+  // here so a manual expand isn't immediately re-collapsed on the next render() call (e.g. a new
+  // alert arriving). Once a key has been seen once, its state is entirely up to collapsedTiers.
+  const seenTierKeys = new Set();
+  // Caps how many cards render inside an EXPANDED tier (Actionable/Forming/Context all share this
+  // one setting) — the tier's count badge always shows the true total regardless of this cap.
+  const tierLimitEl = document.getElementById('tierLimitSelect');
+  tierLimitEl.value = localStorage.getItem('tierLimit') || '25';
+  tierLimitEl.addEventListener('change', () => {
+    localStorage.setItem('tierLimit', tierLimitEl.value);
+    render();
+  });
 
   // Extracts the ticker from an alert's raw text (its first line, e.g. "MES1! —" -> "MES1!").
   // CBC Wire messages (a separate companion script — see parseCbcWireAlert below) didn't carry a
@@ -1942,18 +1982,30 @@
       forming: { label: 'Forming', cls: 'tier-forming' },
       context: { label: 'Context', cls: 'tier-context' },
     };
+    const tierLimitRaw = tierLimitEl.value;
+    const tierLimit = tierLimitRaw === 'all' ? Infinity : parseInt(tierLimitRaw, 10);
     listEl.innerHTML = symbolOrder.map(sym => {
       const g = bySymbolGroups.get(sym);
       const tiersHtml = ['actionable', 'forming', 'context'].map(tier => {
         const items = g[tier];
         if (!items.length) return '';
         const meta = TIER_META[tier];
-        const cardsHtml = items.map(renderCard).join('');
+        // Items are already newest-first (alerts arrive via unshift), so slicing the first N here
+        // keeps the most recent ones — the count badge below still shows the TRUE total, uncapped.
+        const shownItems = items.slice(0, tierLimit);
+        const cardsHtml = shownItems.map(renderCard).join('');
+        const truncatedNote = shownItems.length < items.length
+          ? `<div class="tier-truncated-note">Showing ${shownItems.length} of ${items.length} — raise "Show per tier" above to see more.</div>`
+          : '';
         const tierKey = `${sym}::${tier}`;
+        if (!seenTierKeys.has(tierKey)) {
+          seenTierKeys.add(tierKey);
+          collapsedTiers.add(tierKey); // default: collapsed until the user opens it
+        }
         const isCollapsed = collapsedTiers.has(tierKey);
         return `<div class="tier-section ${meta.cls}">
           <div class="tier-label ${isCollapsed ? 'collapsed' : ''}" data-tier-key="${escapeHtml(tierKey)}"><span class="tier-chevron">▾</span>${meta.label} <span class="tier-count">${items.length}</span></div>
-          <div class="tier-cards ${isCollapsed ? 'collapsed' : ''}">${cardsHtml}</div>
+          <div class="tier-cards ${isCollapsed ? 'collapsed' : ''}">${cardsHtml}${truncatedNote}</div>
         </div>`;
       }).join('');
       return `<div class="symbol-cockpit">
