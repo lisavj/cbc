@@ -706,6 +706,14 @@
         <option value="all">All</option>
       </select>
     </div>
+    <div class="tier-limit-wrap">
+      <label for="formingWindowSelect" class="tier-limit-label">Forming window (min)</label>
+      <select id="formingWindowSelect">
+        <option value="3">3</option>
+        <option value="5" selected>5</option>
+        <option value="7">7</option>
+      </select>
+    </div>
     <button id="downloadBtn">Download</button>
     <button id="clearBtn">Clear all</button>
   </div>
@@ -917,6 +925,16 @@
   tierLimitEl.value = localStorage.getItem('tierLimit') || '25';
   tierLimitEl.addEventListener('change', () => {
     localStorage.setItem('tierLimit', tierLimitEl.value);
+    render();
+  });
+
+  // "Forming" alerts (an early/unconfirmed still-open-candle flip) only actually display once the
+  // candle they're about has reached its final N minutes — e.g. a 15m candle with a 5-minute window
+  // only shows the Forming alert from :10-:15, not from :00-:10. See classifyTier's use of this below.
+  const formingWindowEl = document.getElementById('formingWindowSelect');
+  formingWindowEl.value = localStorage.getItem('formingWindow') || '5';
+  formingWindowEl.addEventListener('change', () => {
+    localStorage.setItem('formingWindow', formingWindowEl.value);
     render();
   });
 
@@ -1165,6 +1183,16 @@
       test: (l) => /VWAP Bounce/i.test(l),
       title: 'VWAP Bounce - High R:R (Long/Short)',
       def: 'Fires once when a CBC flip happens right at VWAP while price is clear of the nearest major support/resistance level (Pivot Points PP/R1/R2/R3/S1/S2/S3, or the current session\'s ORB high/low) by at least a minimum distance — nothing structural nearby to cap the move, so reward is high relative to risk. Minimum distance is auto by symbol root (MES/MGC=6, M2K=4, MNQ=60, other=6), overridable in Settings.'
+    },
+    {
+      test: (l) => /LTF EMA20 Touch/i.test(l),
+      title: 'EMA20 Touch - Pullback Entry (LTF)',
+      def: 'Fires when price touches the chart\'s own (LTF) EMA20 on a REGRESSIVE candle — moving down into the touch during a confirmed uptrend, or up into it during a confirmed downtrend — i.e. CBC confirms the trend continuing, not the regression itself.'
+    },
+    {
+      test: (l) => /HTF EMA20 Touch/i.test(l),
+      title: 'EMA20 Touch - Pullback Entry (HTF)',
+      def: 'Same idea as the LTF version, but checked against the HTF\'s own EMA20 and confirmed by the HTF\'s own CBC direction instead of the chart timeframe\'s.'
     },
     {
       test: (l) => /ORB Retest Fail/i.test(l),
@@ -1495,6 +1523,16 @@
         return [`${m[1]}m ${emaZonePhaseShort(m[2])}`, emaZonePhaseClass(m[2])];
       });
 
+    // Zone-entries-since-flip badges — "EMA9/20 (N) zone entries since flip" rows, where N is
+    // whatever the actual LTF/HTF timeframe is (not fixed to 3/15 — scans for any number), compacted
+    // to "ENTRY(3)-4" style. Neutral gray since a raw entry count isn't inherently bull or bear.
+    const zoneEntries = rows
+      .filter(([k]) => /^EMA9\/20 \(\d+\) zone entries since flip$/.test(k))
+      .map(([k, v]) => {
+        const m = k.match(/^EMA9\/20 \((\d+)\) zone entries since flip$/);
+        return [`ENTRY(${m[1]})-${v}`, 'badge-neutral', null, `EMA9/20 zone entries since the last flip, ${m[1]} timeframe`];
+      });
+
     // VWAP / EMA 200 badges — same color rule the field-body table already uses for these rows
     // (classifyRow: value starting with "Above" -> green, "Below" -> red). Numeric offset appended
     // since "VWAP BELOW" alone doesn't say how far below.
@@ -1511,10 +1549,28 @@
     const htfStopPrice = htfStopVal ? (htfStopVal.match(/^([\d.]+)/) || [])[1] : null;
     const htfSl = htfStopPrice ? [[`HTF SL ${htfStopPrice}`, 'badge-sl']] : [];
 
+    // Pivot R1/PP/S1 preview badges — these used to only be visible after expanding the card into
+    // the Context detail table ("Pivot R1: 7824.75" etc.); surfaced here as compact badges too, with
+    // a hover tooltip spelling out what each one is, since "R1"/"PP"/"S1" alone isn't self-explanatory.
+    const pivR1 = get('Pivot R1');
+    const pivPP = get('Pivot PP');
+    const pivS1 = get('Pivot S1');
+    const pivot = [
+      pivR1 ? [`R1 ${pivR1}`, 'badge-bear', null, 'Daily Pivot R1 (first resistance level)'] : null,
+      pivPP ? [`PP ${pivPP}`, 'badge-neutral', null, 'Daily Pivot Point (the base level R1/S1 etc. are calculated from)'] : null,
+      pivS1 ? [`S1 ${pivS1}`, 'badge-bull', null, 'Daily Pivot S1 (first support level)'] : null,
+    ].filter(Boolean);
+
     // Price badge — the current bar's close, always shown first (orange) so it's visible at a
     // glance without expanding the card, same value as the "Price" row in the field-body table.
     const priceVal = get('Price');
     const price = priceVal ? [[priceVal, 'badge-price']] : [];
+
+    // Candle time-range badge — surfaces the "Time" context row (e.g. "8/5 16:45-16:48 ET", the
+    // start-end of the candle this alert refers to) in the preview too, instead of only appearing
+    // after expanding into Context.
+    const timeVal = get('Time');
+    const time = timeVal ? [[timeVal, 'badge-neutral', null, 'The candle this alert refers to (start-end, exchange time)']] : [];
 
     // Last-flip badges — "CBC (3m) last flip" etc. moved out of the field-body table entirely
     // (now badge-only) since 3 full rows of "LONG 8/1 08:45 ET #2" style text was a lot of space
@@ -1532,8 +1588,8 @@
       (lastFlipBadge('60', 'CBC (1H) last flip') || lastFlipBadge('60', 'CBC (60) last flip')),
     ].filter(Boolean);
 
-    const groups = [price, cbc, st, ema, emazone, entry, or, vwap, ema200, lastFlip, htfSl].filter(g => g.length);
-    const groupsHtml = groups.map(g => g.map(([label, cls, ring]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}">${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
+    const groups = [price, time, cbc, st, ema, emazone, zoneEntries, entry, or, vwap, ema200, lastFlip, htfSl, pivot].filter(g => g.length);
+    const groupsHtml = groups.map(g => g.map(([label, cls, ring, title]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}"${title ? ` title="${escapeHtml(title)}"` : ''}>${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
     return `<div class="badge-row">${statusBadge}${statusBadge && groupsHtml ? '<span class="badge-divider">|</span>' : ''}${groupsHtml}</div>`;
@@ -1954,9 +2010,46 @@
       'LTF + HTF Agreement - Early (unconfirmed HTF)', 'HTF CBC Flip - Early (unconfirmed, still forming)',
       'LTF CBC Flip - Early (unconfirmed, mid-candle)', 'ORB Retest Fail (Long/Short)',
     ]);
-    function classifyTier(headlineLines) {
+    // Only these three types are genuinely about a still-open/in-progress candle — "ORB Retest Fail"
+    // describes a completed pattern, not an in-progress one, so it's exempt from the window check below.
+    const FORMING_CANDLE_TITLES = new Set([
+      'LTF + HTF Agreement - Early (unconfirmed HTF)', 'HTF CBC Flip - Early (unconfirmed, still forming)',
+      'LTF CBC Flip - Early (unconfirmed, mid-candle)',
+    ]);
+    // Pulls the relevant still-forming candle's timeframe (in minutes) out of the alert text — prefers
+    // HTF(N) when this is an HTF-side early alert, otherwise LTF(N). Returns null if neither is found.
+    function extractFormingPeriodMinutes(line) {
+      const isHtfEarly = /HTF/i.test(line);
+      const htfMatch = line.match(/HTF\((\d+)\)/i);
+      const ltfMatch = line.match(/LTF\((\d+)\)/i);
+      if (isHtfEarly && htfMatch) return parseInt(htfMatch[1], 10);
+      if (ltfMatch) return parseInt(ltfMatch[1], 10);
+      if (htfMatch) return parseInt(htfMatch[1], 10);
+      return null;
+    }
+    // True once the alert's own timestamp falls within the last `windowMin` minutes of its candle.
+    // Uses the browser's local minute-of-hour, which matches the exchange's minute-of-hour for any
+    // standard timeframe (3/5/15/60m etc.) regardless of timezone, since UTC-vs-exchange offsets are
+    // always whole hours — only the hour differs, never the minute, so no timezone conversion needed.
+    function isInFormingWindow(receivedAt, periodMin, windowMin) {
+      if (!periodMin) return true; // couldn't parse a period — don't hide it, fail open
+      const d = new Date(receivedAt);
+      const secondsIntoHour = d.getMinutes() * 60 + d.getSeconds();
+      const secondsIntoPeriod = secondsIntoHour % (periodMin * 60);
+      const secondsRemaining = periodMin * 60 - secondsIntoPeriod;
+      return secondsRemaining <= windowMin * 60;
+    }
+    function classifyTier(headlineLines, receivedAt) {
       const types = getAlertTypeTitles(headlineLines);
       if (types.some(t => ACTIONABLE_TITLES.has(t))) return 'actionable';
+      const formingCandleType = types.find(t => FORMING_CANDLE_TITLES.has(t));
+      if (formingCandleType) {
+        const line = headlineLines.find(l => getDefinitionsForHeadline([l]).some(d => d.title === formingCandleType)) || headlineLines.join(' ');
+        const periodMin = extractFormingPeriodMinutes(line);
+        const windowMin = parseInt(formingWindowEl.value, 10);
+        if (!isInFormingWindow(receivedAt, periodMin, windowMin)) return 'hidden';
+        return 'forming';
+      }
       if (types.some(t => FORMING_TITLES.has(t))) return 'forming';
       return 'context';
     }
@@ -1968,7 +2061,11 @@
       if (!bySymbolGroups.has(sym)) bySymbolGroups.set(sym, { actionable: [], forming: [], context: [] });
       const lines = (a.raw || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
-      bySymbolGroups.get(sym)[classifyTier(headlineLines)].push(a);
+      const tier = classifyTier(headlineLines, a.receivedAt);
+      // 'hidden': a still-forming-candle alert outside its configured "Forming window" — per request,
+      // these simply don't display at all (not even under Context) until the candle nears its close.
+      if (tier === 'hidden') return;
+      bySymbolGroups.get(sym)[tier].push(a);
     });
     // Symbols ordered by most recent activity (their newest alert's timestamp), matching the
     // existing "most recent first" expectation from the old flat chronological feed.
