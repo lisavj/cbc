@@ -379,6 +379,8 @@
   .type-pill.pill-agreement-short,
   .type-pill.pill-emazone-short { background: #a32d2d; color: #fcebeb; }
   .type-pill.pill-aplus { background: #185fa5; color: #e6f1fb; }
+  .type-pill.pill-luxalgo-bull { background: #2d6b4f; color: #dff3e8; border: 1px solid #6d4fa3; }
+  .type-pill.pill-luxalgo-bear { background: #6b2d3d; color: #f3dfe4; border: 1px solid #6d4fa3; }
   .type-pill.pill-neutral { background: #444441; color: #d3d1c7; }
   .type-pill.pill-orbfail { background: #a32d2d; color: #fcebeb; }
 
@@ -696,6 +698,7 @@
     </div>
     <button id="colorToggleBtn">Colors: On</button>
     <button id="entryZoneToggleBtn">Entry Zone: Off</button>
+    <button id="chronoToggleBtn">View: Tiered</button>
     <div class="tier-limit-wrap">
       <label for="tierLimitSelect" class="tier-limit-label">Show per tier</label>
       <select id="tierLimitSelect">
@@ -772,6 +775,19 @@
     showEntryZone = !showEntryZone;
     localStorage.setItem('showEntryZone', String(showEntryZone));
     entryZoneToggleBtn.textContent = showEntryZone ? 'Entry Zone: On' : 'Entry Zone: Off';
+    render();
+  });
+  // Chronological view: per symbol, show every filtered alert as one flat time-ordered list instead
+  // of grouping into the Actionable/Forming/Context accordion. Skips tier classification entirely —
+  // including the Forming-window hide logic, which only applies within that classification — so
+  // nothing is hidden here beyond the Alert Types filter itself.
+  const chronoToggleBtn = document.getElementById('chronoToggleBtn');
+  let chronoView = localStorage.getItem('chronoView') === 'true'; // default false (Tiered)
+  chronoToggleBtn.textContent = chronoView ? 'View: Chronological' : 'View: Tiered';
+  chronoToggleBtn.addEventListener('click', () => {
+    chronoView = !chronoView;
+    localStorage.setItem('chronoView', String(chronoView));
+    chronoToggleBtn.textContent = chronoView ? 'View: Chronological' : 'View: Tiered';
     render();
   });
   // ---------------------------------------------------------------------
@@ -1180,6 +1196,16 @@
       def: 'Fires once when: (1) confirmed HTF CBC direction, (2) chart-timeframe EMA cloud, and (3) HTF EMA cloud all align in the same direction, (4) price is already CONFIRMED on the trade\'s side of VWAP (above VWAP for Long, below VWAP for Short), AND (5) price is still ANTICIPATORY on the Opening Range — hasn\'t broken the ORB high (Long) / ORB low (Short) yet, i.e. before that breakout confirms.'
     },
     {
+      // LuxAlgo Price Action Concepts (a separate third-party indicator on the same webhook) —
+      // "Internal Bearish BOS formed" / "Swing Bullish CHOCH formed" style one-line messages, no
+      // "Market:"/bullet structure like the script's own alerts. Based on one confirmed real sample
+      // ("Internal Bearish BOS formed"); if OB Created/Mitigated/Breaker/Equal Highs/Lows messages
+      // turn out to be worded differently, send a sample of one and this can be extended to match.
+      test: (l) => /(Internal|Swing)\s+(Bullish|Bearish)\s+(BOS|CHOCH\+?)\s+formed/i.test(l),
+      title: 'LuxAlgo Price Action - BOS/CHOCH (Bullish/Bearish)',
+      def: 'From the separate LuxAlgo Price Action Concepts indicator, not this script — a Break of Structure (BOS) or Change of Character (CHOCH) forming, either on Internal (minor) or Swing (major) structure.'
+    },
+    {
       test: (l) => /VWAP Bounce/i.test(l),
       title: 'VWAP Bounce - High R:R (Long/Short)',
       def: 'Fires once when a CBC flip happens right at VWAP while price is clear of the nearest major support/resistance level (Pivot Points PP/R1/R2/R3/S1/S2/S3, or the current session\'s ORB high/low) by at least a minimum distance — nothing structural nearby to cap the move, so reward is high relative to risk. Minimum distance is auto by symbol root (MES/MGC=6, M2K=4, MNQ=60, other=6), overridable in Settings.'
@@ -1193,6 +1219,11 @@
       test: (l) => /HTF EMA20 Touch/i.test(l),
       title: 'EMA20 Touch - Pullback Entry (HTF)',
       def: 'Same idea as the LTF version, but checked against the HTF\'s own EMA20 and confirmed by the HTF\'s own CBC direction instead of the chart timeframe\'s.'
+    },
+    {
+      test: (l) => /HTF Pullback Entry - Structure Confirmed/i.test(l),
+      title: 'HTF Pullback Entry - Structure Confirmed (Long/Short)',
+      def: 'Fires once when ALL of: (1) HTF CBC flipped within a recent-bars window, (2) price pulled back INTO the HTF\'s own EMA9/20 zone, and (3) HTF market structure confirms — HH/HL for Long, LH/LL for Short. Message includes a risk reference (the prior HTF candle\'s low for Long, high for Short).'
     },
     {
       test: (l) => /ORB Retest Fail/i.test(l),
@@ -1275,8 +1306,18 @@
     },
   ];
 
-  function getDefinitionsForHeadline(headlineLines) {
+  // Most of our own alerts have "• " bulleted signal lines with line 0 just being the ticker/date
+  // header. But a non-bulleted alert (e.g. LuxAlgo's plain one-line "Internal Bearish BOS formed",
+  // with no bullet at all) would have ZERO bullet lines — filtering to bulletLines alone would
+  // silently make every classifier below treat it as having no content. This falls back to treating
+  // line 0 as "the line" only when there are truly no bullets, so bulleted alerts are unaffected.
+  function getEffectiveLines(headlineLines) {
     const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    return bulletLines.length ? bulletLines : headlineLines;
+  }
+
+  function getDefinitionsForHeadline(headlineLines) {
+    const bulletLines = getEffectiveLines(headlineLines);
     const seen = new Set();
     const results = [];
     bulletLines.forEach(line => {
@@ -1321,7 +1362,7 @@
   // (long=green, short=red) rather than by confirmation state — the CONFIRMED/UNCONFIRMED oval in
   // the badge row already covers confirmation, so this pill is purely "which way."
   function classifyTypePill(headlineLines) {
-    const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    const bulletLines = getEffectiveLines(headlineLines);
     if (!bulletLines.length) return null;
     const joined = bulletLines.join(' ');
     // Direction is read off the SPECIFIC bullet line for this type, not the whole merged alert —
@@ -1334,6 +1375,10 @@
 
     if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
     if (/VWAP Bounce/i.test(joined)) return { label: 'VWAP BOUNCE', cls: 'pill-aplus' };
+    if (/(Internal|Swing)\s+(Bullish|Bearish)\s+(BOS|CHOCH\+?)\s+formed/i.test(joined)) {
+      const isBear = /Bearish/i.test(joined);
+      return { label: 'LUXALGO', cls: isBear ? 'pill-luxalgo-bear' : 'pill-luxalgo-bull' };
+    }
 
     // Level Proximity Alerts: unlike every other pill, the label itself is DYNAMIC — it shows
     // whichever specific level fired (e.g. "EMA 200", "VWAP", "BILL BRK 2900", "YDH"), not a fixed
@@ -2004,7 +2049,7 @@
     const ACTIONABLE_TITLES = new Set([
       'A+ Setup (Long/Short)', 'ORB Retest / Break & Base (Long/Short)', 'Outside HTF ORB (Bullish/Bearish)',
       'Price Enters HTF EMA9/20 Zone - Entry', 'LTF + HTF Agreement (Long/Short)', 'HTF CBC Flip (Long/Short)',
-      'LTF CBC Flip (Long/Short)',
+      'LTF CBC Flip (Long/Short)', 'LuxAlgo Price Action - BOS/CHOCH (Bullish/Bearish)',
     ]);
     const FORMING_TITLES = new Set([
       'LTF + HTF Agreement - Early (unconfirmed HTF)', 'HTF CBC Flip - Early (unconfirmed, still forming)',
@@ -2054,6 +2099,38 @@
       return 'context';
     }
 
+    const tierLimitRaw = tierLimitEl.value;
+    const tierLimit = tierLimitRaw === 'all' ? Infinity : parseInt(tierLimitRaw, 10);
+
+    if (chronoView) {
+      // Chronological view: group by symbol only, no tier classification (and therefore no
+      // Forming-window hiding either, since that logic lives inside classifyTier) — just every
+      // alert that passed the Alert Types filter, newest first.
+      const bySymbolFlat = new Map();
+      filtered.forEach(a => {
+        const sym = getSymbol(a.raw);
+        if (!bySymbolFlat.has(sym)) bySymbolFlat.set(sym, []);
+        bySymbolFlat.get(sym).push(a);
+      });
+      const flatSymbolOrder = Array.from(bySymbolFlat.keys()).sort((s1, s2) => {
+        const t = sym => Math.max(...bySymbolFlat.get(sym).map(a => a.receivedAt), 0);
+        return t(s2) - t(s1);
+      });
+      listEl.innerHTML = flatSymbolOrder.map(sym => {
+        const items = bySymbolFlat.get(sym);
+        const shownItems = items.slice(0, tierLimit);
+        const cardsHtml = shownItems.map(renderCard).join('');
+        const truncatedNote = shownItems.length < items.length
+          ? `<div class="tier-truncated-note">Showing ${shownItems.length} of ${items.length} — raise "Show per tier" above to see more.</div>`
+          : '';
+        return `<div class="symbol-cockpit">
+          <div class="symbol-cockpit-header">${escapeHtml(sym || 'Unknown')} <span class="tier-count">${items.length}</span></div>
+          <div class="tier-cards">${cardsHtml}${truncatedNote}</div>
+        </div>`;
+      }).join('');
+      return;
+    }
+
     // Group by symbol (cockpit), then bucket each symbol's alerts into the 3 tiers above.
     const bySymbolGroups = new Map();
     filtered.forEach(a => {
@@ -2079,8 +2156,6 @@
       forming: { label: 'Forming', cls: 'tier-forming' },
       context: { label: 'Context', cls: 'tier-context' },
     };
-    const tierLimitRaw = tierLimitEl.value;
-    const tierLimit = tierLimitRaw === 'all' ? Infinity : parseInt(tierLimitRaw, 10);
     listEl.innerHTML = symbolOrder.map(sym => {
       const g = bySymbolGroups.get(sym);
       const tiersHtml = ['actionable', 'forming', 'context'].map(tier => {
