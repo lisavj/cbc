@@ -962,6 +962,12 @@
     const wireAlert = parseCbcWireAlert(raw);
     if (wireAlert) return wireAlert.symbol || 'CBC Wire';
     const firstLine = (raw || '').split('\n')[0] || '';
+    // "TICKER — rest of message" on ONE line (this script's own alerts have nothing after the dash,
+    // but a third-party alert can legitimately have the ticker and the signal on the same line) —
+    // extract just the ticker part, not the whole line, or every uniquely-worded message would
+    // create its own bogus one-off "symbol" instead of grouping under the real ticker.
+    const tickerMatch = firstLine.match(/^([^\s—]+)\s*—/);
+    if (tickerMatch) return tickerMatch[1].trim();
     return firstLine.replace(/[—\s]+$/, '').trim();
   }
 
@@ -1523,6 +1529,14 @@
       ['EMA60', bullBearClass(getMtf(get, 'EMA cloud'))],
     ].filter(([, cls]) => cls);
 
+    // EMA9/20 Cross badge — this is a bullet-line SIGNAL ("EMA9/20 Cross: Bullish (crossed above)"),
+    // not a "Key: Value" context field, so it's detected from headlineLines directly rather than via
+    // get(). Colored bull/bear to match the pill and inline-text highlighting already applied to it.
+    const ema920CrossLine = headlineLines.find(l => /EMA9\/20 Cross/i.test(l));
+    const ema920Cross = ema920CrossLine
+      ? [[/\bBearish\b/i.test(ema920CrossLine) ? 'EMA9/20✕ Bear' : 'EMA9/20✕ Bull', /\bBearish\b/i.test(ema920CrossLine) ? 'badge-bear' : 'badge-bull']]
+      : [];
+
     // ENTRY badge: flags that this alert carries a "look for entry" moment — an Entry Zone
     // (either naming), a suggested Entry price, or a Suggested stop. Colored by the zone's
     // LONG/SHORT direction when available (the newer "Entry Zone" naming carries it); falls back
@@ -1633,7 +1647,7 @@
       (lastFlipBadge('60', 'CBC (1H) last flip') || lastFlipBadge('60', 'CBC (60) last flip')),
     ].filter(Boolean);
 
-    const groups = [price, time, cbc, st, ema, emazone, zoneEntries, entry, or, vwap, ema200, lastFlip, htfSl, pivot].filter(g => g.length);
+    const groups = [price, time, cbc, st, ema, ema920Cross, emazone, zoneEntries, entry, or, vwap, ema200, lastFlip, htfSl, pivot].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls, ring, title]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}"${title ? ` title="${escapeHtml(title)}"` : ''}>${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
