@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Alert Feed</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230b0e14'/%3E%3Cpath d='M55 15 L30 55 L48 55 L42 85 L72 45 L52 45 Z' fill='%23f5a623'/%3E%3C/svg%3E" />
 <style>
   :root {
     --bg: #0b0e14;
@@ -86,6 +87,119 @@
   }
   .actions button:hover { color: var(--text); border-color: var(--muted); }
 
+  .view-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 2px;
+  }
+  .view-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .view-tab-btn:hover { color: var(--text); }
+  .view-tab-btn.active {
+    background: var(--accent);
+    color: #1a1400;
+    font-weight: 600;
+  }
+
+  .symbol-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .symbol-tab-btn {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .symbol-tab-btn:hover { color: var(--text); border-color: var(--muted); }
+  .symbol-tab-btn.active {
+    background: var(--accent);
+    color: #1a1400;
+    border-color: var(--accent);
+  }
+  .symbol-tab-count {
+    margin-left: 7px;
+    opacity: 0.65;
+    font-weight: 400;
+  }
+  .symbol-tab-btn.active .symbol-tab-count { opacity: 0.75; }
+
+  .tier-label {
+    cursor: pointer;
+    user-select: none;
+  }
+  .tier-label:hover { opacity: 0.85; }
+  .tier-chevron {
+    display: inline-block;
+    margin-right: 6px;
+    transition: transform 0.15s ease;
+    font-size: 10px;
+  }
+  .tier-cards.collapsed { display: none; }
+  .tier-label.collapsed .tier-chevron { transform: rotate(-90deg); }
+
+  .faq-toolbar { margin-bottom: 16px; }
+  #faqSearch {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 8px;
+  }
+  #faqSearch:focus { outline: none; border-color: var(--accent); }
+  .faq-item {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+  }
+  .faq-q {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 14px;
+    margin: 0 0 10px 0;
+  }
+  .faq-a {
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .faq-a p { margin: 0 0 10px 0; }
+  .faq-a ul { margin: 4px 0 10px 20px; padding: 0; }
+  .faq-a li { margin-bottom: 4px; }
+  .faq-a strong { color: var(--text); }
+  .faq-a .faq-rule {
+    background: rgba(245, 166, 35, 0.08);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin-top: 12px;
+  }
+  .faq-empty { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+
   main {
     max-width: 880px;
     margin: 0 auto;
@@ -108,6 +222,12 @@
     margin-bottom: 14px;
     animation: slidein 0.25s ease-out;
   }
+  /* Status border colors: A+ Setup alerts get blue, confirmed alerts get green, and
+     early/unconfirmed alerts get yellow — matches how these are eyeballed on the chart. */
+  .card.status-aplus { border: 2px solid #22d3ee; }
+  .card.status-confirmed { border: 2px solid #22c55e; }
+  .card.status-unconfirmed { border: 2px solid #fde047; }
+  .card.status-fail { border: 2px solid #ef4444; }
   @keyframes slidein {
     from { opacity: 0; transform: translateY(-6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -137,6 +257,39 @@
     flex-shrink: 0;
   }
   .card.expanded .chevron { transform: rotate(90deg); color: var(--accent); }
+  .symbol-cockpit { margin-bottom: 20px; }
+  .symbol-cockpit-header {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    padding: 6px 4px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .tier-section { margin-bottom: 10px; }
+  .tier-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .tier-count { opacity: 0.75; }
+  .tier-truncated-note {
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 10px 4px 4px;
+    font-style: italic;
+  }
+  .tier-actionable .tier-label { background: #341010; color: #e6a3a3; }
+  .tier-forming .tier-label { background: #854f0b; color: #faeeda; }
+  .tier-context .tier-label { background: #1c2028; color: #7a7d87; }
   .card-summary {
     font-family: var(--mono);
     font-size: 12px;
@@ -144,6 +297,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1 1 auto;
   }
   .card-time {
     font-family: var(--mono);
@@ -204,7 +359,67 @@
   }
   .info-icon:hover { background: rgba(245,166,35,0.45); }
   .hl-bull { color: #4ade80; font-weight: 700; }
+  .hl-white { color: #ffffff; font-weight: 700; }
   .hl-bear { color: #f87171; font-weight: 700; }
+
+  /* Type pill (FLIP / AGREEMENT / EMA ZONE / A+) sits inline in the headline row, next to the info icon. */
+  .type-pill {
+    flex-shrink: 0;
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+  .type-pill.pill-flip-long,
+  .type-pill.pill-agreement-long,
+  .type-pill.pill-emazone-long,
+  .type-pill.pill-orbsuccess { background: #3b6d11; color: #eaf3de; }
+  .type-pill.pill-flip-short,
+  .type-pill.pill-agreement-short,
+  .type-pill.pill-emazone-short { background: #a32d2d; color: #fcebeb; }
+  .type-pill.pill-aplus { background: #185fa5; color: #e6f1fb; }
+  .type-pill.pill-luxalgo-bull { background: #2d6b4f; color: #dff3e8; border: 1px solid #6d4fa3; }
+  .type-pill.pill-luxalgo-bear { background: #6b2d3d; color: #f3dfe4; border: 1px solid #6d4fa3; }
+  .type-pill.pill-neutral { background: #444441; color: #d3d1c7; }
+  .type-pill.pill-orbfail { background: #a32d2d; color: #fcebeb; }
+
+  /* Single-line badge strip: CONFIRMED/UNCONFIRMED, then CBC3/15/60, then ST3/15/60, then EMA3/15/60 —
+     always visible (even collapsed), unlike .card-headline/.field-body below which stay expand-only. */
+  .badge-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .badge-row .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+  .badge-row .badge-divider {
+    color: var(--panel-border);
+    font-size: 11px;
+  }
+  .badge.badge-confirmed { background: #3b6d11; color: #eaf3de; }
+  .badge.badge-price { background: #ffffff; color: #000000; }
+  .badge.badge-sl { background: #14532d; color: #dcfce7; }
+  .badge.badge-unconfirmed { background: #854f0b; color: #faeeda; }
+  .badge.badge-bull { background: #3b6d11; color: #F1F5F9; }
+  .badge.badge-bear { background: #a32d2d; color: #F1F5F9; }
+  .badge.badge-neutral { background: #444441; color: #d3d1c7; }
+  /* Ring around a CBC badge whose LIVE/still-forming reading has diverged from the last CONFIRMED
+     reading — i.e. it's mid-flip. Ring color is the LIVE direction, independent of the badge's own
+     fill (which stays the CONFIRMED direction) — e.g. a red CBC15 badge with a green ring means
+     "last confirmed bar was Bearish, but the live/still-forming bar is already reading Bullish". */
+  .badge.badge-ring-bull { box-shadow: 0 0 0 2px #4ade80; }
+  .badge.badge-ring-bear { box-shadow: 0 0 0 2px #f87171; }
 
   /* Colors-off ("plain mode"): neutralizes every colored row/badge/highlight in the app. */
   body.plain-mode .field.bull,
@@ -225,6 +440,18 @@
   body.plain-mode .hl-bear {
     color: inherit !important;
     font-weight: inherit !important;
+  }
+  body.plain-mode .badge,
+  body.plain-mode .type-pill {
+    background: #262b33 !important;
+    color: var(--text) !important;
+    box-shadow: none !important;
+  }
+  body.plain-mode .card.status-aplus,
+  body.plain-mode .card.status-confirmed,
+  body.plain-mode .card.status-unconfirmed,
+  body.plain-mode .card.status-fail {
+    border-color: var(--panel-border) !important;
   }
 
   .modal-overlay {
@@ -278,6 +505,16 @@
     font-size: 12.5px;
   }
   .modal-close:hover { color: var(--text); border-color: var(--muted); }
+  .section-label {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 12px 4px;
+    background: var(--panel);
+  }
   .row-group {
     display: flex;
     flex-wrap: wrap;
@@ -320,6 +557,7 @@
   @media (max-width: 560px) {
     main { padding: 12px; }
     .card-top { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .card-top-left { width: 100%; }
     .card-summary { max-width: 100%; }
     .field { min-width: 78px; font-size: 11.5px; padding: 6px 9px; }
     .field .k { font-size: 9.5px; }
@@ -329,8 +567,21 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
-  #symbolFilter {
+  .tier-limit-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tier-limit-label {
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  #tierLimitSelect {
     background: var(--panel);
     border: 1px solid var(--panel-border);
     color: var(--text);
@@ -340,7 +591,7 @@
     border-radius: 6px;
     cursor: pointer;
   }
-  #symbolFilter:focus { outline: 1px solid var(--accent); }
+  #tierLimitSelect:focus { outline: 1px solid var(--accent); }
   .type-filter-wrap { position: relative; }
   #typeFilterBtn {
     background: var(--panel);
@@ -383,6 +634,12 @@
     cursor: pointer;
   }
   .type-filter-row input { flex-shrink: 0; }
+  .type-filter-master { font-weight: 600; border-top: 1px solid var(--panel-border); margin-top: 4px; padding-top: 8px; }
+  .type-filter-indent { padding-left: 18px; font-size: 11.5px; color: var(--muted); }
+  .type-filter-divider {
+    border-top: 1px solid var(--panel-border);
+    margin: 6px 0;
+  }
   .type-filter-actions {
     display: flex;
     justify-content: space-between;
@@ -434,25 +691,59 @@
     <a href="https://www.financialjuice.com/home" target="_blank" rel="noopener">News</a>
   </div>
   <div class="actions">
-    <select id="symbolFilter">
-      <option value="all">All symbols</option>
-    </select>
+    <div class="view-tabs" id="viewTabs">
+      <button class="view-tab-btn active" id="tabAlertsBtn" data-view="alerts">Alerts</button>
+      <button class="view-tab-btn" id="tabFaqBtn" data-view="faq">FAQ</button>
+    </div>
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
       <div class="type-filter-panel" id="typeFilterPanel"></div>
     </div>
     <button id="colorToggleBtn">Colors: On</button>
+    <button id="entryZoneToggleBtn">Entry Zone: Off</button>
+    <button id="chronoToggleBtn">View: Tiered</button>
+    <button id="voiceToggleBtn">Voice: Off</button>
+    <div class="type-filter-wrap">
+      <button id="voiceFilterBtn">Voice Categories ▾</button>
+      <div class="type-filter-panel" id="voiceFilterPanel"></div>
+    </div>
+    <div class="tier-limit-wrap">
+      <label for="tierLimitSelect" class="tier-limit-label">Show per tier</label>
+      <select id="tierLimitSelect">
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="all">All</option>
+      </select>
+    </div>
+    <div class="tier-limit-wrap">
+      <label for="formingWindowSelect" class="tier-limit-label">Forming window (min)</label>
+      <select id="formingWindowSelect">
+        <option value="3">3</option>
+        <option value="5" selected>5</option>
+        <option value="7">7</option>
+      </select>
+    </div>
     <button id="downloadBtn">Download</button>
     <button id="clearBtn">Clear all</button>
   </div>
 </header>
 
 <main>
+  <div class="symbol-tabs" id="symbolTabs"></div>
   <div id="list"></div>
   <div class="empty" id="emptyState" style="display:none;">
     <div class="big">···</div>
     Waiting for the first alert.<br />
     Point a TradingView alert's webhook URL here and it'll show up instantly.
+  </div>
+
+  <div id="faqView" style="display:none;">
+    <div class="faq-toolbar">
+      <input type="text" id="faqSearch" placeholder="Search FAQ…" />
+    </div>
+    <div id="faqList"></div>
   </div>
 </main>
 
@@ -471,26 +762,320 @@
   const clearBtn = document.getElementById('clearBtn');
   const downloadBtn = document.getElementById('downloadBtn');
   const colorToggleBtn = document.getElementById('colorToggleBtn');
-  let colorsOn = true;
+  let colorsOn = localStorage.getItem('colorsOn') !== 'false'; // default true
+  document.body.classList.toggle('plain-mode', !colorsOn);
+  colorToggleBtn.textContent = colorsOn ? 'Colors: On' : 'Colors: Off';
   colorToggleBtn.addEventListener('click', () => {
     colorsOn = !colorsOn;
+    localStorage.setItem('colorsOn', String(colorsOn));
     document.body.classList.toggle('plain-mode', !colorsOn);
     colorToggleBtn.textContent = colorsOn ? 'Colors: On' : 'Colors: Off';
   });
-  const symbolFilterEl = document.getElementById('symbolFilter');
-  symbolFilterEl.addEventListener('change', () => {
-    activeFilter = symbolFilterEl.value;
+  // Entry Zone line (the "Entry Zone: X to Y (Price: Z)" line folded into the headline banner) —
+  // defaults OFF per request; toggling re-renders the list since, unlike the color toggle above,
+  // this actually changes what HTML gets built rather than just flipping a CSS class. Both toggles
+  // persist across sessions via localStorage (this page runs standalone in a real browser, not
+  // inside Claude's sandboxed artifact preview, so localStorage is safe to use here).
+  const entryZoneToggleBtn = document.getElementById('entryZoneToggleBtn');
+  let showEntryZone = localStorage.getItem('showEntryZone') === 'true'; // default false
+  entryZoneToggleBtn.textContent = showEntryZone ? 'Entry Zone: On' : 'Entry Zone: Off';
+  entryZoneToggleBtn.addEventListener('click', () => {
+    showEntryZone = !showEntryZone;
+    localStorage.setItem('showEntryZone', String(showEntryZone));
+    entryZoneToggleBtn.textContent = showEntryZone ? 'Entry Zone: On' : 'Entry Zone: Off';
+    render();
+  });
+  // Chronological view: per symbol, show every filtered alert as one flat time-ordered list instead
+  // of grouping into the Actionable/Forming/Context accordion. Skips tier classification entirely —
+  // including the Forming-window hide logic, which only applies within that classification — so
+  // nothing is hidden here beyond the Alert Types filter itself.
+  const chronoToggleBtn = document.getElementById('chronoToggleBtn');
+  let chronoView = localStorage.getItem('chronoView') === 'true'; // default false (Tiered)
+  chronoToggleBtn.textContent = chronoView ? 'View: Chronological' : 'View: Tiered';
+  chronoToggleBtn.addEventListener('click', () => {
+    chronoView = !chronoView;
+    localStorage.setItem('chronoView', String(chronoView));
+    chronoToggleBtn.textContent = chronoView ? 'View: Chronological' : 'View: Tiered';
+    render();
+  });
+  // Voice callouts: master on/off. Which specific alert categories actually trigger speech is a
+  // separate per-type selection (voiceEnabledTypes), set up further below once ALL_TYPE_TITLES exists.
+  const voiceToggleBtn = document.getElementById('voiceToggleBtn');
+  let voiceOn = localStorage.getItem('voiceOn') === 'true'; // default false — opt-in, not surprise audio
+  voiceToggleBtn.textContent = voiceOn ? 'Voice: On' : 'Voice: Off';
+  voiceToggleBtn.addEventListener('click', () => {
+    voiceOn = !voiceOn;
+    localStorage.setItem('voiceOn', String(voiceOn));
+    voiceToggleBtn.textContent = voiceOn ? 'Voice: On' : 'Voice: Off';
+    if (voiceOn && window.speechSynthesis) {
+      // Unlock/prime speech synthesis on this explicit user click (some browsers require a direct
+      // user gesture before speech will play at all, e.g. Safari/iOS) with a near-silent test utterance.
+      const primer = new SpeechSynthesisUtterance(' ');
+      primer.volume = 0.01;
+      speechSynthesis.speak(primer);
+    }
+  });
+  // ---------------------------------------------------------------------
+  // FAQ TAB
+  // To add a new FAQ item, just add another object to this array —
+  // { q: "Question text", a: "<p>HTML answer body…</p>" }.
+  // The `a` field accepts basic HTML (p, ul/li, strong, div.faq-rule for a
+  // highlighted callout box) so answers can be formatted like the one below.
+  // ---------------------------------------------------------------------
+  const FAQ_ITEMS = [
+    {
+      q: "What is the recommended workflow for trading NQ/MNQ with CBC?",
+      a: `
+        <p>The MapleStax CBC system is designed around a simple, repeatable workflow that combines <strong>High Timeframe (HTF) context</strong> with <strong>Low Timeframe (LTF) execution</strong>.</p>
+        <p>Most traders use:</p>
+        <ul>
+          <li><strong>HTF = 15-minute chart</strong> (bigger-picture bias)</li>
+          <li><strong>LTF = 3-minute chart</strong> (precise entries)</li>
+        </ul>
+        <p><strong>Recommended Step-by-Step Workflow</strong></p>
+        <ul>
+          <li><strong>1. Check the HTF first (15-minute chart).</strong> Look at the overall CBC bias and EMA Cloud. Is the 15m CBC bullish or bearish? Is the EMA Cloud green (bullish) or red (bearish)? This gives you the dominant daily direction.</li>
+          <li><strong>2. Wait for LTF alignment (3-minute chart).</strong> Look for a CBC flip on the 3m chart in the same direction as the 15m bias. A lone LTF flip against the HTF is usually ignored.</li>
+          <li><strong>3. Confirm confluence at key levels.</strong> The best setups happen when the LTF CBC flip occurs near VWAP, ORB High/Low, YDH/YDL or PMH/PML, round numbers, or inside/at the edge of the EMA Cloud.</li>
+          <li><strong>4. Use the BRSG Zone (Buy Red Sell Green) as a visual cue.</strong> When the previous candle color disagrees with the CBC direction (e.g., a green candle forming while CBC is bearish), the BRSG Zone often highlights high-probability "against-the-candle" entries.</li>
+          <li><strong>5. Enter, manage, and exit.</strong> Enter on the CBC flip or a pullback into the cloud/levels. Use the CBC flip-level dashes as initial stop placement. Trail or exit on the next opposite CBC flip or when price reaches the next major level. CBC Wire voice callouts keep you updated in real time.</li>
+        </ul>
+        <div class="faq-rule">
+          <strong>Golden Rule:</strong> Only take trades where LTF + HTF CBC, EMA Cloud, and at least one key level all agree. This confluence filter dramatically reduces noise and improves your win rate.
+        </div>
+        <p style="margin-top:10px;">Experienced traders often add one more layer: they only trade in the direction of the higher-timeframe trend and use the voice alerts as a second set of eyes while journaling or managing multiple charts.</p>
+        <p style="margin-top:10px;"><strong>Does this apply beyond NQ/MNQ?</strong> Yes — the CBC methodology is symbol-agnostic. The same HTF/LTF alignment + confluence approach works on MES, MGC, and other liquid futures; just watch for round-number levels appropriate to that instrument (e.g. $50/$100 increments on gold vs. 100-point "Bill Breaker" levels on NQ).</p>
+        <p style="margin-top:10px;"><strong>Why 15-minute HTF instead of 10-minute?</strong> The script's own "Auto" HTF setting already defaults to a 15-minute HTF whenever the chart timeframe is 5 minutes or less (and 3-minute HTF otherwise) — so using a 15m HTF with a 3m LTF chart matches the script's built-in default with no manual override needed.</p>
+        <p style="margin-top:10px;"><strong>Does the Pine script actually implement these alerts?</strong> Yes. It includes dedicated toggles for LTF CBC Flip, HTF CBC Flip, LTF+HTF Agreement (confirmed and early/unconfirmed), A+ Setup (HTF CBC + both EMA clouds + VWAP side + pre-ORB-breakout), VWAP Break, EMA9/20 Cross, ORB Break, and ORB Retest/Break-&-Base — plus a separate Level Proximity alert covering VWAP, round numbers ("Bill Breakers"), YDH/YDL, and ORB High/Low. The BRSG Zone, EMA Cloud, and CBC flip-level dashes described above are all built into the indicator as well.</p>
+      `
+    },
+    {
+      q: "Advanced tips: Pullbacks, false signals, scaling, and confluence — does the Pine script cover these concepts?",
+      a: `
+        <p>Once you've mastered the basics of CBC flips, EMA Cloud, and key levels, these advanced concepts help filter noise, improve timing, and maximize edge in the NQ/MNQ market. Below, each concept is followed by a note on whether the script covers it natively.</p>
+
+        <p><strong>1. Pullbacks (The Highest-Probability Entries)</strong></p>
+        <p>Instead of chasing every CBC flip, wait for a pullback into the EMA Cloud or a key level.</p>
+        <ul>
+          <li>Green cloud + pullback to the 20 EMA on a bullish CBC = excellent long entry.</li>
+          <li>Red cloud + pullback to the 20 EMA on a bearish CBC = excellent short entry. The EMA 20 touch dots in the indicator highlight these exact moments. Many experienced traders only take flip + cloud-pullback setups.</li>
+        </ul>
+        <div class="faq-rule"><strong>Script coverage:</strong> Yes — the "EMA20 touch dots" toggle plots a marker every time price crosses/touches EMA(20), which is exactly the pullback moment described here. It's built in and on by default (LTF Signals group).</div>
+
+        <p style="margin-top:14px;"><strong>2. Filtering False Signals</strong></p>
+        <p>Not every CBC flip is tradable. Common filters:</p>
+        <ul>
+          <li><strong>HTF disagreement</strong> — Ignore LTF flips that go against the HTF CBC bias and cloud.</li>
+          <li><strong>No key-level confluence</strong> — Flips in the middle of nowhere (away from VWAP, ORB, YDH/YDL, etc.) are usually lower-probability.</li>
+          <li><strong>Chop days</strong> — When price is oscillating inside the ORB or between round numbers with frequent flips, sit on your hands. CBC Wire's voice callouts will let you hear the chop in real time.</li>
+          <li><strong>BRSG Zone misuse</strong> — The zone is only powerful when everything else aligns — treat it as a confirmation, not a primary signal.</li>
+        </ul>
+        <div class="faq-rule"><strong>Script coverage:</strong> Partial. HTF disagreement and key-level confluence are directly supported — the LTF+HTF Agreement alert only fires when both timeframes align, and the Level Proximity alert flags VWAP/round-number/YDH-YDL/ORB proximity separately, so you can require both before entering. There's no dedicated "chop detector," but the ORB Retest alert's minimum-breakout-distance filter (a % of the OR range) filters out some of that noise, and the voice/alert cadence itself will naturally reveal choppy back-and-forth flips if you're watching it live. BRSG is a visual zone only — the script doesn't auto-enforce "confirmation not signal," that discipline is on the trader.</div>
+
+        <p style="margin-top:14px;"><strong>3. Scaling In and Out</strong></p>
+        <ul>
+          <li><strong>Scale in:</strong> Add to a winning position on the first clean pullback after your initial entry (especially if it retests the EMA Cloud or flip-level).</li>
+          <li><strong>Scale out:</strong> Take partial profits at the next major level (opposite ORB side, VWAP, YDH/YDL) while letting the remainder run until the next opposite CBC flip.</li>
+          <li>Use the strength of confluence to guide size: 3+ factors lining up = larger size; marginal setups = smaller size or skip.</li>
+        </ul>
+        <div class="faq-rule"><strong>Script coverage:</strong> No. Scaling in/out and position sizing are trade-management decisions the script doesn't make for you — it has no position-sizing or partial-exit logic. What it does give you are the trigger points to scale on/at: EMA20 touch dots (scale-in pullback), the CBC flip-level dashes (stop reference), and the key-level alerts (scale-out targets) — but the actual scaling is manual.</div>
+
+        <p style="margin-top:14px;"><strong>4. Confluence Checklist (The Real Edge)</strong></p>
+        <p>Strongest setups almost always have 4–5 factors aligning:</p>
+        <ul>
+          <li>LTF CBC flip</li>
+          <li>HTF CBC agreement</li>
+          <li>EMA Cloud in the same direction</li>
+          <li>Price at/near a major level (VWAP, ORB, YDH/YDL)</li>
+          <li>BRSG Zone visual cue (optional but powerful)</li>
+        </ul>
+        <div class="faq-rule"><strong>Script coverage:</strong> Every individual ingredient is covered by its own alert/plot (LTF flip, HTF agreement, EMA cloud color, level proximity, BRSG zone) — but there's no single "4/5 confluence score" alert that bundles them into one composite signal. You currently have to cross-reference the separate alerts/status table yourself to build the checklist. The closest built-in shortcut is the "A+ Setup" alert, which does combine several of these (HTF CBC + both EMA clouds + VWAP side + pre-breakout ORB) into one fire.</div>
+
+        <p style="margin-top:14px;">When all of these line up, many traders describe it as "the chart basically tells you what to do."</p>
+        <p><strong>Pro Tip:</strong> Use CBC Wire voice callouts as your "second brain." Let the voice keep you honest while you focus on execution and journaling.</p>
+      `
+    }
+  ];
+
+  const faqListEl = document.getElementById('faqList');
+  const faqSearchEl = document.getElementById('faqSearch');
+  const faqViewEl = document.getElementById('faqView');
+  const mainListEl = listEl;
+  const emptyStateEl = emptyEl;
+
+  function renderFaq(filterText) {
+    const q = (filterText || '').trim().toLowerCase();
+    const items = FAQ_ITEMS.filter(item =>
+      !q || item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q)
+    );
+    if (!items.length) {
+      faqListEl.innerHTML = '<div class="faq-empty">No FAQ items match your search.</div>';
+      return;
+    }
+    faqListEl.innerHTML = items.map(item => `
+      <div class="faq-item">
+        <div class="faq-q">${item.q}</div>
+        <div class="faq-a">${item.a}</div>
+      </div>
+    `).join('');
+  }
+  renderFaq('');
+  faqSearchEl.addEventListener('input', () => renderFaq(faqSearchEl.value));
+
+  const tabAlertsBtn = document.getElementById('tabAlertsBtn');
+  const tabFaqBtn = document.getElementById('tabFaqBtn');
+  function setView(view) {
+    const isFaq = view === 'faq';
+    tabAlertsBtn.classList.toggle('active', !isFaq);
+    tabFaqBtn.classList.toggle('active', isFaq);
+    faqViewEl.style.display = isFaq ? 'block' : 'none';
+    mainListEl.style.display = isFaq ? 'none' : '';
+    symbolTabsEl.style.display = isFaq ? 'none' : '';
+    if (isFaq) {
+      emptyStateEl.style.display = 'none';
+    } else {
+      // restore the empty-state visibility to whatever it should be based on content
+      emptyStateEl.style.display = mainListEl.children.length ? 'none' : 'block';
+    }
+  }
+  tabAlertsBtn.addEventListener('click', () => setView('alerts'));
+  tabFaqBtn.addEventListener('click', () => setView('faq'));
+  // ---------------------------------------------------------------------
+
+  const symbolTabsEl = document.getElementById('symbolTabs');
+  symbolTabsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.symbol-tab-btn');
+    if (!btn) return;
+    activeFilter = btn.dataset.symbol;
     render();
   });
 
   let alerts = [];
   let activeFilter = 'all';
   const expandedIds = new Set();
+  // Tracks which (symbol :: tier) sections are collapsed — e.g. "MES1!::forming" — so the state
+  // survives across render() calls (a new alert arriving, a filter change, etc.), not just clicks.
+  const collapsedTiers = new Set();
+  // Every (symbol :: tier) key defaults to collapsed the FIRST time it's ever rendered — tracked
+  // here so a manual expand isn't immediately re-collapsed on the next render() call (e.g. a new
+  // alert arriving). Once a key has been seen once, its state is entirely up to collapsedTiers.
+  const seenTierKeys = new Set();
+  // Caps how many cards render inside an EXPANDED tier (Actionable/Forming/Context all share this
+  // one setting) — the tier's count badge always shows the true total regardless of this cap.
+  const tierLimitEl = document.getElementById('tierLimitSelect');
+  tierLimitEl.value = localStorage.getItem('tierLimit') || '25';
+  tierLimitEl.addEventListener('change', () => {
+    localStorage.setItem('tierLimit', tierLimitEl.value);
+    render();
+  });
+
+  // "Forming" alerts (an early/unconfirmed still-open-candle flip) only actually display once the
+  // candle they're about has reached its final N minutes — e.g. a 15m candle with a 5-minute window
+  // only shows the Forming alert from :10-:15, not from :00-:10. See classifyTier's use of this below.
+  const formingWindowEl = document.getElementById('formingWindowSelect');
+  formingWindowEl.value = localStorage.getItem('formingWindow') || '5';
+  formingWindowEl.addEventListener('change', () => {
+    localStorage.setItem('formingWindow', formingWindowEl.value);
+    render();
+  });
 
   // Extracts the ticker from an alert's raw text (its first line, e.g. "MES1! —" -> "MES1!").
+  // CBC Wire messages (a separate companion script — see parseCbcWireAlert below) didn't carry a
+  // symbol at all before v0.67; older messages fall back to a generic "CBC Wire" filter bucket so
+  // they at least don't pollute the dropdown with garbage (the whole raw string as a "symbol").
   function getSymbol(raw) {
+    const wireAlert = parseCbcWireAlert(raw);
+    if (wireAlert) return wireAlert.symbol || 'CBC Wire';
     const firstLine = (raw || '').split('\n')[0] || '';
+    // "TICKER — rest of message" on ONE line (this script's own alerts have nothing after the dash,
+    // but a third-party alert can legitimately have the ticker and the signal on the same line) —
+    // extract just the ticker part, not the whole line, or every uniquely-worded message would
+    // create its own bogus one-off "symbol" instead of grouping under the real ticker.
+    const tickerMatch = firstLine.match(/^([^\s—]+)\s*—/);
+    if (tickerMatch) return tickerMatch[1].trim();
     return firstLine.replace(/[—\s]+$/, '').trim();
+  }
+
+  // CBC Wire is a separate companion Pine script (not MapleStax CBC) that fires compact
+  // pipe-delimited alerts instead of the "Key: Value" format this dashboard was built to parse —
+  // e.g. "LEVEL|BB_ABOVE|approaching|7500|7498|below|62e4769d|0.66|15". Returns null for anything
+  // that isn't one of CBC Wire's 4 known channels, so normal MapleStax parsing proceeds untouched.
+  function humanizeCbcWireLevelName(name) {
+    if (name === 'VWAP') return 'VWAP';
+    if (name === 'BB_ABOVE' || name === 'BB_BELOW') return 'Bill Breaker';
+    if (name === 'YDH') return 'YDH';
+    if (name === 'YDL') return 'YDL';
+    const emaM = name.match(/^EMA(20|200)_/);
+    if (emaM) return 'EMA ' + emaM[1];
+    const pivotM = name.match(/^PIVOT_(HIGH|LOW)_/);
+    if (pivotM) return 'Pivot ' + (pivotM[1] === 'HIGH' ? 'High' : 'Low');
+    return name;
+  }
+
+  // Detects whether a LEVEL message's first field is a known level name (old format, no ticker)
+  // or something else (new v0.67+ format, ticker inserted there instead).
+  function isKnownCbcWireLevelName(s) {
+    return s === 'VWAP' || s === 'YDH' || s === 'YDL' || s === 'ORH' || s === 'ORL' ||
+      /^BB_(ABOVE|BELOW)$/.test(s) || /^EMA(20|200)_/.test(s) || /^PIVOT_(HIGH|LOW)_/.test(s);
+  }
+
+  function parseCbcWireAlert(raw) {
+    const text = (raw || '').trim();
+    const parts = text.split('|');
+    const channel = parts[0];
+    if (!['LEVEL', 'CBC', 'EMA', 'HEARTBEAT', 'STARTUP'].includes(channel)) return null;
+
+    if (channel === 'LEVEL') {
+      // v0.67+ inserts the ticker right after "LEVEL|" — detect by checking whether that field
+      // is a recognized level name (old format, no ticker) or something else (new format).
+      const hasTicker = !isKnownCbcWireLevelName(parts[1]);
+      const o = hasTicker ? 1 : 0;
+      const symbol = hasTicker ? parts[1] : null;
+      const [name, phase, levelVal, price, direction] = [parts[1 + o], parts[2 + o], parts[3 + o], parts[4 + o], parts[5 + o]];
+      const tf = parts[8 + o]; // last field
+      const dist = Math.abs(parseFloat(price) - parseFloat(levelVal)).toFixed(2);
+      const humanName = humanizeCbcWireLevelName(name);
+      const levelLabel = (name === 'BB_ABOVE' || name === 'BB_BELOW') ? `${humanName} ${levelVal}` : humanName;
+      const phaseWord = phase === 'crossing' ? 'Crossing' : 'Approaching';
+      return {
+        symbol, tf, isBull: direction === 'above',
+        summary: `${phaseWord} ${levelLabel}`,
+        detail: `Price ${price} is ${dist} points ${direction} ${humanName} (${levelVal})`,
+      };
+    }
+    if (channel === 'CBC' || channel === 'EMA') {
+      // v0.67+ inserts ticker right after the channel name — old tf_label is always plain
+      // digits, so a non-numeric field here means it's the new ticker-first format.
+      const hasTicker = !/^\d+$/.test(parts[1]);
+      const o = hasTicker ? 1 : 0;
+      const symbol = hasTicker ? parts[1] : null;
+      const tf = parts[1 + o], dir = parts[2 + o], price = parts[3 + o];
+      const label = channel === 'CBC' ? 'CBC Flip' : 'EMA9/20 Cross';
+      return {
+        symbol, tf, isBull: dir === 'bullish',
+        summary: `${label}: ${dir === 'bullish' ? 'Bullish' : 'Bearish'}`,
+        detail: `Price ${price}`,
+      };
+    }
+    if (channel === 'HEARTBEAT') {
+      const hasTicker = !/^\d+$/.test(parts[1]);
+      const o = hasTicker ? 1 : 0;
+      const symbol = hasTicker ? parts[1] : null;
+      const tf = parts[1 + o];
+      let detail = 'No signal this bar';
+      if (parts[4 + o] === 'LEVEL') {
+        const [name, phase, levelVal, price] = [parts[5 + o], parts[6 + o], parts[7 + o], parts[8 + o]];
+        detail = `Nearby: ${phase} ${humanizeCbcWireLevelName(name)} (${levelVal}), price ${price}`;
+      }
+      return { symbol, tf, isBull: null, summary: 'Heartbeat', detail };
+    }
+    // STARTUP|[<ticker>|]<tf>|<userId>|<version>
+    const hasTicker = !/^\d+$/.test(parts[1]);
+    const o = hasTicker ? 1 : 0;
+    const symbol = hasTicker ? parts[1] : null;
+    const tf = parts[1 + o];
+    const version = parts[3 + o];
+    return { symbol, tf, isBull: null, summary: 'Connected', detail: `Timeframe ${tf}m discovered (CBC Wire v${version})` };
   }
 
   // ---------------------------------------------------------------------
@@ -505,21 +1090,43 @@
   const ROW_GROUPS = [
     ['Time', 'Market'],
     ['Chart', 'Price'],
-    ['CBC (3m)'],
-    ['CBC (15m)', 'CBC (15m, live'],
-    ['CBC (1H)', 'CBC (1H, live'],
     ['Opening range', 'ORB set'],
-    ['Structure (3m)', 'Structure (15m)', 'Structure (1H)'],
-    ['EMA cloud (3m)', 'EMA cloud (15m)', 'EMA cloud (1H)'],
     ['VWAP', 'EMA 200'],
     ['EMA9/20 (3)', 'EMA9/20 (15)'],
-    ['CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip'],
-    ['Entry Zone High', 'Entry Zone Low'],
+    ['CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip', 'CBC (60) last flip'],
+    ['Pivot R1', 'Pivot R2', 'Pivot R3'],
+    ['Pivot S1', 'Pivot S2', 'Pivot S3'],
+    ['3min - ', '15min - ', '60min - '],
   ];
 
   // Fields whose label starts with any of these are dropped entirely from the dashboard — not
   // grouped, not shown standalone, just skipped. Edit this list to hide/unhide fields.
   const HIDDEN_FIELDS = ['Prev Candle', 'HTF Candle'];
+
+  // Fields that are hidden from the raw field-body table specifically because they're now shown
+  // as compact badges instead (same badges as the always-visible strip above) — CBC/Structure/EMA
+  // cloud direction readings, plus the live/unconfirmed CBC variants (now reflected by the ring
+  // around the CBC15/CBC60 badge instead of their own row). EXACT match, not prefix — "CBC (3m)"
+  // is a prefix of "CBC (3m) last flip" too, which must stay a full text row, not get swallowed.
+  const FIELDS_SHOWN_ONLY_AS_BADGES = [
+    'CBC (3m)', 'CBC (15m)', 'CBC (1H)', 'CBC (60)',
+    'CBC (15m, live/unconfirmed)', 'CBC (1H, live/unconfirmed)', 'CBC (60, live/unconfirmed)',
+    'Structure (3m)', 'Structure (15m)', 'Structure (1H)', 'Structure (60)',
+    'EMA cloud (3m)', 'EMA cloud (15m)', 'EMA cloud (1H)', 'EMA cloud (60)',
+    'CBC Flip Level (3m)', 'CBC Flip Level (15m)', 'CBC Flip Level (1H)', 'CBC Flip Level (60)',
+    'CBC (3m) last flip', 'CBC (15m) last flip', 'CBC (1H) last flip', 'CBC (60) last flip',
+    'Price', 'Opening range', 'VWAP', 'EMA 200', 'HTF Trailing Stop',
+  ];
+
+  // Fields that are hidden from the raw field-body table specifically because
+  // buildHeadlineHighlights already folds them into a compact headline line — unlike
+  // HIDDEN_FIELDS above, these must stay in `rows` (that's what buildHeadlineHighlights reads),
+  // they're just excluded when building the field-body rows further down.
+  const FIELDS_SHOWN_ONLY_IN_HEADLINE = [
+    'Entry Zone High', 'Entry Zone Low', 'Entry Zone',
+    'Buy Zone High', 'Buy Zone Low',
+    'Entry', 'Suggested stop',
+  ];
 
   // Builds the extra lines appended into the headline banner, below the bullet points. Edit this
   // function to change which fields combine onto which line, or the separator between them.
@@ -530,39 +1137,41 @@
     };
     const lines = [];
 
-    const struct15 = get('Structure (15m)');
-    const cloud15 = get('EMA cloud (15m)');
-    if (struct15 || cloud15) {
-      const raw = [
-        struct15 ? `Structure (15m): ${struct15}` : '',
-        cloud15 ? `EMA cloud (15m): ${cloud15}` : '',
+    // Structure (15m)/(MTF) and EMA cloud (15m)/(MTF) used to optionally show here, but now that
+    // the ST3/ST15/ST60 badges spell out the actual value (e.g. "15-LH/HL") instead of just a
+    // generic label, and EMA15/EMA60 already show bull/bear via color, this would be pure
+    // duplication — so it was removed rather than kept behind a toggle.
+
+    // Support both the current "Entry Zone High/Low" naming and the older pre-rename "Buy Zone
+    // High/Low" naming some live alerts still send, so this compacts either way.
+    if (showEntryZone) {
+      const buyHigh = get('Entry Zone High') || get('Buy Zone High');
+      const buyLow = get('Entry Zone Low') || get('Buy Zone Low');
+      const zoneDir = get('Entry Zone'); // "LONG" or "SHORT" — only present on the newer naming
+      if (buyHigh || buyLow) {
+        const priceStr = get('Price');
+        const priceNum = parseFloat(priceStr);
+        const lowNum = parseFloat(buyLow);
+        const highNum = parseFloat(buyHigh);
+        const inZone = !isNaN(priceNum) && !isNaN(lowNum) && !isNaN(highNum) && priceNum >= lowNum && priceNum <= highNum;
+        const priceLabel = inZone ? 'Enter Price' : 'Price';
+        const buyText = `Entry BRSG Zone: ${buyLow || '—'} to ${buyHigh || '—'}  (${priceLabel}: ${priceStr || '—'})`;
+        const dirClass = zoneDir === 'LONG' ? 'hl-bull' : zoneDir === 'SHORT' ? 'hl-bear' : null;
+        lines.push(dirClass ? `<span class="${dirClass}">${escapeHtml(buyText)}</span>` : escapeHtml(buyText));
+      }
+    }
+
+    // The suggested entry price (A+ Setup / ORB Retest) and stop (EMA9/20 Zone entries) — same
+    // "look for entry" moment as the zone above, so it's folded onto its own compact line rather
+    // than left as a separate full-width field-body row.
+    const entryLine = get('Entry');
+    const stopLine = get('Suggested stop');
+    if (entryLine || stopLine) {
+      const parts = [
+        entryLine ? `Entry: ${entryLine}` : '',
+        stopLine ? `Stop: ${stopLine}` : '',
       ].filter(Boolean).join('   ');
-      lines.push(colorizeBullBear(raw));
-    }
-
-    const cloudMtf = get('EMA cloud (1H)'); // MTF = Max Timeframe, defaults to 60min/1H
-    const structMtf = get('Structure (1H)');
-    if (cloudMtf || structMtf) {
-      const raw = [
-        cloudMtf ? `EMA Cloud(MTF): ${cloudMtf}` : '',
-        structMtf ? `Structure (MTF): ${structMtf}` : '',
-      ].filter(Boolean).join('   *   ');
-      lines.push(colorizeBullBear(raw));
-    }
-
-    const buyHigh = get('Entry Zone High');
-    const buyLow = get('Entry Zone Low');
-    const zoneDir = get('Entry Zone'); // "LONG" or "SHORT"
-    if (buyHigh || buyLow) {
-      const priceStr = get('Price');
-      const priceNum = parseFloat(priceStr);
-      const lowNum = parseFloat(buyLow);
-      const highNum = parseFloat(buyHigh);
-      const inZone = !isNaN(priceNum) && !isNaN(lowNum) && !isNaN(highNum) && priceNum >= lowNum && priceNum <= highNum;
-      const priceLabel = inZone ? 'Enter Price' : 'Price';
-      const buyText = `Entry Zone: ${buyLow || '—'} to ${buyHigh || '—'}  (${priceLabel}: ${priceStr || '—'})`;
-      const dirClass = zoneDir === 'LONG' ? 'hl-bull' : zoneDir === 'SHORT' ? 'hl-bear' : null;
-      lines.push(dirClass ? `<span class="${dirClass}">${escapeHtml(buyText)}</span>` : escapeHtml(buyText));
+      lines.push(escapeHtml(parts).replace(/(look for (?:LTF|HTF|MTF) EMA20: [\d.]+)/gi, '<span class="hl-white">$1</span>'));
     }
 
     return lines;
@@ -588,6 +1197,26 @@
   // ---------------------------------------------------------------------
   const ALERT_TYPE_DEFS = [
     {
+      test: (l) => /VWAP (Crossing|Approaching):/i.test(l),
+      title: 'VWAP Proximity (Bullish/Bearish)',
+      def: 'Fires once when price crosses (within the configured Crossing distance) or approaches (within the configured Approaching distance) VWAP. Fires once per "visit" — won\'t repeat every bar while price stays in the same band.'
+    },
+    {
+      test: (l) => /EMA (20|200) (Crossing|Approaching):/i.test(l),
+      title: 'EMA Proximity (Bullish/Bearish)',
+      def: 'Fires once when price crosses or approaches EMA 20 or EMA 200 (chart timeframe). Fires once per "visit" — won\'t repeat every bar while price stays in the same band.'
+    },
+    {
+      test: (l) => /Bill Breaker \d/i.test(l),
+      title: 'Bill Breaker Proximity (Bullish/Bearish)',
+      def: 'Fires once when price crosses or approaches the nearest 100-point round-number level above/below price. Fires once per "visit" per specific round number — approaching 2900 and later approaching 3000 are treated as separate events.'
+    },
+    {
+      test: (l) => /\b(Crossing|Approaching):\s*(Bullish|Bearish)/i.test(l),
+      title: 'Level Proximity (Pivot/YDH/YDL/ORB)',
+      def: 'Fires once when price crosses (within the configured Crossing distance) or approaches (within the configured Approaching distance, but farther than Crossing) a 1-bar-lookback swing pivot (crossing only), Yesterday\'s High/Low, or the current session\'s Opening Range High/Low. A crossing on any level always beats an approaching on any level. Fires once per "visit" — won\'t repeat every bar while price stays in the same band.'
+    },
+    {
       test: (l) => /Price Enters HTF EMA9\/20 Zone/i.test(l),
       title: 'Price Enters HTF EMA9/20 Zone - Entry',
       def: 'Fires once when: the CONFIRMED HTF direction is bullish (or bearish), AND price just entered the zone BETWEEN the HTF\'s own EMA9 and EMA20 (having been outside it the prior bar) — a pullback into the HTF\'s own moving-average zone during an already-established trend, worth watching for an entry. Message includes a suggested stop-loss at the HTF\'s own EMA20 level.'
@@ -596,6 +1225,31 @@
       test: (l) => /A\+ Setup/i.test(l),
       title: 'A+ Setup (Long/Short)',
       def: 'Fires once when: (1) confirmed HTF CBC direction, (2) chart-timeframe EMA cloud, and (3) HTF EMA cloud all align in the same direction, (4) price is already CONFIRMED on the trade\'s side of VWAP (above VWAP for Long, below VWAP for Short), AND (5) price is still ANTICIPATORY on the Opening Range — hasn\'t broken the ORB high (Long) / ORB low (Short) yet, i.e. before that breakout confirms.'
+    },
+    {
+      test: (l) => /VWAP Bounce/i.test(l),
+      title: 'VWAP Bounce - High R:R (Long/Short)',
+      def: 'Fires once when a CBC flip happens right at VWAP while price is clear of the nearest major support/resistance level (Pivot Points PP/R1/R2/R3/S1/S2/S3, or the current session\'s ORB high/low) by at least a minimum distance — nothing structural nearby to cap the move, so reward is high relative to risk. Minimum distance is auto by symbol root (MES/MGC=6, M2K=4, MNQ=60, other=6), overridable in Settings.'
+    },
+    {
+      test: (l) => /LTF EMA20 Touch/i.test(l),
+      title: 'EMA20 Touch - Pullback Entry (LTF)',
+      def: 'Fires when price touches the chart\'s own (LTF) EMA20 on a REGRESSIVE candle — moving down into the touch during a confirmed uptrend, or up into it during a confirmed downtrend — i.e. CBC confirms the trend continuing, not the regression itself.'
+    },
+    {
+      test: (l) => /HTF EMA20 Touch/i.test(l),
+      title: 'EMA20 Touch - Pullback Entry (HTF)',
+      def: 'Same idea as the LTF version, but checked against the HTF\'s own EMA20 and confirmed by the HTF\'s own CBC direction instead of the chart timeframe\'s.'
+    },
+    {
+      test: (l) => /HTF Pullback Entry - Structure Confirmed/i.test(l),
+      title: 'HTF Pullback Entry - Structure Confirmed (Long/Short)',
+      def: 'Fires once when ALL of: (1) HTF CBC flipped within a recent-bars window, (2) price pulled back INTO the HTF\'s own EMA9/20 zone, and (3) HTF market structure confirms — HH/HL for Long, LH/LL for Short. Message includes a risk reference (the prior HTF candle\'s low for Long, high for Short).'
+    },
+    {
+      test: (l) => /ORB Retest Fail/i.test(l),
+      title: 'ORB Retest Fail (Long/Short)',
+      def: 'Fires once when an ORB Retest / Break & Base setup fails: price broke out beyond the ORB high (Long) or low (Short), then fully round-tripped through the OPPOSITE side of the range before ever confirming the base — invalidating the setup. The other outcome of the same setup as "ORB Retest / Break & Base" below, gated by the same alert toggle.'
     },
     {
       test: (l) => /ORB Retest/i.test(l),
@@ -618,9 +1272,33 @@
       def: 'Fires once when price closes on the opposite side of EMA 200 from where it was the prior bar (an EMA200 cross), either direction.'
     },
     {
+      test: (l) => /EMA9\/20 Cross/i.test(l),
+      title: 'EMA9/20 Cross (Bullish/Bearish)',
+      def: 'Fires once when the chart-timeframe EMA9 crosses EMA20, either direction — the crossing MOMENT, distinct from the EMA cloud direction already in every alert (which just reports whichever state currently holds, not when it changed).'
+    },
+    {
+      test: (l) => /Key Level Alert:/i.test(l),
+      title: 'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)',
+      def: 'Fires once per level the instant price closes on the opposite side of that Daily Standard Pivot Point level from where it was the prior bar. PP/R1/S1 always checked; R2/S2 and R3/S3 only if those tiers are enabled in the Pivot Points input group. More than one level CAN legitimately fire on the same bar, unlike Level Proximity above.'
+    },
+    {
+      test: (l) => /MapleStax CBC Started/i.test(l),
+      title: 'Startup / Connected',
+      def: 'Fires exactly once, the moment the script enters real-time mode — confirms the connection is live without waiting for any other condition to trigger first. Not gated by the alert session-window toggles.'
+    },
+    {
       test: (l) => /Agreement/i.test(l) && /early\/unconfirmed/i.test(l),
       title: 'LTF + HTF Agreement - Early (unconfirmed HTF)',
       def: 'Fires once, as soon as the chart timeframe agrees with the HTF\'s LIVE, still-forming state — before that HTF bar closes, tagged UNCONFIRMED. If the live HTF state reverses before its bar closes, no confirmed alert follows — you only got the early heads-up. If it holds, a confirmed "LTF + HTF Agreement" alert fires automatically once that HTF bar closes.'
+    },
+    {
+      // Distinguishes a CONFIRMED Agreement bullet that fires purely because the LTF just caught up
+      // to an HTF that did NOT change on this bar (bullet is worded "LTF(...) ... + HTF(...) Agreement",
+      // no "HTF CBC Flip" prefix) from a genuine HTF-side flip, which is worded "HTF(...) CBC Flip +
+      // LTF(...) Agreement" and still falls through to the type below, staying visible by default.
+      test: (l) => /^•\s*LTF\(/i.test(l) && /Agreement/i.test(l),
+      title: 'LTF + HTF Agreement - LTF Joined Unchanged HTF',
+      def: 'Fires when the chart timeframe flips to join an HTF direction that did NOT change on this bar — the HTF was already sitting there; only the LTF caught up. Distinct from a genuine HTF-side flip, which fires as the separate "LTF + HTF Agreement (Long/Short)" combined bullet (worded "HTF(...) CBC Flip + LTF(...) Agreement") regardless of this toggle. Off by default since this case is usually not new information.'
     },
     {
       test: (l) => /Agreement/i.test(l),
@@ -649,8 +1327,55 @@
     },
   ];
 
-  function getDefinitionsForHeadline(headlineLines) {
+  // LuxAlgo Price Action Concepts — a separate third-party indicator on the same webhook, not this
+  // script. Generated compactly (loops, not 26 hand-written objects) to keep this small. Structure
+  // family (Internal/Swing x Bullish/Bearish x BOS/CHOCH/CHOCH+) wording is confirmed for CHOCH+ and
+  // one BOS direction; the rest of this family and the OB/Breaker/Within group are LuxAlgo's standard
+  // naming pattern, inferred rather than sample-confirmed — tighten the regex if a real message differs.
+  ['Internal', 'Swing'].forEach(level => ['Bullish', 'Bearish'].forEach(dir => ['BOS', 'CHOCH', 'CHOCH\\+'].forEach(kind => {
+    const plain = kind.replace('\\+', '+');
+    ALERT_TYPE_DEFS.push({
+      test: (l) => new RegExp(`${level}\\s+${dir}\\s+${kind}\\s+formed`, 'i').test(l),
+      title: `Price Action - ${level} ${dir} ${plain}`,
+      def: `LuxAlgo Price Action Concepts: ${dir} ${plain.startsWith('BOS') ? 'Break of Structure' : 'Change of Character'} on ${level.toLowerCase()} structure.`
+    });
+  })));
+  // Confirmed real wording for OB Created is spelled out ("Bullish order block created"), NOT the
+  // abbreviated "OB Created" — matching both forms since OB Mitigated/Entered/Breaker wording is
+  // still unconfirmed and could go either way.
+  ['Liquidity Grab', 'OB Created', 'OB Mitigated', 'Breaker', 'OB Entered'].forEach(suffix => ['Bullish', 'Bearish'].forEach(dir => {
+    const spelledOut = suffix.replace('OB ', 'order block ');
+    const pattern = suffix === spelledOut ? suffix : `(?:${suffix}|${spelledOut})`;
+    ALERT_TYPE_DEFS.push({
+      test: (l) => new RegExp(`${dir}\\s+${pattern}`, 'i').test(l),
+      title: `Price Action - ${dir} ${suffix}`,
+      def: `LuxAlgo Price Action Concepts: ${dir} ${suffix}.`
+    });
+  }));
+  ['Bullish', 'Bearish'].forEach(dir => ALERT_TYPE_DEFS.push({
+    test: (l) => new RegExp(`Within\\s+${dir}\\s+OB`, 'i').test(l),
+    title: `Price Action - Within ${dir} OB`,
+    def: `LuxAlgo Price Action Concepts: price currently trading inside an active ${dir.toLowerCase()} Order Block.`
+  }));
+  ['Highs', 'Lows'].forEach(hl => ALERT_TYPE_DEFS.push({
+    test: (l) => new RegExp(`Equal\\s+${hl}`, 'i').test(l),
+    title: `Price Action - Equal ${hl}`,
+    def: `LuxAlgo Price Action Concepts: two or more swing ${hl.toLowerCase()} formed at nearly the same price.`
+  }));
+  const PRICE_ACTION_PREFIX = 'Price Action - ';
+
+  // Most of our own alerts have "• " bulleted signal lines with line 0 just being the ticker/date
+  // header. But a non-bulleted alert (e.g. LuxAlgo's plain one-line "Internal Bearish BOS formed",
+  // with no bullet at all) would have ZERO bullet lines — filtering to bulletLines alone would
+  // silently make every classifier below treat it as having no content. This falls back to treating
+  // line 0 as "the line" only when there are truly no bullets, so bulleted alerts are unaffected.
+  function getEffectiveLines(headlineLines) {
     const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    return bulletLines.length ? bulletLines : headlineLines;
+  }
+
+  function getDefinitionsForHeadline(headlineLines) {
+    const bulletLines = getEffectiveLines(headlineLines);
     const seen = new Set();
     const results = [];
     bulletLines.forEach(line => {
@@ -665,7 +1390,339 @@
 
   const OTHER_TYPE = 'Other (unrecognized)';
   const ALL_TYPE_TITLES = ALERT_TYPE_DEFS.map(d => d.title).concat([OTHER_TYPE]);
-  const enabledTypes = new Set(ALL_TYPE_TITLES); // all enabled by default
+  // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
+  // Proximity types (VWAP/EMA20/EMA200/Bill Breakers are common levels price crosses constantly),
+  // unlike Pivot/YDH/YDL/ORB proximity which fires far less often and stays on by default.
+  const DEFAULT_OFF_TYPES = ['VWAP Proximity (Bullish/Bearish)', 'EMA Proximity (Bullish/Bearish)', 'Bill Breaker Proximity (Bullish/Bearish)', 'LTF + HTF Agreement - LTF Joined Unchanged HTF']
+    .concat(ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX))); // all 26 Price Action types off by default, per request
+  const enabledTypes = new Set(ALL_TYPE_TITLES.filter(t => !DEFAULT_OFF_TYPES.includes(t)));
+
+  // Which categories trigger a VOICE callout — separate selection from the Alert Types display
+  // filter above (a type can show in the feed without being read aloud, or vice versa). Persisted
+  // as a JSON array (localStorage can't store a Set directly). Defaults to the same starting set as
+  // the display filter, since that's a reasonable "everything sensible" starting point either way.
+  let voiceEnabledTypes;
+  try {
+    const saved = JSON.parse(localStorage.getItem('voiceEnabledTypes') || 'null');
+    voiceEnabledTypes = new Set(Array.isArray(saved) ? saved.filter(t => ALL_TYPE_TITLES.includes(t)) : Array.from(enabledTypes));
+  } catch (e) {
+    voiceEnabledTypes = new Set(enabledTypes);
+  }
+  function saveVoiceEnabledTypes() {
+    localStorage.setItem('voiceEnabledTypes', JSON.stringify(Array.from(voiceEnabledTypes)));
+  }
+
+  // Card border color: A+ Setup alerts are always confirmed-only (per the Pine script, they
+  // only ever fire in the confirmed batch), so they get their own distinct color rather than
+  // just falling under "confirmed". ORB Retest Fail is technically a "confirmed" (certain, not
+  // early/unconfirmed) outcome too, but it's bad news, not a setup to act on — so it gets its own
+  // red border rather than the same green as an actionable confirmed setup. Otherwise: any
+  // UNCONFIRMED/early bullet -> yellow border, no such bullet (and at least one bullet at all) ->
+  // green border. Alerts with no parseable bullets (the plain-text fallback path) get no status
+  // class / default border.
+  function classifyAlertStatus(headlineLines) {
+    const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    if (!bulletLines.length) return '';
+    const joined = bulletLines.join(' ');
+    if (/A\+ Setup/i.test(joined)) return 'status-aplus';
+    if (/VWAP Bounce/i.test(joined)) return 'status-aplus';
+    if (/ORB Retest Fail/i.test(joined)) return 'status-fail';
+    if (/UNCONFIRMED|early\/unconfirmed/i.test(joined)) return 'status-unconfirmed';
+    return 'status-confirmed';
+  }
+
+  // Small colored pill for the headline row: what KIND of setup this is (flip, agreement, EMA
+  // zone touch, ORB retest, or A+), colored by the DIRECTION stated in that specific bullet line
+  // (long=green, short=red) rather than by confirmation state — the CONFIRMED/UNCONFIRMED oval in
+  // the badge row already covers confirmation, so this pill is purely "which way."
+  function classifyTypePill(headlineLines) {
+    const bulletLines = getEffectiveLines(headlineLines);
+    if (!bulletLines.length) return null;
+    const joined = bulletLines.join(' ');
+    // Direction is read off the SPECIFIC bullet line for this type, not the whole merged alert —
+    // a bundled alert can carry multiple bullets (e.g. FLIP + AGREEMENT together), and each one's
+    // own LONG/SHORT word is what matters for its own pill. Case-SENSITIVE on purpose: the actual
+    // direction token is always true uppercase right after the colon ("...Agreement: LONG (..."),
+    // while the parenthetical history note uses lowercase ("...ltf was short, now long") — matching
+    // case-insensitively would grab that lowercase word instead of the real direction.
+    const lineDirection = (line) => /\bSHORT\b/.test(line) ? 'SHORT' : /\bLONG\b/.test(line) ? 'LONG' : null;
+
+    if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
+    if (/VWAP Bounce/i.test(joined)) return { label: 'VWAP BOUNCE', cls: 'pill-aplus' };
+    // Covers all 26 LuxAlgo Price Action alert types with one shared regex (BOS/CHOCH formed,
+    // Liquidity Grab, Equal Highs/Lows, OB Created/Mitigated/Entered, Breaker, Within OB).
+    if (/(BOS|CHOCH\+?)\s+formed|Liquidity Grab|Equal (Highs|Lows)|OB (Created|Mitigated|Entered)|Breaker|Within\s+(Bullish|Bearish)\s+OB/i.test(joined)) {
+      const isBear = /Bearish/i.test(joined);
+      return { label: 'LUXALGO', cls: isBear ? 'pill-luxalgo-bear' : 'pill-luxalgo-bull' };
+    }
+
+    // Level Proximity Alerts: unlike every other pill, the label itself is DYNAMIC — it shows
+    // whichever specific level fired (e.g. "EMA 200", "VWAP", "BILL BRK 2900", "YDH"), not a fixed
+    // word, since this one alert type covers 7+ different levels. Bullet format is always
+    // "<Level> Crossing/Approaching: Bullish/Bearish (...)" — label is everything before that.
+    const proxLine = bulletLines.find(l => /\b(Crossing|Approaching):\s*(Bullish|Bearish)/i.test(l));
+    if (proxLine) {
+      const m = proxLine.match(/^•\s*(.+?)\s+(Crossing|Approaching):\s*(Bullish|Bearish)/i);
+      const levelName = m ? m[1].replace(/^Bill Breaker\s+/i, 'BILL BRK ') : 'LEVEL';
+      const isBearish = m && m[3].toLowerCase() === 'bearish';
+      return { label: levelName.toUpperCase(), cls: isBearish ? 'pill-flip-short' : 'pill-flip-long' };
+    }
+
+    const flipLine = bulletLines.find(l => /CBC Flip/i.test(l));
+    if (flipLine) {
+      return { label: 'FLIP', cls: lineDirection(flipLine) === 'SHORT' ? 'pill-flip-short' : 'pill-flip-long' };
+    }
+
+    const agreementLine = bulletLines.find(l => /Agreement/i.test(l));
+    if (agreementLine) {
+      return { label: 'AGREEMENT', cls: lineDirection(agreementLine) === 'SHORT' ? 'pill-agreement-short' : 'pill-agreement-long' };
+    }
+
+    const emaZoneLine = bulletLines.find(l => /EMA9\/20 Zone/i.test(l));
+    if (emaZoneLine) {
+      return { label: 'EMA ZONE', cls: lineDirection(emaZoneLine) === 'SHORT' ? 'pill-emazone-short' : 'pill-emazone-long' };
+    }
+
+    const ema920CrossLine = bulletLines.find(l => /EMA9\/20 Cross/i.test(l));
+    if (ema920CrossLine) {
+      return { label: 'EMA9/20', cls: /\bBearish\b/.test(ema920CrossLine) ? 'pill-flip-short' : 'pill-flip-long' };
+    }
+
+    // Key Level Alert: dynamic label like Level Proximity above — shows which specific level
+    // fired (PP/R1/R2/R3/S1/S2/S3), not a fixed word, since one alert type covers all 7.
+    const keyLevelLine = bulletLines.find(l => /Key Level Alert:/i.test(l));
+    if (keyLevelLine) {
+      const m = keyLevelLine.match(/Key Level Alert:\s*(\S+)\s+(Bullish|Bearish)/i);
+      const level = m ? m[1].toUpperCase() : 'LEVEL';
+      const isBearish = m && m[2].toLowerCase() === 'bearish';
+      return { label: level, cls: isBearish ? 'pill-flip-short' : 'pill-flip-long' };
+    }
+
+    // Remaining alert types don't have a dedicated color yet — shown as a plain gray pill rather than
+    // inventing new colors for them.
+    if (/VWAP Break/i.test(joined)) return { label: 'VWAP', cls: 'pill-neutral' };
+    if (/EMA 200 Break/i.test(joined)) return { label: 'EMA200', cls: 'pill-neutral' };
+    if (/MapleStax CBC Started/i.test(joined)) return { label: 'CONNECTED', cls: 'pill-neutral' };
+    // ORB Retest: outside the range and held (success) is green; a failed retest that round-tripped
+    // back inside/through the range is red — colored by outcome, not by long/short direction, since
+    // "outside vs. back inside" is the meaningful distinction here, not which way it broke.
+    if (/ORB Retest Fail/i.test(joined)) return { label: 'ORB FAIL', cls: 'pill-orbfail' };
+    if (/ORB Retest/i.test(joined)) return { label: 'ORB RETEST', cls: 'pill-orbsuccess' };
+    if (/Outside HTF ORB/i.test(joined)) return { label: 'ORB', cls: 'pill-neutral' };
+    return null;
+  }
+
+  // Splits a "Structure (Nm)" value like "HH / HL" into its Higher-High/Lower-High and
+  // Higher-Low/Lower-Low halves and classifies bull (both High side) / bear (both Low side) /
+  // neutral (mixed) — matching the Pine script's own stricter "both sides must agree" coloring rule.
+  function structureDirClass(value) {
+    if (!value) return null;
+    const parts = value.split('/').map(s => s.trim());
+    const hi = parts[0], lo = parts[1];
+    if (hi === 'HH' && lo === 'HL') return 'badge-bull';
+    if (hi === 'LH' && lo === 'LL') return 'badge-bear';
+    return 'badge-neutral';
+  }
+
+  // Looks up an MTF field (CBC/Structure/EMA cloud) trying every label format the Pine script
+  // might actually send. The on-chart Status table displays the MTF timeframe as "1H" via
+  // htf_tf_disp(), but the ALERT EMAILS use the raw mtf_timeframe input value directly (e.g.
+  // "Structure (" + mtf_timeframe + ")") — which defaults to "60", not "1H". So an alert really
+  // contains "Structure (60)", not "Structure (1H)", even though the chart itself shows "1H".
+  // Tries "1H" first (in case a custom setup already uses that as the literal input string), then
+  // falls back to the "60" default. If the MTF Timeframe input is changed to something else
+  // entirely (e.g. "240"), this specific badge will need that value added here too.
+  function getMtf(get, prefix) {
+    return get(`${prefix} (1H)`) ?? get(`${prefix} (60)`);
+  }
+
+  function bullBearClass(value) {
+    // startsWith, not exact equality — the Pine script tags the HTF CBC value with a
+    // trailing " [A+ SETUP]" specifically on A+ Setup alerts (e.g. "Bullish [A+ SETUP]"
+    // instead of plain "Bullish"), which an exact match would silently reject, dropping
+    // the CBC15 badge on every A+ alert. startsWith tolerates that suffix (or any other
+    // future tag) without breaking the plain case.
+    if (!value) return null;
+    if (value.startsWith('Bullish')) return 'badge-bull';
+    if (value.startsWith('Bearish')) return 'badge-bear';
+    return null;
+  }
+
+  // Flags a CBC badge whose LIVE/still-forming reading has already diverged from the last
+  // CONFIRMED reading — i.e. it's mid-flip, about to confirm the other way if the HTF/MTF bar
+  // closes as it currently stands. Only HTF (15m) and MTF (60m/1H) have a separate live reading at
+  // all (LTF is the chart's own bar, always "confirmed" the instant it closes, so CBC3 never gets
+  // a ring). Colored by the LIVE direction, not the confirmed one — e.g. confirmed still reads
+  // Bearish (red fill) but live has already flipped Bullish -> green ring around the red badge.
+  function liveDivergenceRing(confirmedVal, liveVal) {
+    if (!confirmedVal || !liveVal || confirmedVal === liveVal) return null;
+    if (liveVal === 'Bullish') return 'badge-ring-bull';
+    if (liveVal === 'Bearish') return 'badge-ring-bear';
+    return null;
+  }
+
+  // Builds the single-line badge strip: CONFIRMED/UNCONFIRMED, then CBC3/15/60, then ST3/15/60, then
+  // EMA3/15/60 — each timeframe badge is only included if that field was actually present in this
+  // alert's body (fields can be toggled off in the Pine script, or MTF/HTF can be disabled entirely).
+  function buildBadgeRow(rows, headlineLines) {
+    const get = (label) => {
+      const r = rows.find(([k]) => k === label);
+      return r ? r[1] : null;
+    };
+    const bulletLines = headlineLines.filter(l => l.startsWith('•'));
+    const isUnconfirmed = /UNCONFIRMED|early\/unconfirmed/i.test(bulletLines.join(' '));
+    const statusBadge = bulletLines.length
+      ? `<span class="badge ${isUnconfirmed ? 'badge-unconfirmed' : 'badge-confirmed'}">${isUnconfirmed ? 'UNCONFIRMED' : 'CONFIRMED'}</span>`
+      : '';
+
+    const cbc = [
+      ['CBC3', bullBearClass(get('CBC (3m)')), null],
+      ['CBC15', bullBearClass(get('CBC (15m)')), liveDivergenceRing(get('CBC (15m)'), get('CBC (15m, live/unconfirmed)'))],
+      ['CBC60', bullBearClass(getMtf(get, 'CBC')), liveDivergenceRing(getMtf(get, 'CBC'), get('CBC (1H, live/unconfirmed)') ?? get('CBC (60, live/unconfirmed)'))],
+    ].filter(([, cls]) => cls);
+
+    // ST badge label spells out the actual reading (e.g. "3-HH/HL") instead of a generic "ST3" —
+    // so the badge itself carries the info that used to require the separate headline detail line.
+    const stLabel = (num, value) => `${num}-${value.replace(/\s+/g, '')}`;
+    const struct3 = get('Structure (3m)');
+    const struct15 = get('Structure (15m)');
+    const struct60 = getMtf(get, 'Structure');
+    const st = [
+      [struct3 ? stLabel('3', struct3) : 'ST3', structureDirClass(struct3)],
+      [struct15 ? stLabel('15', struct15) : 'ST15', structureDirClass(struct15)],
+      [struct60 ? stLabel('60', struct60) : 'ST60', structureDirClass(struct60)],
+    ].filter(([, cls]) => cls);
+
+    const ema = [
+      ['EMA3', bullBearClass(get('EMA cloud (3m)'))],
+      ['EMA15', bullBearClass(get('EMA cloud (15m)'))],
+      ['EMA60', bullBearClass(getMtf(get, 'EMA cloud'))],
+    ].filter(([, cls]) => cls);
+
+    // EMA9/20 Cross badge — this is a bullet-line SIGNAL ("EMA9/20 Cross: Bullish (crossed above)"),
+    // not a "Key: Value" context field, so it's detected from headlineLines directly rather than via
+    // get(). Colored bull/bear to match the pill and inline-text highlighting already applied to it.
+    const ema920CrossLine = headlineLines.find(l => /EMA9\/20 Cross/i.test(l));
+    const ema920Cross = ema920CrossLine
+      ? [[/\bBearish\b/i.test(ema920CrossLine) ? 'EMA9/20✕ Bear' : 'EMA9/20✕ Bull', /\bBearish\b/i.test(ema920CrossLine) ? 'badge-bear' : 'badge-bull']]
+      : [];
+
+    // ENTRY badge: flags that this alert carries a "look for entry" moment — an Entry Zone
+    // (either naming), a suggested Entry price, or a Suggested stop. Colored by the zone's
+    // LONG/SHORT direction when available (the newer "Entry Zone" naming carries it); falls back
+    // to a neutral gray badge when only the older Buy Zone naming or a bare Entry/stop line is
+    // present, since there's no direction field to color it by in that case.
+    const hasEntryInfo = get('Entry Zone High') || get('Entry Zone Low') || get('Buy Zone High') || get('Buy Zone Low') || get('Entry') || get('Suggested stop');
+    const entryDir = get('Entry Zone');
+    const entry = hasEntryInfo
+      ? [['ENTRY', entryDir === 'LONG' ? 'badge-bull' : entryDir === 'SHORT' ? 'badge-bear' : 'badge-neutral']]
+      : [];
+
+    // OR IN / OR OUT: whether price is currently outside the session's Opening Range (a breakout,
+    // green — same visual weight as a bullish/confirmed reading elsewhere) or still inside it
+    // (gray/neutral — nothing's happened yet). "Off"/"—"/"Before open"/"Pending" aren't a real
+    // in/out state yet, so no badge shows for those.
+    // Extracts the trailing "+X.XX"/"-X.XX" style offset already present in these fields' raw
+    // values (e.g. "Above range +2.40" -> "+2.40"), so badges can show the number, not just the
+    // direction word.
+    function extractNum(val) {
+      const m = (val || '').match(/([+-]\d+\.?\d*)/);
+      return m ? m[1] : '';
+    }
+
+    const orValue = get('Opening range');
+    const orNum = extractNum(orValue);
+    const or = /Above range|Below range/i.test(orValue || '')
+      ? [[`OR OUT${orNum ? ' ' + orNum : ''}`, 'badge-bull']]
+      : /Inside range/i.test(orValue || '')
+        ? [['OR IN', 'badge-neutral']]
+        : [];
+
+    // EMA9/20 zone position badges: the "<N>min - Above Both/Below Both/Between" rows show where
+    // price sits relative to that timeframe's own EMA9/EMA20 pair — Above Both (green), Below Both
+    // (red), or Between them (gray/neutral). The timeframe NUMBER is embedded right in the field's
+    // KEY (not a fixed 3/15 — whatever the chart/HTF timeframe actually is, 3m/15m/60m/etc.), so
+    // this scans for any row matching that pattern rather than looking up fixed labels.
+    const emaZonePhaseClass = (phase) => phase === 'Above Both' ? 'badge-bull' : phase === 'Below Both' ? 'badge-bear' : 'badge-neutral';
+    const emaZonePhaseShort = (phase) => phase === 'Above Both' ? 'ABOVE' : phase === 'Below Both' ? 'BELOW' : 'BETWEEN';
+    const emazone = rows
+      .filter(([k]) => /^\d+min - (Above Both|Below Both|Between)$/.test(k))
+      .map(([k]) => {
+        const m = k.match(/^(\d+)min - (Above Both|Below Both|Between)$/);
+        return [`${m[1]}m ${emaZonePhaseShort(m[2])}`, emaZonePhaseClass(m[2])];
+      });
+
+    // Zone-entries-since-flip badges — "EMA9/20 (N) zone entries since flip" rows, where N is
+    // whatever the actual LTF/HTF timeframe is (not fixed to 3/15 — scans for any number), compacted
+    // to "ENTRY(3)-4" style. Neutral gray since a raw entry count isn't inherently bull or bear.
+    const zoneEntries = rows
+      .filter(([k]) => /^EMA9\/20 \(\d+\) zone entries since flip$/.test(k))
+      .map(([k, v]) => {
+        const m = k.match(/^EMA9\/20 \((\d+)\) zone entries since flip$/);
+        return [`ENTRY(${m[1]})-${v}`, 'badge-neutral', null, `EMA9/20 zone entries since the last flip, ${m[1]} timeframe`];
+      });
+
+    // VWAP / EMA 200 badges — same color rule the field-body table already uses for these rows
+    // (classifyRow: value starting with "Above" -> green, "Below" -> red). Numeric offset appended
+    // since "VWAP BELOW" alone doesn't say how far below.
+    const vwapVal = get('VWAP');
+    const vwapNum = extractNum(vwapVal);
+    const vwap = /^Above/i.test(vwapVal || '') ? [[`VWAP ABOVE${vwapNum ? ' ' + vwapNum : ''}`, 'badge-bull']] : /^Below/i.test(vwapVal || '') ? [[`VWAP BELOW${vwapNum ? ' ' + vwapNum : ''}`, 'badge-bear']] : [];
+    const ema200Val = get('EMA 200');
+    const ema200Num = extractNum(ema200Val);
+    const ema200 = /^Above/i.test(ema200Val || '') ? [[`EMA200 ABOVE${ema200Num ? ' ' + ema200Num : ''}`, 'badge-bull']] : /^Below/i.test(ema200Val || '') ? [[`EMA200 BELOW${ema200Num ? ' ' + ema200Num : ''}`, 'badge-bear']] : [];
+
+    // HTF SL badge — same value as the "HTF Trailing Stop" row and the on-chart "HTF SL" line,
+    // surfaced in the preview too so the stop level is visible without expanding the card.
+    const htfStopVal = get('HTF Trailing Stop');
+    const htfStopPrice = htfStopVal ? (htfStopVal.match(/^([\d.]+)/) || [])[1] : null;
+    const htfSl = htfStopPrice ? [[`HTF SL ${htfStopPrice}`, 'badge-sl']] : [];
+
+    // Pivot R1/PP/S1 preview badges — these used to only be visible after expanding the card into
+    // the Context detail table ("Pivot R1: 7824.75" etc.); surfaced here as compact badges too, with
+    // a hover tooltip spelling out what each one is, since "R1"/"PP"/"S1" alone isn't self-explanatory.
+    const pivR1 = get('Pivot R1');
+    const pivPP = get('Pivot PP');
+    const pivS1 = get('Pivot S1');
+    const pivot = [
+      pivR1 ? [`R1 ${pivR1}`, 'badge-bear', null, 'Daily Pivot R1 (first resistance level)'] : null,
+      pivPP ? [`PP ${pivPP}`, 'badge-neutral', null, 'Daily Pivot Point (the base level R1/S1 etc. are calculated from)'] : null,
+      pivS1 ? [`S1 ${pivS1}`, 'badge-bull', null, 'Daily Pivot S1 (first support level)'] : null,
+    ].filter(Boolean);
+
+    // Price badge — the current bar's close, always shown first (orange) so it's visible at a
+    // glance without expanding the card, same value as the "Price" row in the field-body table.
+    const priceVal = get('Price');
+    const price = priceVal ? [[priceVal, 'badge-price']] : [];
+
+    // Candle time-range badge — surfaces the "Time" context row (e.g. "8/5 16:45-16:48 ET", the
+    // start-end of the candle this alert refers to) in the preview too, instead of only appearing
+    // after expanding into Context.
+    const timeVal = get('Time');
+    const time = timeVal ? [[timeVal, 'badge-neutral', null, 'The candle this alert refers to (start-end, exchange time)']] : [];
+
+    // Last-flip badges — "CBC (3m) last flip" etc. moved out of the field-body table entirely
+    // (now badge-only) since 3 full rows of "LONG 8/1 08:45 ET #2" style text was a lot of space
+    // for what's really just "when did this timeframe last flip". Compact to "3-08:45 #2".
+    function lastFlipBadge(tf, key) {
+      const val = get(key);
+      if (!val) return null;
+      const m = val.match(/^(LONG|SHORT)\s+\d{1,2}\/\d{1,2}\s+(\d{1,2}:\d{2})\s+ET\s+(#\d+)/i);
+      if (!m) return null;
+      return [`${tf}-${m[2]} ${m[3]}`, m[1].toUpperCase() === 'SHORT' ? 'badge-bear' : 'badge-bull'];
+    }
+    const lastFlip = [
+      lastFlipBadge('3', 'CBC (3m) last flip'),
+      lastFlipBadge('15', 'CBC (15m) last flip'),
+      (lastFlipBadge('60', 'CBC (1H) last flip') || lastFlipBadge('60', 'CBC (60) last flip')),
+    ].filter(Boolean);
+
+    const groups = [price, time, cbc, st, ema, ema920Cross, emazone, zoneEntries, entry, or, vwap, ema200, lastFlip, htfSl, pivot].filter(g => g.length);
+    const groupsHtml = groups.map(g => g.map(([label, cls, ring, title]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}"${title ? ` title="${escapeHtml(title)}"` : ''}>${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
+
+    if (!statusBadge && !groupsHtml) return '';
+    return `<div class="badge-row">${statusBadge}${statusBadge && groupsHtml ? '<span class="badge-divider">|</span>' : ''}${groupsHtml}</div>`;
+  }
 
   // Which type-filter title(s) apply to a given alert. Falls back to OTHER_TYPE for alerts that
   // don't match any known type (foreign alerts, or a bullet-point wording that's changed since).
@@ -674,21 +1731,135 @@
     return matches.length ? matches : [OTHER_TYPE];
   }
 
+
+
   // ---- Alert Types filter panel wiring ----
   const typeFilterBtn = document.getElementById('typeFilterBtn');
   const typeFilterPanel = document.getElementById('typeFilterPanel');
 
   function renderTypeFilterPanel() {
-    const rowsHtml = ALL_TYPE_TITLES.map((title, i) => {
+    const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
+    const paCheckedCount = paTitles.filter(t => enabledTypes.has(t)).length;
+    const nonPaTitles = ALL_TYPE_TITLES.filter(t => !t.startsWith(PRICE_ACTION_PREFIX));
+    const rowsHtml = nonPaTitles.map((title) => {
       const checked = enabledTypes.has(title) ? 'checked' : '';
       return `<label class="type-filter-row"><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
-    }).join('');
+    }).join('')
+      // Master row: checks/unchecks all 26 Price Action types at once; indeterminate when some
+      // (not all, not none) are individually enabled, so its visual state always matches reality.
+      + `<label class="type-filter-row type-filter-master"><input type="checkbox" id="paMasterCheckbox" ${paCheckedCount === paTitles.length ? 'checked' : ''}> Price Action: All (${paCheckedCount}/${paTitles.length})</label>`
+      + paTitles.map((title) => {
+        const checked = enabledTypes.has(title) ? 'checked' : '';
+        return `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title.slice(PRICE_ACTION_PREFIX.length))}</label>`;
+      }).join('');
     typeFilterPanel.innerHTML = rowsHtml + `<div class="type-filter-actions">
       <button type="button" id="typeFilterAll">All</button>
       <button type="button" id="typeFilterNone">None</button>
     </div>`;
+    const masterEl = document.getElementById('paMasterCheckbox');
+    if (masterEl) masterEl.indeterminate = paCheckedCount > 0 && paCheckedCount < paTitles.length;
   }
   renderTypeFilterPanel();
+
+  // Voice Categories panel — mirrors the Alert Types panel above (same Price Action master-row
+  // pattern), but drives voiceEnabledTypes instead of the display filter enabledTypes.
+  const voiceFilterBtn = document.getElementById('voiceFilterBtn');
+  const voiceFilterPanel = document.getElementById('voiceFilterPanel');
+  function renderVoiceFilterPanel() {
+    const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
+    const paCheckedCount = paTitles.filter(t => voiceEnabledTypes.has(t)).length;
+    const nonPaTitles = ALL_TYPE_TITLES.filter(t => !t.startsWith(PRICE_ACTION_PREFIX));
+    const rowsHtml = nonPaTitles.map((title) => {
+      const checked = voiceEnabledTypes.has(title) ? 'checked' : '';
+      return `<label class="type-filter-row"><input type="checkbox" data-voice-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
+    }).join('')
+      + `<label class="type-filter-row type-filter-master"><input type="checkbox" id="paMasterVoiceCheckbox" ${paCheckedCount === paTitles.length ? 'checked' : ''}> Price Action: All (${paCheckedCount}/${paTitles.length})</label>`
+      + paTitles.map((title) => {
+        const checked = voiceEnabledTypes.has(title) ? 'checked' : '';
+        return `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-voice-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title.slice(PRICE_ACTION_PREFIX.length))}</label>`;
+      }).join('');
+    voiceFilterPanel.innerHTML = rowsHtml + `<div class="type-filter-actions">
+      <button type="button" id="voiceFilterAll">All</button>
+      <button type="button" id="voiceFilterNone">None</button>
+    </div>`;
+    const masterEl = document.getElementById('paMasterVoiceCheckbox');
+    if (masterEl) masterEl.indeterminate = paCheckedCount > 0 && paCheckedCount < paTitles.length;
+  }
+  renderVoiceFilterPanel();
+
+  function positionVoiceFilterPanel() {
+    const margin = 8;
+    const rect = voiceFilterBtn.getBoundingClientRect();
+    const panelWidth = voiceFilterPanel.offsetWidth || 260;
+    let left = rect.right - panelWidth;
+    left = Math.min(left, window.innerWidth - margin - panelWidth);
+    left = Math.max(left, margin);
+    let top = rect.bottom + 6;
+    top = Math.min(top, window.innerHeight - margin - 40);
+    voiceFilterPanel.style.left = left + 'px';
+    voiceFilterPanel.style.top = top + 'px';
+  }
+  window.addEventListener('resize', () => {
+    if (voiceFilterPanel.classList.contains('open')) positionVoiceFilterPanel();
+  });
+  voiceFilterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !voiceFilterPanel.classList.contains('open');
+    voiceFilterPanel.classList.toggle('open');
+    if (opening) positionVoiceFilterPanel();
+  });
+  document.addEventListener('click', (e) => {
+    if (!voiceFilterPanel.contains(e.target) && e.target !== voiceFilterBtn) {
+      voiceFilterPanel.classList.remove('open');
+    }
+  });
+  voiceFilterPanel.addEventListener('click', (e) => {
+    if (e.target.id === 'voiceFilterAll') {
+      ALL_TYPE_TITLES.forEach(t => voiceEnabledTypes.add(t));
+      renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+      return;
+    }
+    if (e.target.id === 'voiceFilterNone') {
+      voiceEnabledTypes.clear();
+      renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+      return;
+    }
+    if (e.target.id === 'paMasterVoiceCheckbox') {
+      const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
+      if (e.target.checked) paTitles.forEach(t => voiceEnabledTypes.add(t));
+      else paTitles.forEach(t => voiceEnabledTypes.delete(t));
+      renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+      return;
+    }
+    if (e.target.matches('input[data-voice-title]')) {
+      const title = decodeURIComponent(e.target.dataset.voiceTitle);
+      if (e.target.checked) voiceEnabledTypes.add(title);
+      else voiceEnabledTypes.delete(title);
+      if (title.startsWith(PRICE_ACTION_PREFIX)) renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+    }
+  });
+
+  // Speaks a short summary of a new alert via the browser's built-in text-to-speech, once voice is
+  // on globally AND at least one of this alert's classified types is voice-enabled.
+  function speakAlert(alertObj) {
+    if (!window.speechSynthesis) return;
+    const lines = (alertObj.raw || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
+    const titles = getAlertTypeTitles(headlineLines);
+    const effectiveTitles = titles.length ? titles : [OTHER_TYPE];
+    if (!effectiveTitles.some(t => voiceEnabledTypes.has(t))) return;
+    const sym = (getSymbol(alertObj.raw) || 'Alert').replace(/!$/, '');
+    const dirMatch = (alertObj.raw || '').match(/\b(LONG|SHORT|Bullish|Bearish)\b/);
+    const dir = dirMatch ? dirMatch[1] : '';
+    const cleanTitle = (effectiveTitles[0] || OTHER_TYPE).replace(/\s*\([^)]*\)\s*$/, '').replace(/Price Action - /, '');
+    const phrase = `${sym}. ${cleanTitle}${dir ? '. ' + dir : ''}`;
+    speechSynthesis.cancel(); // don't queue up a backlog if several alerts land in quick succession
+    speechSynthesis.speak(new SpeechSynthesisUtterance(phrase));
+  }
 
   // Positions the panel with fixed coords clamped to the viewport, instead of trusting CSS
   // right:0 (which anchors to the button's own position — fine on desktop where the button
@@ -735,10 +1906,19 @@
       render();
       return;
     }
+    if (e.target.id === 'paMasterCheckbox') {
+      const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
+      if (e.target.checked) paTitles.forEach(t => enabledTypes.add(t));
+      else paTitles.forEach(t => enabledTypes.delete(t));
+      renderTypeFilterPanel();
+      render();
+      return;
+    }
     if (e.target.matches('input[data-type-title]')) {
       const title = decodeURIComponent(e.target.dataset.typeTitle);
       if (e.target.checked) enabledTypes.add(title);
       else enabledTypes.delete(title);
+      if (title.startsWith(PRICE_ACTION_PREFIX)) renderTypeFilterPanel(); // keep master row's count/indeterminate state in sync
       render();
     }
   });
@@ -836,6 +2016,16 @@
     return m ? `${m[1]} ${m[2]} ${m[3]}` : value;
   }
 
+  // "CBC (3m) last flip" / "CBC (15m) last flip" / "CBC (1H) last flip" as full labels waste
+  // horizontal space when shown 3-up in one row — compacted to just "3-"/"15-"/"60-" prefixes.
+  function shortenLastFlipLabel(key) {
+    if (!key.includes('last flip')) return key;
+    const m = key.match(/\((\d+)m\)/) || key.match(/\((1H|60)\)/);
+    if (!m) return key;
+    const tf = m[1] === '1H' ? '60' : m[1];
+    return `${tf}-`;
+  }
+
   // Arranges [key, value] pairs into rows per ROW_GROUPS: each configured group becomes one row
   // (in the order fields are found — a group with a missing field just renders fewer chips that
   // row), and anything left over becomes its own single-field row, in original order.
@@ -860,14 +2050,14 @@
   }
 
   function render() {
-    // Populate the symbol filter dropdown from whatever tickers have shown up so far, preserving
-    // the current selection (and falling back to "all" if the selected symbol has since rolled off).
+    // Build the symbol tab bar from whatever tickers have shown up so far, preserving the current
+    // selection (and falling back to "all" if the selected symbol has since rolled off).
     const symbols = Array.from(new Set(alerts.map(a => getSymbol(a.raw)).filter(Boolean))).sort();
-    const prevValue = symbolFilterEl.value || activeFilter;
-    symbolFilterEl.innerHTML = '<option value="all">All symbols</option>' +
-      symbols.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-    symbolFilterEl.value = symbols.includes(prevValue) ? prevValue : 'all';
-    activeFilter = symbolFilterEl.value;
+    activeFilter = symbols.includes(activeFilter) ? activeFilter : 'all';
+    const countBySymbol = {};
+    symbols.forEach(s => { countBySymbol[s] = alerts.filter(a => getSymbol(a.raw) === s).length; });
+    symbolTabsEl.innerHTML = `<button class="symbol-tab-btn ${activeFilter === 'all' ? 'active' : ''}" data-symbol="all">All<span class="symbol-tab-count">${alerts.length}</span></button>` +
+      symbols.map(s => `<button class="symbol-tab-btn ${activeFilter === s ? 'active' : ''}" data-symbol="${escapeHtml(s)}">${escapeHtml(s)}<span class="symbol-tab-count">${countBySymbol[s]}</span></button>`).join('');
 
     const bySymbol = activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter);
     const filtered = bySymbol.filter(a => {
@@ -885,7 +2075,28 @@
 
     countEl.textContent = activeFilter === 'all' ? alerts.length : `${filtered.length} of ${alerts.length}`;
     emptyEl.style.display = filtered.length ? 'none' : 'block';
-    listEl.innerHTML = filtered.map(a => {
+    function renderCard(a) {
+      const cbcWire = parseCbcWireAlert(a.raw);
+      if (cbcWire) {
+        const isExpandedWire = expandedIds.has(a.id);
+        const statusCls = cbcWire.isBull === true ? 'status-confirmed' : cbcWire.isBull === false ? 'status-fail' : '';
+        const pillCls = cbcWire.isBull === true ? 'pill-flip-long' : cbcWire.isBull === false ? 'pill-flip-short' : 'pill-neutral';
+        return `<div class="card ${statusCls} ${isExpandedWire ? 'expanded' : ''}" data-id="${a.id}">
+          <div class="card-top" data-toggle="${a.id}">
+            <div class="card-top-left">
+              <span class="chevron">&#9656;</span>
+              <span class="type-pill ${pillCls}">${escapeHtml(cbcWire.tf)}m</span>
+              <span class="card-summary">${cbcWire.symbol ? escapeHtml(cbcWire.symbol) : 'CBC Wire'} — ${escapeHtml(cbcWire.summary)}</span>
+            </div>
+            <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0;">
+              <span class="card-time">${new Date(a.receivedAt).toLocaleString()}</span>
+              <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
+            </div>
+          </div>
+          <div class="card-headline"><span class="headline-text">${escapeHtml(cbcWire.detail)}</span></div>
+        </div>`;
+      }
+
       const body = a.raw || '';
       const lines = body.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const headlineLines = [];
@@ -929,26 +2140,100 @@
       const headlineTextHtml = colorizeBullBear(headlineLines.join('\n'));
       const headlineHtml = headlineTextHtml + (highlightLines.length ? '\n' + highlightLines.join('\n') : '');
 
-      const bodyHtml = groupRows(rows).map(group => {
+      const badgeRowHtml = buildBadgeRow(rows, headlineLines);
+
+      // CBC Flip Level: combined into one row (3m/15m/60 side by side) instead of 3 separate
+      // full-width rows, formatted as "<price>-<tf>". Colored by the OPPOSITE of that timeframe's
+      // CURRENT CBC state — e.g. if CBC15 currently reads Bullish, its flip level is colored RED,
+      // since crossing that price is what would flip it TO bearish (the color it's about to
+      // become, not the color it currently is).
+      const getRow = (label) => { const r = rows.find(([k]) => k === label); return r ? r[1] : null; };
+      const oppositeOf = (val) => val === 'Bullish' ? 'bear' : val === 'Bearish' ? 'bull' : 'neutral';
+      const flipPrice = (val) => { const m = (val || '').match(/^([\d.]+)/); return m ? m[1] : val; };
+      const flip3 = getRow('CBC Flip Level (3m)');
+      const flip15 = getRow('CBC Flip Level (15m)');
+      const flip60 = getRow('CBC Flip Level (1H)') || getRow('CBC Flip Level (60)');
+      const flipLevelRowHtml = (flip3 || flip15 || flip60) ? `<div class="row-group">${
+        [
+          flip3 ? [flip3, '3', getRow('CBC (3m)')] : null,
+          flip15 ? [flip15, '15', getRow('CBC (15m)')] : null,
+          flip60 ? [flip60, '60', getMtf(getRow, 'CBC')] : null,
+        ].filter(Boolean).map(([val, tf, nowVal]) =>
+          `<div class="field ${oppositeOf(nowVal)}"><span class="k">CBC Flip Level</span><span class="v">${escapeHtml(flipPrice(val))}-${tf}</span></div>`
+        ).join('')
+      }</div>` : '';
+
+      const bodyRows = rows.filter(([k]) =>
+        !FIELDS_SHOWN_ONLY_IN_HEADLINE.some(prefix => k.startsWith(prefix)) &&
+        !FIELDS_SHOWN_ONLY_AS_BADGES.includes(k)
+      );
+      const groups = groupRows(bodyRows);
+      // groups[0] is always Time/Market, groups[1] is always Chart/Price (per ROW_GROUPS order
+      // above) — rendered under a "Context" header, then the same badge row shown up top gets
+      // reused verbatim under its own header (guarantees it's pixel-identical, not a re-styled
+      // copy), then everything else follows with no header.
+      const renderGroup = (group) => {
         const fieldsHtml = group.map(([k, v]) => {
           const displayV = shortenLastFlip(k, v);
+          const displayK = shortenLastFlipLabel(k);
           const cls = classifyRow(k, v);
-          return `<div class="field ${cls}"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(displayV)}</span></div>`;
+          return `<div class="field ${cls}"><span class="k">${escapeHtml(displayK)}</span><span class="v">${escapeHtml(displayV)}</span></div>`;
         }).join('');
         return `<div class="row-group">${fieldsHtml}</div>`;
-      }).join('');
+      };
+      const bodyHtml =
+        (groups.slice(0, 2).length ? `<div class="section-label">Context</div>` : '') +
+        groups.slice(0, 2).map(renderGroup).join('') +
+        flipLevelRowHtml +
+        groups.slice(2).map(renderGroup).join('');
 
-      // One-line summary shown in the collapsed header: the ticker plus the first bullet (the main
-      // headline), so you can tell alerts apart before expanding any of them.
+      // One-line summary shown in the collapsed header — tightened to match CBC Wire's terse
+      // voice-signal phrasing ("3m CBC bullish @ 29548.75", "ydh crossing", "NY ORB-L approaching")
+      // instead of the full "<Type>: <Direction> (<detail>)" bullet text. Full detail is still one
+      // tap away in the expanded headline/tooltip — this is just what you see scanning the list.
       const tickerOnly = (lines[0] || '').replace(/[—\s]+$/, '');
-      const summaryText = [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
+      const priceNow = (rows.find(([k]) => k === 'Price') || [])[1];
+
+      function buildCompactSummary() {
+        const bullet = headlineLines.find(l => l.startsWith('•')) || '';
+
+        // Combined or plain HTF/LTF CBC Flip: "HTF(15) CBC Flip: LONG (confirmed...)" -> "15m CBC bullish"
+        let m = bullet.match(/(?:HTF|LTF)\((\d+)\)\s*CBC Flip(?:\s*\+\s*(?:LTF|HTF)\(\d+\)\s*Agreement)?:\s*(LONG|SHORT)/i);
+        if (m) return `${tickerOnly} ${m[1]}m CBC ${m[2].toUpperCase() === 'LONG' ? 'bullish' : 'bearish'}${priceNow ? ' @ ' + priceNow : ''}`;
+
+        // Agreement alone: "LTF(3) short + HTF(15) Agreement: SHORT (...)"
+        m = bullet.match(/(?:LTF|HTF)\((\d+)\).*?Agreement:\s*(LONG|SHORT)/i);
+        if (m) return `${tickerOnly} ${m[1]}m Agreement ${m[2].toUpperCase() === 'LONG' ? 'bullish' : 'bearish'}${priceNow ? ' @ ' + priceNow : ''}`;
+
+        // EMA9/20 Cross: "EMA9/20 Cross: Bullish (crossed above)"
+        m = bullet.match(/EMA9\/20 Cross:\s*(Bullish|Bearish)/i);
+        if (m) {
+          const chartTf = (getRow('Chart') || '').match(/(\d+)m\s*$/);
+          return `${tickerOnly}${chartTf ? ' ' + chartTf[1] + 'm' : ''} ema9/20 crossing`;
+        }
+
+        // Level Proximity / Key Level Alert: "<Level> Crossing/Approaching: Bullish/Bearish (...)"
+        // or "Key Level Alert: <Level> Bullish/Bearish (crossed above/below N)"
+        m = bullet.match(/^•\s*Key Level Alert:\s*(\S+)\s+(?:Bullish|Bearish)\s*\(crossed (above|below) ([\d.]+)\)/i);
+        if (m) return `${tickerOnly} ${m[1]} crossing${priceNow ? ' @ ' + priceNow : ''}`;
+        m = bullet.match(/^•\s*(.+?)\s+(Crossing|Approaching):/i);
+        if (m) return `${tickerOnly} ${m[1].toLowerCase()} ${m[2].toLowerCase()}`;
+
+        return null;
+      }
+      let summaryText = buildCompactSummary() || [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
+      if (classifyTier(headlineLines, a.receivedAt) === 'forming') summaryText += ' - FORMING';
       const isExpanded = expandedIds.has(a.id);
       const chartUrl = buildChartUrl(tickerOnly, rows);
+      const statusClass = classifyAlertStatus(headlineLines);
+      const typePill = classifyTypePill(headlineLines);
+      const typePillHtml = typePill ? `<span class="type-pill ${typePill.cls}">${typePill.label}</span>` : '';
 
-      return `<div class="card ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
+      return `<div class="card ${statusClass} ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
         <div class="card-top" data-toggle="${a.id}">
           <div class="card-top-left">
             <span class="chevron">&#9656;</span>
+            ${typePillHtml}
             <span class="card-summary">${escapeHtml(summaryText)}</span>
           </div>
           <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0;">
@@ -957,8 +2242,153 @@
             <span class="card-ago" data-ts="${a.receivedAt}">${timeAgo(a.receivedAt)}</span>
           </div>
         </div>
+        ${badgeRowHtml}
         ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
         <div class="field-body">${bodyHtml}</div>
+      </div>`;
+    }
+
+    // Tier classification: "actionable" alerts have a live, freshly-confirmed setup worth acting
+    // on now; "forming" are unconfirmed/early signals or warnings worth watching; everything else
+    // ("context") is informational — levels, crosses, proximity, connection pings. CBC Wire and
+    // unrecognized types default to context since they carry no trade-entry information.
+    const ACTIONABLE_TITLES = new Set([
+      'A+ Setup (Long/Short)', 'ORB Retest / Break & Base (Long/Short)', 'Outside HTF ORB (Bullish/Bearish)',
+      'Price Enters HTF EMA9/20 Zone - Entry', 'LTF + HTF Agreement (Long/Short)', 'HTF CBC Flip (Long/Short)',
+      'LTF CBC Flip (Long/Short)',
+    ]);
+    const FORMING_TITLES = new Set([
+      'LTF + HTF Agreement - Early (unconfirmed HTF)', 'HTF CBC Flip - Early (unconfirmed, still forming)',
+      'LTF CBC Flip - Early (unconfirmed, mid-candle)', 'ORB Retest Fail (Long/Short)',
+    ]);
+    // Only these three types are genuinely about a still-open/in-progress candle — "ORB Retest Fail"
+    // describes a completed pattern, not an in-progress one, so it's exempt from the window check below.
+    const FORMING_CANDLE_TITLES = new Set([
+      'LTF + HTF Agreement - Early (unconfirmed HTF)', 'HTF CBC Flip - Early (unconfirmed, still forming)',
+      'LTF CBC Flip - Early (unconfirmed, mid-candle)',
+    ]);
+    // Pulls the relevant still-forming candle's timeframe (in minutes) out of the alert text — prefers
+    // HTF(N) when this is an HTF-side early alert, otherwise LTF(N). Returns null if neither is found.
+    function extractFormingPeriodMinutes(line) {
+      const isHtfEarly = /HTF/i.test(line);
+      const htfMatch = line.match(/HTF\((\d+)\)/i);
+      const ltfMatch = line.match(/LTF\((\d+)\)/i);
+      if (isHtfEarly && htfMatch) return parseInt(htfMatch[1], 10);
+      if (ltfMatch) return parseInt(ltfMatch[1], 10);
+      if (htfMatch) return parseInt(htfMatch[1], 10);
+      return null;
+    }
+    // True once the alert's own timestamp falls within the last `windowMin` minutes of its candle.
+    // Uses the browser's local minute-of-hour, which matches the exchange's minute-of-hour for any
+    // standard timeframe (3/5/15/60m etc.) regardless of timezone, since UTC-vs-exchange offsets are
+    // always whole hours — only the hour differs, never the minute, so no timezone conversion needed.
+    function isInFormingWindow(receivedAt, periodMin, windowMin) {
+      if (!periodMin) return true; // couldn't parse a period — don't hide it, fail open
+      const d = new Date(receivedAt);
+      const secondsIntoHour = d.getMinutes() * 60 + d.getSeconds();
+      const secondsIntoPeriod = secondsIntoHour % (periodMin * 60);
+      const secondsRemaining = periodMin * 60 - secondsIntoPeriod;
+      return secondsRemaining <= windowMin * 60;
+    }
+    function classifyTier(headlineLines, receivedAt) {
+      const types = getAlertTypeTitles(headlineLines);
+      if (types.some(t => ACTIONABLE_TITLES.has(t))) return 'actionable';
+      const formingCandleType = types.find(t => FORMING_CANDLE_TITLES.has(t));
+      if (formingCandleType) {
+        const line = headlineLines.find(l => getDefinitionsForHeadline([l]).some(d => d.title === formingCandleType)) || headlineLines.join(' ');
+        const periodMin = extractFormingPeriodMinutes(line);
+        const windowMin = parseInt(formingWindowEl.value, 10);
+        if (!isInFormingWindow(receivedAt, periodMin, windowMin)) return 'hidden';
+        return 'forming';
+      }
+      if (types.some(t => FORMING_TITLES.has(t))) return 'forming';
+      return 'context';
+    }
+
+    const tierLimitRaw = tierLimitEl.value;
+    const tierLimit = tierLimitRaw === 'all' ? Infinity : parseInt(tierLimitRaw, 10);
+
+    if (chronoView) {
+      // Chronological view: group by symbol only, no tier classification (and therefore no
+      // Forming-window hiding either, since that logic lives inside classifyTier) — just every
+      // alert that passed the Alert Types filter, newest first.
+      const bySymbolFlat = new Map();
+      filtered.forEach(a => {
+        const sym = getSymbol(a.raw);
+        if (!bySymbolFlat.has(sym)) bySymbolFlat.set(sym, []);
+        bySymbolFlat.get(sym).push(a);
+      });
+      const flatSymbolOrder = Array.from(bySymbolFlat.keys()).sort((s1, s2) => {
+        const t = sym => Math.max(...bySymbolFlat.get(sym).map(a => a.receivedAt), 0);
+        return t(s2) - t(s1);
+      });
+      listEl.innerHTML = flatSymbolOrder.map(sym => {
+        const items = bySymbolFlat.get(sym);
+        const shownItems = items.slice(0, tierLimit);
+        const cardsHtml = shownItems.map(renderCard).join('');
+        const truncatedNote = shownItems.length < items.length
+          ? `<div class="tier-truncated-note">Showing ${shownItems.length} of ${items.length} — raise "Show per tier" above to see more.</div>`
+          : '';
+        return `<div class="symbol-cockpit">
+          <div class="symbol-cockpit-header">${escapeHtml(sym || 'Unknown')} <span class="tier-count">${items.length}</span></div>
+          <div class="tier-cards">${cardsHtml}${truncatedNote}</div>
+        </div>`;
+      }).join('');
+      return;
+    }
+
+    // Group by symbol (cockpit), then bucket each symbol's alerts into the 3 tiers above.
+    const bySymbolGroups = new Map();
+    filtered.forEach(a => {
+      const sym = getSymbol(a.raw);
+      if (!bySymbolGroups.has(sym)) bySymbolGroups.set(sym, { actionable: [], forming: [], context: [] });
+      const lines = (a.raw || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
+      const tier = classifyTier(headlineLines, a.receivedAt);
+      // 'hidden': a still-forming-candle alert outside its configured "Forming window" — per request,
+      // these simply don't display at all (not even under Context) until the candle nears its close.
+      if (tier === 'hidden') return;
+      bySymbolGroups.get(sym)[tier].push(a);
+    });
+    // Symbols ordered by most recent activity (their newest alert's timestamp), matching the
+    // existing "most recent first" expectation from the old flat chronological feed.
+    const symbolOrder = Array.from(bySymbolGroups.keys()).sort((s1, s2) => {
+      const t = sym => Math.max(...['actionable', 'forming', 'context'].flatMap(k => bySymbolGroups.get(sym)[k].map(a => a.receivedAt)), 0);
+      return t(s2) - t(s1);
+    });
+
+    const TIER_META = {
+      actionable: { label: 'Actionable now', cls: 'tier-actionable' },
+      forming: { label: 'Forming', cls: 'tier-forming' },
+      context: { label: 'Context', cls: 'tier-context' },
+    };
+    listEl.innerHTML = symbolOrder.map(sym => {
+      const g = bySymbolGroups.get(sym);
+      const tiersHtml = ['actionable', 'forming', 'context'].map(tier => {
+        const items = g[tier];
+        if (!items.length) return '';
+        const meta = TIER_META[tier];
+        // Items are already newest-first (alerts arrive via unshift), so slicing the first N here
+        // keeps the most recent ones — the count badge below still shows the TRUE total, uncapped.
+        const shownItems = items.slice(0, tierLimit);
+        const cardsHtml = shownItems.map(renderCard).join('');
+        const truncatedNote = shownItems.length < items.length
+          ? `<div class="tier-truncated-note">Showing ${shownItems.length} of ${items.length} — raise "Show per tier" above to see more.</div>`
+          : '';
+        const tierKey = `${sym}::${tier}`;
+        if (!seenTierKeys.has(tierKey)) {
+          seenTierKeys.add(tierKey);
+          collapsedTiers.add(tierKey); // default: collapsed until the user opens it
+        }
+        const isCollapsed = collapsedTiers.has(tierKey);
+        return `<div class="tier-section ${meta.cls}">
+          <div class="tier-label ${isCollapsed ? 'collapsed' : ''}" data-tier-key="${escapeHtml(tierKey)}"><span class="tier-chevron">▾</span>${meta.label} <span class="tier-count">${items.length}</span></div>
+          <div class="tier-cards ${isCollapsed ? 'collapsed' : ''}">${cardsHtml}${truncatedNote}</div>
+        </div>`;
+      }).join('');
+      return `<div class="symbol-cockpit">
+        <div class="symbol-cockpit-header">${escapeHtml(sym || 'Unknown')}</div>
+        ${tiersHtml}
       </div>`;
     }).join('');
   }
@@ -977,6 +2407,21 @@
     if (headline) {
       const lines = decodeURIComponent(headline.dataset.headline).split('\n');
       showDefinitions(lines);
+      return;
+    }
+    const tierLabel = e.target.closest('.tier-label');
+    if (tierLabel) {
+      const key = tierLabel.dataset.tierKey;
+      const cardsEl = tierLabel.nextElementSibling;
+      if (collapsedTiers.has(key)) {
+        collapsedTiers.delete(key);
+        tierLabel.classList.remove('collapsed');
+        cardsEl.classList.remove('collapsed');
+      } else {
+        collapsedTiers.add(key);
+        tierLabel.classList.add('collapsed');
+        cardsEl.classList.add('collapsed');
+      }
       return;
     }
     const header = e.target.closest('[data-toggle]');
@@ -1029,6 +2474,7 @@
     alerts.unshift(alert);
     render();
     flashPulse();
+    if (voiceOn) speakAlert(alert);
   };
 
   downloadBtn.addEventListener('click', () => {
