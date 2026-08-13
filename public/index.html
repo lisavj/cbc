@@ -1271,7 +1271,9 @@
       .replace(/\b(Bearish|SHORT)\b/g, '<span class="hl-bear">$1</span>')
       .replace(/\bHH\s*\/\s*HL\b/g, '<span class="hl-bull">HH / HL</span>')
       .replace(/\bLH\s*\/\s*LL\b/g, '<span class="hl-bear">LH / LL</span>')
-      .replace(/\b(confirmed)\b/gi, '<span class="hl-bull">$1</span>');
+      .replace(/\b(confirmed)\b/gi, '<span class="hl-bull">$1</span>')
+      .replace(/✓([A-Za-z()0-9]+)/g, '<span class="hl-bull">✓$1</span>')
+      .replace(/✗([A-Za-z()0-9]+)/g, '<span class="hl-bear">✗$1</span>');
   }
 
   // ---------------------------------------------------------------------
@@ -1933,7 +1935,7 @@
   function speakAlert(alertObj) {
     if (!window.speechSynthesis) return;
     const lines = (alertObj.raw || '').split('\n').map(l => l.trim()).filter(Boolean);
-    const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
+    const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•') || /[✓✗]/.test(l));
     const titles = getAlertTypeTitles(headlineLines);
     const effectiveTitles = titles.length ? titles : [OTHER_TYPE];
     if (!effectiveTitles.some(t => voiceEnabledTypes.has(t))) return;
@@ -2150,7 +2152,7 @@
       : (activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter));
     const filtered = bySymbol.filter(a => {
       const lines = (a.raw || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
+      const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•') || /[✓✗]/.test(l));
       const types = getAlertTypeTitles(headlineLines);
       // AND logic: a merged alert (e.g. "HTF CBC Flip - Early" + "LTF + HTF Agreement - Early"
       // fired together) only shows while EVERY type it contains is checked. Unchecking any one
@@ -2190,7 +2192,7 @@
       const headlineLines = [];
       const rows = [];
       lines.forEach((line, i) => {
-        if (i === 0 || line.startsWith('•')) {
+        if (i === 0 || line.startsWith('•') || /[✓✗]/.test(line)) {
           headlineLines.push(line);
           return;
         }
@@ -2431,7 +2433,7 @@
       const sym = getSymbol(a.raw);
       if (!bySymbolGroups.has(sym)) bySymbolGroups.set(sym, { actionable: [], forming: [], context: [] });
       const lines = (a.raw || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
+      const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•') || /[✓✗]/.test(l));
       const tier = classifyTier(headlineLines, a.receivedAt);
       // 'hidden': a still-forming-candle alert outside its configured "Forming window" — per request,
       // these simply don't display at all (not even under Context) until the candle nears its close.
