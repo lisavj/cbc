@@ -359,6 +359,7 @@
   }
   .info-icon:hover { background: rgba(245,166,35,0.45); }
   .hl-bull { color: #4ade80; font-weight: 700; }
+  .hl-white { color: #ffffff; font-weight: 700; }
   .hl-bear { color: #f87171; font-weight: 700; }
 
   /* Type pill (FLIP / AGREEMENT / EMA ZONE / A+) sits inline in the headline row, next to the info icon. */
@@ -410,8 +411,8 @@
   .badge.badge-price { background: #ffffff; color: #000000; }
   .badge.badge-sl { background: #14532d; color: #dcfce7; }
   .badge.badge-unconfirmed { background: #854f0b; color: #faeeda; }
-  .badge.badge-bull { background: #3b6d11; color: #eaf3de; }
-  .badge.badge-bear { background: #a32d2d; color: #fcebeb; }
+  .badge.badge-bull { background: #3b6d11; color: #F1F5F9; }
+  .badge.badge-bear { background: #a32d2d; color: #F1F5F9; }
   .badge.badge-neutral { background: #444441; color: #d3d1c7; }
   /* Ring around a CBC badge whose LIVE/still-forming reading has diverged from the last CONFIRMED
      reading — i.e. it's mid-flip. Ring color is the LIVE direction, independent of the badge's own
@@ -633,6 +634,8 @@
     cursor: pointer;
   }
   .type-filter-row input { flex-shrink: 0; }
+  .type-filter-master { font-weight: 600; border-top: 1px solid var(--panel-border); margin-top: 4px; padding-top: 8px; }
+  .type-filter-indent { padding-left: 18px; font-size: 11.5px; color: var(--muted); }
   .type-filter-divider {
     border-top: 1px solid var(--panel-border);
     margin: 6px 0;
@@ -698,7 +701,15 @@
     </div>
     <button id="colorToggleBtn">Colors: On</button>
     <button id="entryZoneToggleBtn">Entry Zone: Off</button>
-    <button id="chronoToggleBtn">View: Tiered</button>
+    <div class="type-filter-wrap">
+      <button id="viewModeBtn">View: Tiered ▾</button>
+      <div class="type-filter-panel" id="viewModePanel"></div>
+    </div>
+    <button id="voiceToggleBtn">Voice: Off</button>
+    <div class="type-filter-wrap">
+      <button id="voiceFilterBtn">Voice Categories ▾</button>
+      <div class="type-filter-panel" id="voiceFilterPanel"></div>
+    </div>
     <div class="tier-limit-wrap">
       <label for="tierLimitSelect" class="tier-limit-label">Show per tier</label>
       <select id="tierLimitSelect">
@@ -781,14 +792,113 @@
   // of grouping into the Actionable/Forming/Context accordion. Skips tier classification entirely —
   // including the Forming-window hide logic, which only applies within that classification — so
   // nothing is hidden here beyond the Alert Types filter itself.
-  const chronoToggleBtn = document.getElementById('chronoToggleBtn');
+  //
+  // Two-tiered "View" dropdown: top level picks Tiered vs Chronological; when Chronological is
+  // active, a second level appears letting you multi-select which symbols to include (e.g. just
+  // MES, or MES+MGC together) — independent of the single-select symbol tabs used in Tiered mode.
+  const viewModeBtn = document.getElementById('viewModeBtn');
+  const viewModePanel = document.getElementById('viewModePanel');
   let chronoView = localStorage.getItem('chronoView') === 'true'; // default false (Tiered)
-  chronoToggleBtn.textContent = chronoView ? 'View: Chronological' : 'View: Tiered';
-  chronoToggleBtn.addEventListener('click', () => {
-    chronoView = !chronoView;
-    localStorage.setItem('chronoView', String(chronoView));
-    chronoToggleBtn.textContent = chronoView ? 'View: Chronological' : 'View: Tiered';
-    render();
+  let chronoSymbolFilter;
+  try {
+    const saved = JSON.parse(localStorage.getItem('chronoSymbolFilter') || 'null');
+    chronoSymbolFilter = new Set(Array.isArray(saved) ? saved : null);
+  } catch (e) {
+    chronoSymbolFilter = new Set();
+  }
+  let chronoSymbolFilterInitialized = chronoSymbolFilter.size > 0 || localStorage.getItem('chronoSymbolFilter') !== null;
+  function saveChronoSymbolFilter() {
+    localStorage.setItem('chronoSymbolFilter', JSON.stringify(Array.from(chronoSymbolFilter)));
+  }
+  function currentKnownSymbols() {
+    return Array.from(new Set(alerts.map(a => getSymbol(a.raw)).filter(Boolean))).sort();
+  }
+  function renderViewModePanel() {
+    const symbols = currentKnownSymbols();
+    // First time we ever see the symbol list (nothing saved yet), default to "all selected".
+    if (!chronoSymbolFilterInitialized && symbols.length) {
+      symbols.forEach(s => chronoSymbolFilter.add(s));
+      chronoSymbolFilterInitialized = true;
+      saveChronoSymbolFilter();
+    }
+    const modeRowHtml = `<label class="type-filter-row"><input type="radio" name="viewModeRadio" data-mode="tiered" ${!chronoView ? 'checked' : ''}> Tiered</label>` +
+      `<label class="type-filter-row"><input type="radio" name="viewModeRadio" data-mode="chrono" ${chronoView ? 'checked' : ''}> Chronological</label>`;
+    let symbolRowsHtml = '';
+    if (chronoView) {
+      const checkedCount = symbols.filter(s => chronoSymbolFilter.has(s)).length;
+      symbolRowsHtml = `<div class="type-filter-actions" style="margin:8px 0 4px;padding-top:8px;border-top:1px solid var(--panel-border);font-weight:600;">Symbols to include</div>` +
+        `<label class="type-filter-row type-filter-master"><input type="checkbox" id="chronoSymbolAll" ${checkedCount === symbols.length && symbols.length ? 'checked' : ''}> All (${checkedCount}/${symbols.length})</label>` +
+        symbols.map(s => `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-chrono-symbol="${encodeURIComponent(s)}" ${chronoSymbolFilter.has(s) ? 'checked' : ''}> ${escapeHtml(s)}</label>`).join('');
+    }
+    viewModePanel.innerHTML = modeRowHtml + symbolRowsHtml;
+  }
+  renderViewModePanel();
+  function positionViewModePanel() {
+    const margin = 8;
+    const rect = viewModeBtn.getBoundingClientRect();
+    const panelWidth = viewModePanel.offsetWidth || 220;
+    let left = rect.right - panelWidth;
+    left = Math.min(left, window.innerWidth - margin - panelWidth);
+    left = Math.max(left, margin);
+    let top = rect.bottom + 6;
+    top = Math.min(top, window.innerHeight - margin - 40);
+    viewModePanel.style.left = left + 'px';
+    viewModePanel.style.top = top + 'px';
+  }
+  window.addEventListener('resize', () => { if (viewModePanel.classList.contains('open')) positionViewModePanel(); });
+  viewModeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !viewModePanel.classList.contains('open');
+    viewModePanel.classList.toggle('open');
+    if (opening) { renderViewModePanel(); positionViewModePanel(); }
+  });
+  document.addEventListener('click', (e) => {
+    if (!viewModePanel.contains(e.target) && e.target !== viewModeBtn) viewModePanel.classList.remove('open');
+  });
+  viewModePanel.addEventListener('click', (e) => {
+    if (e.target.matches('input[name="viewModeRadio"]')) {
+      chronoView = e.target.dataset.mode === 'chrono';
+      localStorage.setItem('chronoView', String(chronoView));
+      viewModeBtn.textContent = (chronoView ? 'View: Chronological' : 'View: Tiered') + ' ▾';
+      renderViewModePanel();
+      render();
+      return;
+    }
+    if (e.target.id === 'chronoSymbolAll') {
+      const symbols = currentKnownSymbols();
+      if (e.target.checked) symbols.forEach(s => chronoSymbolFilter.add(s));
+      else chronoSymbolFilter.clear();
+      saveChronoSymbolFilter();
+      renderViewModePanel();
+      render();
+      return;
+    }
+    if (e.target.matches('input[data-chrono-symbol]')) {
+      const sym = decodeURIComponent(e.target.dataset.chronoSymbol);
+      if (e.target.checked) chronoSymbolFilter.add(sym);
+      else chronoSymbolFilter.delete(sym);
+      saveChronoSymbolFilter();
+      renderViewModePanel();
+      render();
+    }
+  });
+  viewModeBtn.textContent = (chronoView ? 'View: Chronological' : 'View: Tiered') + ' ▾';
+  // Voice callouts: master on/off. Which specific alert categories actually trigger speech is a
+  // separate per-type selection (voiceEnabledTypes), set up further below once ALL_TYPE_TITLES exists.
+  const voiceToggleBtn = document.getElementById('voiceToggleBtn');
+  let voiceOn = localStorage.getItem('voiceOn') === 'true'; // default false — opt-in, not surprise audio
+  voiceToggleBtn.textContent = voiceOn ? 'Voice: On' : 'Voice: Off';
+  voiceToggleBtn.addEventListener('click', () => {
+    voiceOn = !voiceOn;
+    localStorage.setItem('voiceOn', String(voiceOn));
+    voiceToggleBtn.textContent = voiceOn ? 'Voice: On' : 'Voice: Off';
+    if (voiceOn && window.speechSynthesis) {
+      // Unlock/prime speech synthesis on this explicit user click (some browsers require a direct
+      // user gesture before speech will play at all, e.g. Safari/iOS) with a near-silent test utterance.
+      const primer = new SpeechSynthesisUtterance(' ');
+      primer.volume = 0.01;
+      speechSynthesis.speak(primer);
+    }
   });
   // ---------------------------------------------------------------------
   // FAQ TAB
@@ -1130,7 +1240,7 @@
         const highNum = parseFloat(buyHigh);
         const inZone = !isNaN(priceNum) && !isNaN(lowNum) && !isNaN(highNum) && priceNum >= lowNum && priceNum <= highNum;
         const priceLabel = inZone ? 'Enter Price' : 'Price';
-        const buyText = `Entry Zone: ${buyLow || '—'} to ${buyHigh || '—'}  (${priceLabel}: ${priceStr || '—'})`;
+        const buyText = `Entry BRSG Zone: ${buyLow || '—'} to ${buyHigh || '—'}  (${priceLabel}: ${priceStr || '—'})`;
         const dirClass = zoneDir === 'LONG' ? 'hl-bull' : zoneDir === 'SHORT' ? 'hl-bear' : null;
         lines.push(dirClass ? `<span class="${dirClass}">${escapeHtml(buyText)}</span>` : escapeHtml(buyText));
       }
@@ -1146,7 +1256,7 @@
         entryLine ? `Entry: ${entryLine}` : '',
         stopLine ? `Stop: ${stopLine}` : '',
       ].filter(Boolean).join('   ');
-      lines.push(escapeHtml(parts));
+      lines.push(escapeHtml(parts).replace(/(look for (?:LTF|HTF|MTF) EMA20: [\d.]+)/gi, '<span class="hl-white">$1</span>'));
     }
 
     return lines;
@@ -1200,16 +1310,6 @@
       test: (l) => /A\+ Setup/i.test(l),
       title: 'A+ Setup (Long/Short)',
       def: 'Fires once when: (1) confirmed HTF CBC direction, (2) chart-timeframe EMA cloud, and (3) HTF EMA cloud all align in the same direction, (4) price is already CONFIRMED on the trade\'s side of VWAP (above VWAP for Long, below VWAP for Short), AND (5) price is still ANTICIPATORY on the Opening Range — hasn\'t broken the ORB high (Long) / ORB low (Short) yet, i.e. before that breakout confirms.'
-    },
-    {
-      // LuxAlgo Price Action Concepts (a separate third-party indicator on the same webhook) —
-      // "Internal Bearish BOS formed" / "Swing Bullish CHOCH formed" style one-line messages, no
-      // "Market:"/bullet structure like the script's own alerts. Based on one confirmed real sample
-      // ("Internal Bearish BOS formed"); if OB Created/Mitigated/Breaker/Equal Highs/Lows messages
-      // turn out to be worded differently, send a sample of one and this can be extended to match.
-      test: (l) => /(Internal|Swing)\s+(Bullish|Bearish)\s+(BOS|CHOCH\+?)\s+formed/i.test(l),
-      title: 'LuxAlgo Price Action - BOS/CHOCH (Bullish/Bearish)',
-      def: 'From the separate LuxAlgo Price Action Concepts indicator, not this script — a Break of Structure (BOS) or Change of Character (CHOCH) forming, either on Internal (minor) or Swing (major) structure.'
     },
     {
       test: (l) => /VWAP Bounce/i.test(l),
@@ -1312,6 +1412,43 @@
     },
   ];
 
+  // LuxAlgo Price Action Concepts — a separate third-party indicator on the same webhook, not this
+  // script. Generated compactly (loops, not 26 hand-written objects) to keep this small. Structure
+  // family (Internal/Swing x Bullish/Bearish x BOS/CHOCH/CHOCH+) wording is confirmed for CHOCH+ and
+  // one BOS direction; the rest of this family and the OB/Breaker/Within group are LuxAlgo's standard
+  // naming pattern, inferred rather than sample-confirmed — tighten the regex if a real message differs.
+  ['Internal', 'Swing'].forEach(level => ['Bullish', 'Bearish'].forEach(dir => ['BOS', 'CHOCH', 'CHOCH\\+'].forEach(kind => {
+    const plain = kind.replace('\\+', '+');
+    ALERT_TYPE_DEFS.push({
+      test: (l) => new RegExp(`${level}\\s+${dir}\\s+${kind}\\s+formed`, 'i').test(l),
+      title: `Price Action - ${level} ${dir} ${plain}`,
+      def: `LuxAlgo Price Action Concepts: ${dir} ${plain.startsWith('BOS') ? 'Break of Structure' : 'Change of Character'} on ${level.toLowerCase()} structure.`
+    });
+  })));
+  // Confirmed real wording for OB Created is spelled out ("Bullish order block created"), NOT the
+  // abbreviated "OB Created" — matching both forms since OB Mitigated/Entered/Breaker wording is
+  // still unconfirmed and could go either way.
+  ['Liquidity Grab', 'OB Created', 'OB Mitigated', 'Breaker', 'OB Entered'].forEach(suffix => ['Bullish', 'Bearish'].forEach(dir => {
+    const spelledOut = suffix.replace('OB ', 'order block ');
+    const pattern = suffix === spelledOut ? suffix : `(?:${suffix}|${spelledOut})`;
+    ALERT_TYPE_DEFS.push({
+      test: (l) => new RegExp(`${dir}\\s+${pattern}`, 'i').test(l),
+      title: `Price Action - ${dir} ${suffix}`,
+      def: `LuxAlgo Price Action Concepts: ${dir} ${suffix}.`
+    });
+  }));
+  ['Bullish', 'Bearish'].forEach(dir => ALERT_TYPE_DEFS.push({
+    test: (l) => new RegExp(`Within\\s+${dir}\\s+OB`, 'i').test(l),
+    title: `Price Action - Within ${dir} OB`,
+    def: `LuxAlgo Price Action Concepts: price currently trading inside an active ${dir.toLowerCase()} Order Block.`
+  }));
+  ['Highs', 'Lows'].forEach(hl => ALERT_TYPE_DEFS.push({
+    test: (l) => new RegExp(`Equal\\s+${hl}`, 'i').test(l),
+    title: `Price Action - Equal ${hl}`,
+    def: `LuxAlgo Price Action Concepts: two or more swing ${hl.toLowerCase()} formed at nearly the same price.`
+  }));
+  const PRICE_ACTION_PREFIX = 'Price Action - ';
+
   // Most of our own alerts have "• " bulleted signal lines with line 0 just being the ticker/date
   // header. But a non-bulleted alert (e.g. LuxAlgo's plain one-line "Internal Bearish BOS formed",
   // with no bullet at all) would have ZERO bullet lines — filtering to bulletLines alone would
@@ -1341,8 +1478,24 @@
   // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
   // Proximity types (VWAP/EMA20/EMA200/Bill Breakers are common levels price crosses constantly),
   // unlike Pivot/YDH/YDL/ORB proximity which fires far less often and stays on by default.
-  const DEFAULT_OFF_TYPES = ['VWAP Proximity (Bullish/Bearish)', 'EMA Proximity (Bullish/Bearish)', 'Bill Breaker Proximity (Bullish/Bearish)', 'LTF + HTF Agreement - LTF Joined Unchanged HTF'];
+  const DEFAULT_OFF_TYPES = ['VWAP Proximity (Bullish/Bearish)', 'EMA Proximity (Bullish/Bearish)', 'Bill Breaker Proximity (Bullish/Bearish)', 'LTF + HTF Agreement - LTF Joined Unchanged HTF']
+    .concat(ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX))); // all 26 Price Action types off by default, per request
   const enabledTypes = new Set(ALL_TYPE_TITLES.filter(t => !DEFAULT_OFF_TYPES.includes(t)));
+
+  // Which categories trigger a VOICE callout — separate selection from the Alert Types display
+  // filter above (a type can show in the feed without being read aloud, or vice versa). Persisted
+  // as a JSON array (localStorage can't store a Set directly). Defaults to the same starting set as
+  // the display filter, since that's a reasonable "everything sensible" starting point either way.
+  let voiceEnabledTypes;
+  try {
+    const saved = JSON.parse(localStorage.getItem('voiceEnabledTypes') || 'null');
+    voiceEnabledTypes = new Set(Array.isArray(saved) ? saved.filter(t => ALL_TYPE_TITLES.includes(t)) : Array.from(enabledTypes));
+  } catch (e) {
+    voiceEnabledTypes = new Set(enabledTypes);
+  }
+  function saveVoiceEnabledTypes() {
+    localStorage.setItem('voiceEnabledTypes', JSON.stringify(Array.from(voiceEnabledTypes)));
+  }
 
   // Card border color: A+ Setup alerts are always confirmed-only (per the Pine script, they
   // only ever fire in the confirmed batch), so they get their own distinct color rather than
@@ -1381,7 +1534,9 @@
 
     if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
     if (/VWAP Bounce/i.test(joined)) return { label: 'VWAP BOUNCE', cls: 'pill-aplus' };
-    if (/(Internal|Swing)\s+(Bullish|Bearish)\s+(BOS|CHOCH\+?)\s+formed/i.test(joined)) {
+    // Covers all 26 LuxAlgo Price Action alert types with one shared regex (BOS/CHOCH formed,
+    // Liquidity Grab, Equal Highs/Lows, OB Created/Mitigated/Entered, Breaker, Within OB).
+    if (/(BOS|CHOCH\+?)\s+formed|Liquidity Grab|Equal (Highs|Lows)|OB (Created|Mitigated|Entered)|Breaker|Within\s+(Bullish|Bearish)\s+OB/i.test(joined)) {
       const isBear = /Bearish/i.test(joined);
       return { label: 'LUXALGO', cls: isBear ? 'pill-luxalgo-bear' : 'pill-luxalgo-bull' };
     }
@@ -1668,16 +1823,128 @@
   const typeFilterPanel = document.getElementById('typeFilterPanel');
 
   function renderTypeFilterPanel() {
-    const rowsHtml = ALL_TYPE_TITLES.map((title, i) => {
+    const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
+    const paCheckedCount = paTitles.filter(t => enabledTypes.has(t)).length;
+    const nonPaTitles = ALL_TYPE_TITLES.filter(t => !t.startsWith(PRICE_ACTION_PREFIX));
+    const rowsHtml = nonPaTitles.map((title) => {
       const checked = enabledTypes.has(title) ? 'checked' : '';
       return `<label class="type-filter-row"><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
-    }).join('');
+    }).join('')
+      // Master row: checks/unchecks all 26 Price Action types at once; indeterminate when some
+      // (not all, not none) are individually enabled, so its visual state always matches reality.
+      + `<label class="type-filter-row type-filter-master"><input type="checkbox" id="paMasterCheckbox" ${paCheckedCount === paTitles.length ? 'checked' : ''}> Price Action: All (${paCheckedCount}/${paTitles.length})</label>`
+      + paTitles.map((title) => {
+        const checked = enabledTypes.has(title) ? 'checked' : '';
+        return `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title.slice(PRICE_ACTION_PREFIX.length))}</label>`;
+      }).join('');
     typeFilterPanel.innerHTML = rowsHtml + `<div class="type-filter-actions">
       <button type="button" id="typeFilterAll">All</button>
       <button type="button" id="typeFilterNone">None</button>
     </div>`;
+    const masterEl = document.getElementById('paMasterCheckbox');
+    if (masterEl) masterEl.indeterminate = paCheckedCount > 0 && paCheckedCount < paTitles.length;
   }
   renderTypeFilterPanel();
+
+  // Voice Categories panel — mirrors the Alert Types panel above (same Price Action master-row
+  // pattern), but drives voiceEnabledTypes instead of the display filter enabledTypes.
+  const voiceFilterBtn = document.getElementById('voiceFilterBtn');
+  const voiceFilterPanel = document.getElementById('voiceFilterPanel');
+  function renderVoiceFilterPanel() {
+    const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
+    const paCheckedCount = paTitles.filter(t => voiceEnabledTypes.has(t)).length;
+    const nonPaTitles = ALL_TYPE_TITLES.filter(t => !t.startsWith(PRICE_ACTION_PREFIX));
+    const rowsHtml = nonPaTitles.map((title) => {
+      const checked = voiceEnabledTypes.has(title) ? 'checked' : '';
+      return `<label class="type-filter-row"><input type="checkbox" data-voice-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
+    }).join('')
+      + `<label class="type-filter-row type-filter-master"><input type="checkbox" id="paMasterVoiceCheckbox" ${paCheckedCount === paTitles.length ? 'checked' : ''}> Price Action: All (${paCheckedCount}/${paTitles.length})</label>`
+      + paTitles.map((title) => {
+        const checked = voiceEnabledTypes.has(title) ? 'checked' : '';
+        return `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-voice-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title.slice(PRICE_ACTION_PREFIX.length))}</label>`;
+      }).join('');
+    voiceFilterPanel.innerHTML = rowsHtml + `<div class="type-filter-actions">
+      <button type="button" id="voiceFilterAll">All</button>
+      <button type="button" id="voiceFilterNone">None</button>
+    </div>`;
+    const masterEl = document.getElementById('paMasterVoiceCheckbox');
+    if (masterEl) masterEl.indeterminate = paCheckedCount > 0 && paCheckedCount < paTitles.length;
+  }
+  renderVoiceFilterPanel();
+
+  function positionVoiceFilterPanel() {
+    const margin = 8;
+    const rect = voiceFilterBtn.getBoundingClientRect();
+    const panelWidth = voiceFilterPanel.offsetWidth || 260;
+    let left = rect.right - panelWidth;
+    left = Math.min(left, window.innerWidth - margin - panelWidth);
+    left = Math.max(left, margin);
+    let top = rect.bottom + 6;
+    top = Math.min(top, window.innerHeight - margin - 40);
+    voiceFilterPanel.style.left = left + 'px';
+    voiceFilterPanel.style.top = top + 'px';
+  }
+  window.addEventListener('resize', () => {
+    if (voiceFilterPanel.classList.contains('open')) positionVoiceFilterPanel();
+  });
+  voiceFilterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !voiceFilterPanel.classList.contains('open');
+    voiceFilterPanel.classList.toggle('open');
+    if (opening) positionVoiceFilterPanel();
+  });
+  document.addEventListener('click', (e) => {
+    if (!voiceFilterPanel.contains(e.target) && e.target !== voiceFilterBtn) {
+      voiceFilterPanel.classList.remove('open');
+    }
+  });
+  voiceFilterPanel.addEventListener('click', (e) => {
+    if (e.target.id === 'voiceFilterAll') {
+      ALL_TYPE_TITLES.forEach(t => voiceEnabledTypes.add(t));
+      renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+      return;
+    }
+    if (e.target.id === 'voiceFilterNone') {
+      voiceEnabledTypes.clear();
+      renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+      return;
+    }
+    if (e.target.id === 'paMasterVoiceCheckbox') {
+      const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
+      if (e.target.checked) paTitles.forEach(t => voiceEnabledTypes.add(t));
+      else paTitles.forEach(t => voiceEnabledTypes.delete(t));
+      renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+      return;
+    }
+    if (e.target.matches('input[data-voice-title]')) {
+      const title = decodeURIComponent(e.target.dataset.voiceTitle);
+      if (e.target.checked) voiceEnabledTypes.add(title);
+      else voiceEnabledTypes.delete(title);
+      if (title.startsWith(PRICE_ACTION_PREFIX)) renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+    }
+  });
+
+  // Speaks a short summary of a new alert via the browser's built-in text-to-speech, once voice is
+  // on globally AND at least one of this alert's classified types is voice-enabled.
+  function speakAlert(alertObj) {
+    if (!window.speechSynthesis) return;
+    const lines = (alertObj.raw || '').split('\n').map(l => l.trim()).filter(Boolean);
+    const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
+    const titles = getAlertTypeTitles(headlineLines);
+    const effectiveTitles = titles.length ? titles : [OTHER_TYPE];
+    if (!effectiveTitles.some(t => voiceEnabledTypes.has(t))) return;
+    const sym = (getSymbol(alertObj.raw) || 'Alert').replace(/!$/, '');
+    const dirMatch = (alertObj.raw || '').match(/\b(LONG|SHORT|Bullish|Bearish)\b/);
+    const dir = dirMatch ? dirMatch[1] : '';
+    const cleanTitle = (effectiveTitles[0] || OTHER_TYPE).replace(/\s*\([^)]*\)\s*$/, '').replace(/Price Action - /, '');
+    const phrase = `${sym}. ${cleanTitle}${dir ? '. ' + dir : ''}`;
+    speechSynthesis.cancel(); // don't queue up a backlog if several alerts land in quick succession
+    speechSynthesis.speak(new SpeechSynthesisUtterance(phrase));
+  }
 
   // Positions the panel with fixed coords clamped to the viewport, instead of trusting CSS
   // right:0 (which anchors to the button's own position — fine on desktop where the button
@@ -1724,10 +1991,19 @@
       render();
       return;
     }
+    if (e.target.id === 'paMasterCheckbox') {
+      const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
+      if (e.target.checked) paTitles.forEach(t => enabledTypes.add(t));
+      else paTitles.forEach(t => enabledTypes.delete(t));
+      renderTypeFilterPanel();
+      render();
+      return;
+    }
     if (e.target.matches('input[data-type-title]')) {
       const title = decodeURIComponent(e.target.dataset.typeTitle);
       if (e.target.checked) enabledTypes.add(title);
       else enabledTypes.delete(title);
+      if (title.startsWith(PRICE_ACTION_PREFIX)) renderTypeFilterPanel(); // keep master row's count/indeterminate state in sync
       render();
     }
   });
@@ -1867,8 +2143,11 @@
     symbols.forEach(s => { countBySymbol[s] = alerts.filter(a => getSymbol(a.raw) === s).length; });
     symbolTabsEl.innerHTML = `<button class="symbol-tab-btn ${activeFilter === 'all' ? 'active' : ''}" data-symbol="all">All<span class="symbol-tab-count">${alerts.length}</span></button>` +
       symbols.map(s => `<button class="symbol-tab-btn ${activeFilter === s ? 'active' : ''}" data-symbol="${escapeHtml(s)}">${escapeHtml(s)}<span class="symbol-tab-count">${countBySymbol[s]}</span></button>`).join('');
+    symbolTabsEl.style.display = chronoView ? 'none' : '';
 
-    const bySymbol = activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter);
+    const bySymbol = chronoView
+      ? alerts.filter(a => chronoSymbolFilter.has(getSymbol(a.raw)))
+      : (activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter));
     const filtered = bySymbol.filter(a => {
       const lines = (a.raw || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•'));
@@ -2030,7 +2309,8 @@
 
         return null;
       }
-      const summaryText = buildCompactSummary() || [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
+      let summaryText = buildCompactSummary() || [tickerOnly, (headlineLines[1] || '').replace(/^•\s*/, '')].filter(Boolean).join(' — ');
+      if (classifyTier(headlineLines, a.receivedAt) === 'forming') summaryText += ' - FORMING';
       const isExpanded = expandedIds.has(a.id);
       const chartUrl = buildChartUrl(tickerOnly, rows);
       const statusClass = classifyAlertStatus(headlineLines);
@@ -2063,7 +2343,7 @@
     const ACTIONABLE_TITLES = new Set([
       'A+ Setup (Long/Short)', 'ORB Retest / Break & Base (Long/Short)', 'Outside HTF ORB (Bullish/Bearish)',
       'Price Enters HTF EMA9/20 Zone - Entry', 'LTF + HTF Agreement (Long/Short)', 'HTF CBC Flip (Long/Short)',
-      'LTF CBC Flip (Long/Short)', 'LuxAlgo Price Action - BOS/CHOCH (Bullish/Bearish)',
+      'LTF CBC Flip (Long/Short)', 'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)',
     ]);
     const FORMING_TITLES = new Set([
       'LTF + HTF Agreement - Early (unconfirmed HTF)', 'HTF CBC Flip - Early (unconfirmed, still forming)',
@@ -2282,6 +2562,7 @@
     alerts.unshift(alert);
     render();
     flashPulse();
+    if (voiceOn) speakAlert(alert);
   };
 
   downloadBtn.addEventListener('click', () => {
