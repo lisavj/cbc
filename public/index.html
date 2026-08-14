@@ -1823,20 +1823,24 @@
   const typeFilterBtn = document.getElementById('typeFilterBtn');
   const typeFilterPanel = document.getElementById('typeFilterPanel');
 
+  const ALERT_TYPE_DEF_BY_TITLE = new Map(ALERT_TYPE_DEFS.map(d => [d.title, d.def]));
+
   function renderTypeFilterPanel() {
     const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
     const paCheckedCount = paTitles.filter(t => enabledTypes.has(t)).length;
     const nonPaTitles = ALL_TYPE_TITLES.filter(t => !t.startsWith(PRICE_ACTION_PREFIX));
     const rowsHtml = nonPaTitles.map((title) => {
       const checked = enabledTypes.has(title) ? 'checked' : '';
-      return `<label class="type-filter-row"><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
+      const tip = ALERT_TYPE_DEF_BY_TITLE.get(title) || (title === OTHER_TYPE ? 'Any alert whose text doesn\'t match a known type — still shown, just as plain text.' : '');
+      return `<label class="type-filter-row" ${tip ? `title="${escapeHtml(tip)}"` : ''}><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
     }).join('')
       // Master row: checks/unchecks all 26 Price Action types at once; indeterminate when some
       // (not all, not none) are individually enabled, so its visual state always matches reality.
-      + `<label class="type-filter-row type-filter-master"><input type="checkbox" id="paMasterCheckbox" ${paCheckedCount === paTitles.length ? 'checked' : ''}> Price Action: All (${paCheckedCount}/${paTitles.length})</label>`
+      + `<label class="type-filter-row type-filter-master" title="Checks or unchecks all 26 LuxAlgo Price Action alert types at once."><input type="checkbox" id="paMasterCheckbox" ${paCheckedCount === paTitles.length ? 'checked' : ''}> Price Action: All (${paCheckedCount}/${paTitles.length})</label>`
       + paTitles.map((title) => {
         const checked = enabledTypes.has(title) ? 'checked' : '';
-        return `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title.slice(PRICE_ACTION_PREFIX.length))}</label>`;
+        const tip = ALERT_TYPE_DEF_BY_TITLE.get(title) || '';
+        return `<label class="type-filter-row type-filter-indent" ${tip ? `title="${escapeHtml(tip)}"` : ''}><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title.slice(PRICE_ACTION_PREFIX.length))}</label>`;
       }).join('');
     typeFilterPanel.innerHTML = rowsHtml + `<div class="type-filter-actions">
       <button type="button" id="typeFilterAll">All</button>
@@ -2059,7 +2063,7 @@
   }
 
   function escapeHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   // Converts the "Chart" field's timeframe text (e.g. "3m", "15m", "1H", "4H", "1D") into
