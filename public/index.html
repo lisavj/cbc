@@ -956,31 +956,33 @@
     // First time Simple Mode is ever turned on, default the (until-now-empty) symbol picker to
     // "all" — same lazy-init renderSimpleSymbolPanel() does when the dropdown is opened, just
     // triggered here too so the list isn't blank the moment you flip the toggle on.
-    if (simpleMode) renderSimpleSymbolPanel();
+    renderSimpleSymbolPanel();
     render();
   });
-  let simpleSymbolFilter;
+  // EXCLUDE-based, not include-based: simpleSymbolExcluded holds only symbols you've deliberately
+  // unchecked. Everything else shows by default. This is deliberately the opposite of how the
+  // Chronological view's symbol picker works (chronoSymbolFilter is an include-list that has to be
+  // lazily bootstrapped to "all" the first time symbols are known) — that pattern has a real bug:
+  // a symbol whose first alert arrives AFTER the include-list was last bootstrapped never gets
+  // added, so its alerts silently vanish from the feed until you happen to reopen the dropdown.
+  // Exclude-based sidesteps that entirely — a brand-new symbol is never in the excluded set, so its
+  // alerts show up immediately, no bootstrap step required.
+  let simpleSymbolExcluded;
   try {
-    const saved = JSON.parse(localStorage.getItem('simpleSymbolFilter') || 'null');
-    simpleSymbolFilter = new Set(Array.isArray(saved) ? saved : null);
+    const saved = JSON.parse(localStorage.getItem('simpleSymbolExcluded') || 'null');
+    simpleSymbolExcluded = new Set(Array.isArray(saved) ? saved : null);
   } catch (e) {
-    simpleSymbolFilter = new Set();
+    simpleSymbolExcluded = new Set();
   }
-  let simpleSymbolFilterInitialized = simpleSymbolFilter.size > 0 || localStorage.getItem('simpleSymbolFilter') !== null;
-  function saveSimpleSymbolFilter() {
-    localStorage.setItem('simpleSymbolFilter', JSON.stringify(Array.from(simpleSymbolFilter)));
+  function saveSimpleSymbolExcluded() {
+    localStorage.setItem('simpleSymbolExcluded', JSON.stringify(Array.from(simpleSymbolExcluded)));
   }
   function renderSimpleSymbolPanel() {
     const symbols = currentKnownSymbols();
-    if (!simpleSymbolFilterInitialized && symbols.length) {
-      symbols.forEach(s => simpleSymbolFilter.add(s));
-      simpleSymbolFilterInitialized = true;
-      saveSimpleSymbolFilter();
-    }
-    const checkedCount = symbols.filter(s => simpleSymbolFilter.has(s)).length;
+    const checkedCount = symbols.filter(s => !simpleSymbolExcluded.has(s)).length;
     simpleSymbolPanel.innerHTML =
       `<label class="type-filter-row type-filter-master"><input type="checkbox" id="simpleSymbolAll" ${checkedCount === symbols.length && symbols.length ? 'checked' : ''}> All (${checkedCount}/${symbols.length})</label>` +
-      symbols.map(s => `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-simple-symbol="${encodeURIComponent(s)}" ${simpleSymbolFilter.has(s) ? 'checked' : ''}> ${escapeHtml(s)}</label>`).join('');
+      symbols.map(s => `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-simple-symbol="${encodeURIComponent(s)}" ${simpleSymbolExcluded.has(s) ? '' : 'checked'}> ${escapeHtml(s)}</label>`).join('');
   }
   function positionSimpleSymbolPanel() {
     const margin = 8;
@@ -1007,18 +1009,18 @@
   simpleSymbolPanel.addEventListener('click', (e) => {
     if (e.target.id === 'simpleSymbolAll') {
       const symbols = currentKnownSymbols();
-      if (e.target.checked) symbols.forEach(s => simpleSymbolFilter.add(s));
-      else simpleSymbolFilter.clear();
-      saveSimpleSymbolFilter();
+      if (e.target.checked) simpleSymbolExcluded.clear();
+      else symbols.forEach(s => simpleSymbolExcluded.add(s));
+      saveSimpleSymbolExcluded();
       renderSimpleSymbolPanel();
       render();
       return;
     }
     if (e.target.matches('input[data-simple-symbol]')) {
       const sym = decodeURIComponent(e.target.dataset.simpleSymbol);
-      if (e.target.checked) simpleSymbolFilter.add(sym);
-      else simpleSymbolFilter.delete(sym);
-      saveSimpleSymbolFilter();
+      if (e.target.checked) simpleSymbolExcluded.delete(sym);
+      else simpleSymbolExcluded.add(sym);
+      saveSimpleSymbolExcluded();
       renderSimpleSymbolPanel();
       render();
     }
@@ -2398,7 +2400,7 @@
     symbolTabsEl.style.display = (chronoView || simpleMode) ? 'none' : '';
 
     const bySymbol = simpleMode
-      ? alerts.filter(a => simpleSymbolFilter.has(getSymbol(a.raw)))
+      ? alerts.filter(a => !simpleSymbolExcluded.has(getSymbol(a.raw)))
       : chronoView
         ? alerts.filter(a => chronoSymbolFilter.has(getSymbol(a.raw)))
         : (activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter));
