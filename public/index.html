@@ -2397,10 +2397,10 @@
     symbols.forEach(s => { countBySymbol[s] = alerts.filter(a => getSymbol(a.raw) === s).length; });
     symbolTabsEl.innerHTML = `<button class="symbol-tab-btn ${activeFilter === 'all' ? 'active' : ''}" data-symbol="all">All<span class="symbol-tab-count">${alerts.length}</span></button>` +
       symbols.map(s => `<button class="symbol-tab-btn ${activeFilter === s ? 'active' : ''}" data-symbol="${escapeHtml(s)}">${escapeHtml(s)}<span class="symbol-tab-count">${countBySymbol[s]}</span></button>`).join('');
-    symbolTabsEl.style.display = (chronoView || simpleMode) ? 'none' : '';
+    symbolTabsEl.style.display = chronoView ? 'none' : '';
 
     const bySymbol = simpleMode
-      ? alerts.filter(a => !simpleSymbolExcluded.has(getSymbol(a.raw)))
+      ? alerts.filter(a => !simpleSymbolExcluded.has(getSymbol(a.raw)) && (activeFilter === 'all' || getSymbol(a.raw) === activeFilter))
       : chronoView
         ? alerts.filter(a => chronoSymbolFilter.has(getSymbol(a.raw)))
         : (activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter));
