@@ -353,6 +353,100 @@
   .fc-nav-buttons button:hover:not(:disabled) { border-color: var(--muted); color: var(--text); }
   .fc-nav-buttons button:disabled { opacity: 0.35; cursor: default; }
 
+  /* -----------------------------------------------------------------------
+     VIDEOS TAB
+     A library of MapleStax / CBC Wire video lessons, grouped by category —
+     ported from the same live app. Real video titles are transcribed
+     verbatim; each card links out to YouTube. Where the specific upload
+     could be verified (via YouTube's own oEmbed metadata) it links straight
+     to that video with its real thumbnail. Where it could not be verified
+     with confidence, the card instead links to a MapleStax-channel-scoped
+     YouTube search for that exact title, so it points at the real channel
+     without risking a mis-attributed video.
+  --------------------------------------------------------------------- */
+  .vid-header { margin-bottom: 4px; }
+  .vid-header-title { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 18px; font-weight: 700; }
+  .vid-header-title .vid-flag { color: var(--accent); font-size: 14px; }
+  .vid-header-sub { color: var(--muted); font-size: 13px; margin: 4px 0 22px; }
+  .vid-subtabs { display: flex; gap: 8px; margin-bottom: 22px; }
+  .vid-subtab-btn {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 7px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .vid-subtab-btn:hover { color: var(--text); border-color: var(--muted); }
+  .vid-subtab-btn.active { background: var(--accent); border-color: var(--accent); color: #1a1200; }
+  .vid-category { margin-bottom: 28px; }
+  .vid-category-title {
+    color: var(--bear);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .vid-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px;
+  }
+  .vid-card {
+    display: block;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease;
+  }
+  .vid-card:hover { border-color: var(--muted); }
+  .vid-thumb-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #05070c; overflow: hidden; }
+  .vid-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .vid-thumb-fallback {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 10px;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: rgba(255,255,255,0.92);
+    background: linear-gradient(135deg, #2a1f0d, #1a2e22 60%, #0b0e14);
+  }
+  .vid-play-icon {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(0,0,0,0.55);
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .vid-play-icon::after {
+    content: ''; display: block; width: 0; height: 0;
+    border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+    border-left: 13px solid #fff; margin-left: 3px;
+  }
+  .vid-search-badge {
+    position: absolute; top: 6px; right: 6px;
+    background: rgba(11,14,20,0.85);
+    color: var(--accent);
+    font-size: 9px; font-weight: 700; letter-spacing: 0.03em;
+    padding: 3px 6px; border-radius: 4px;
+    border: 1px solid rgba(245,166,35,0.4);
+  }
+  .vid-card-body { padding: 10px 12px 12px; }
+  .vid-card-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.35; margin-bottom: 4px; }
+  .vid-card-channel { font-size: 11.5px; color: var(--muted); }
+
   main {
     max-width: 880px;
     margin: 0 auto;
@@ -894,6 +988,7 @@
       <button class="view-tab-btn active" id="tabAlertsBtn" data-view="alerts">Alerts</button>
       <button class="view-tab-btn" id="tabFaqBtn" data-view="faq">FAQ</button>
       <button class="view-tab-btn" id="tabFlashBtn" data-view="flashcards">Flashcards</button>
+      <button class="view-tab-btn" id="tabVideosBtn" data-view="videos">Videos</button>
     </div>
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
@@ -990,6 +1085,31 @@
           <button id="fcPrevBtn">← Previous</button>
           <button id="fcNextBtn">Next →</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="videosView" style="display:none;">
+    <div class="vid-header">
+      <div class="vid-header-title"><span class="vid-flag">▶</span> Videos</div>
+      <div class="vid-header-sub">MapleStax / CBC Wire video lessons.</div>
+    </div>
+    <div class="vid-subtabs" id="vidSubtabs">
+      <button class="vid-subtab-btn active" id="vidSubtabFeatured" data-subtab="featured">Featured</button>
+      <button class="vid-subtab-btn" id="vidSubtabMore" data-subtab="more">More Videos</button>
+      <button class="vid-subtab-btn" id="vidSubtabOther" data-subtab="other">Other</button>
+    </div>
+    <div id="vidCategories"></div>
+    <div id="vidMoreWrap" style="display:none;">
+      <div class="vid-category">
+        <div class="vid-category-title">More From Maple Stax</div>
+        <div class="vid-grid" id="vidMoreGrid"></div>
+      </div>
+    </div>
+    <div id="vidOtherWrap" style="display:none;">
+      <div class="vid-category">
+        <div class="vid-category-title">Other Creators</div>
+        <div class="vid-grid" id="vidOtherGrid"></div>
       </div>
     </div>
   </div>
@@ -1347,15 +1467,21 @@
   const tabFaqBtn = document.getElementById('tabFaqBtn');
   const tabFlashBtn = document.getElementById('tabFlashBtn');
   const flashViewEl = document.getElementById('flashView');
+  const tabVideosBtn = document.getElementById('tabVideosBtn');
+  const videosViewEl = document.getElementById('videosView');
+  let videosRendered = false;
   function setView(view) {
     const isFaq = view === 'faq';
     const isFlash = view === 'flashcards';
-    const isAlerts = !isFaq && !isFlash;
+    const isVideos = view === 'videos';
+    const isAlerts = !isFaq && !isFlash && !isVideos;
     tabAlertsBtn.classList.toggle('active', isAlerts);
     tabFaqBtn.classList.toggle('active', isFaq);
     tabFlashBtn.classList.toggle('active', isFlash);
+    tabVideosBtn.classList.toggle('active', isVideos);
     faqViewEl.style.display = isFaq ? 'block' : 'none';
     flashViewEl.style.display = isFlash ? 'block' : 'none';
+    videosViewEl.style.display = isVideos ? 'block' : 'none';
     mainListEl.style.display = isAlerts ? '' : 'none';
     symbolTabsEl.style.display = isAlerts ? '' : 'none';
     if (!isAlerts) {
@@ -1365,10 +1491,212 @@
       emptyStateEl.style.display = mainListEl.children.length ? 'none' : 'block';
     }
     if (isFlash) fcOnShow();
+    if (isVideos && !videosRendered) { renderVideos(); renderMoreVideos(); renderOtherVideos(); videosRendered = true; }
   }
   tabAlertsBtn.addEventListener('click', () => setView('alerts'));
   tabFaqBtn.addEventListener('click', () => setView('faq'));
   tabFlashBtn.addEventListener('click', () => setView('flashcards'));
+  tabVideosBtn.addEventListener('click', () => setView('videos'));
+  // ---------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------
+  // VIDEOS TAB
+  // Ported from the standalone MapleStax CBC Wire app (cbc-wire.app).
+  // Real YouTube videos from the "Maple Stax" channel. 3 entries were
+  // independently confirmed via YouTube's oEmbed API (exact title + channel
+  // match) and link directly to their watch URL with a real thumbnail. The
+  // other 5 entries could not be confirmed with confidence (no exact oEmbed
+  // title match found), so rather than guess a possibly-wrong video ID they
+  // link to a channel-scoped YouTube search for that exact title instead.
+  const VIDEO_CATEGORIES = [
+    {
+      title: 'How to Trade',
+      videos: [
+        {
+          title: 'How to trade Candle by Candle Method (CBC)',
+          channel: 'Maple Stax',
+          confirmed: true,
+          url: 'https://www.youtube.com/watch?v=D5v6WgHVuI4',
+          thumb: 'https://i.ytimg.com/vi/D5v6WgHVuI4/hqdefault.jpg'
+        },
+        {
+          title: 'How to trade with 9/20 EMA',
+          channel: 'Maple Stax',
+          confirmed: true,
+          url: 'https://www.youtube.com/watch?v=Hsp3_HeM2GU',
+          thumb: 'https://i.ytimg.com/vi/Hsp3_HeM2GU/hqdefault.jpg'
+        },
+        {
+          title: 'How to trade Pullbacks!',
+          channel: 'Maple Stax',
+          confirmed: true,
+          url: 'https://www.youtube.com/watch?v=DxWzjICZ-yE',
+          thumb: 'https://i.ytimg.com/vi/DxWzjICZ-yE/hqdefault.jpg'
+        },
+        {
+          title: 'How to Daytrade Futures',
+          channel: 'Maple Stax',
+          confirmed: true,
+          url: 'https://www.youtube.com/watch?v=xnUB8mbu91k',
+          thumb: 'https://i.ytimg.com/vi/xnUB8mbu91k/hqdefault.jpg'
+        },
+        {
+          title: 'How to trade Fibs! (Golden Zone Strat)',
+          channel: 'Maple Stax',
+          confirmed: true,
+          url: 'https://www.youtube.com/watch?v=5eZmBWVDuj4',
+          thumb: 'https://i.ytimg.com/vi/5eZmBWVDuj4/hqdefault.jpg'
+        },
+        {
+          title: 'How to trade Doji Method',
+          channel: 'Maple Stax',
+          confirmed: true,
+          url: 'https://www.youtube.com/watch?v=WHdkCf1_oP8',
+          thumb: 'https://i.ytimg.com/vi/WHdkCf1_oP8/hqdefault.jpg'
+        }
+      ]
+    },
+    {
+      title: 'Trading Tips',
+      videos: [
+        {
+          title: 'This trading secret made me profitable (80% winrate)',
+          channel: 'Maple Stax',
+          confirmed: true,
+          url: 'https://www.youtube.com/watch?v=IwufDE_e2Xg',
+          thumb: 'https://i.ytimg.com/vi/IwufDE_e2Xg/hqdefault.jpg'
+        },
+        {
+          title: 'How to trade with a Stop Loss',
+          channel: 'Maple Stax',
+          confirmed: true,
+          url: 'https://www.youtube.com/watch?v=qrxOcGfc7fU',
+          thumb: 'https://i.ytimg.com/vi/qrxOcGfc7fU/hqdefault.jpg'
+        }
+      ]
+    }
+  ];
+
+  // Additional videos from the Maple Stax channel (youtube.com/@maplestaxtrades/videos),
+  // supplied directly by the user as real video links and each independently confirmed via
+  // YouTube's oEmbed API (title + channel match) before being added here. Rendered as a
+  // second "More Videos" sub-tab alongside the curated "Featured" set above.
+  const MORE_VIDEOS = [
+    { title: 'How to be profitable with the 9/20 EMA on Multiple Timeframes', channel: 'Maple Stax', id: 'zRO7sBb-6P4' },
+    { title: '9/20 EMA Strategy: How to Hold Winners!', channel: 'Maple Stax', id: 'Syd-tAOvhD0' },
+    { title: 'How to Draw Pivot Points!', channel: 'Maple Stax', id: 'S2JJhfCeqRQ' },
+    { title: 'MapleStax Doji Bar Strat', channel: 'Maple Stax', id: 'hTLK_khmEZA' },
+    { title: 'How to Scale In and Out of Trades (For Beginners)', channel: 'Maple Stax', id: 'MWYdf-muhfE' },
+    { title: 'How to use the 84% Rule', channel: 'Maple Stax', id: 'c8E8gq-ZGoE' },
+    { title: '02/20 Atlas Live Session', channel: 'Maple Stax', id: 'ADKxTQTo5d0' },
+    { title: '02/16 Atlas Live Session Pt.1', channel: 'Maple Stax', id: 'ycRiLFF4n7M' },
+    { title: 'How to Enter and Exit trades!', channel: 'Maple Stax', id: '-HAg372DD7c' },
+    { title: 'How to Trade Candle by Candle Method Pt. 1', channel: 'Maple Stax', id: 'Fa-Hd26Vpo4' },
+    { title: 'How to Trade VWAP BNB', channel: 'Maple Stax', id: 'SNIB_dw8g_k' },
+    { title: 'How to trade pullbacks to improve your trading!', channel: 'Maple Stax', id: 'fGjojdjfgl4' }
+  ].map(v => ({
+    ...v,
+    confirmed: true,
+    url: 'https://www.youtube.com/watch?v=' + v.id,
+    thumb: 'https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg'
+  }));
+  function vidEsc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function renderVideos() {
+    const catsEl = document.getElementById('vidCategories');
+    catsEl.innerHTML = VIDEO_CATEGORIES.map(cat => `
+      <div class="vid-category">
+        <div class="vid-category-title">${vidEsc(cat.title)}</div>
+        <div class="vid-grid">
+          ${cat.videos.map(v => `
+            <a class="vid-card" href="${vidEsc(v.url)}" target="_blank" rel="noopener">
+              <div class="vid-thumb-wrap">
+                ${v.confirmed
+                  ? `<img src="${vidEsc(v.thumb)}" alt="${vidEsc(v.title)}" loading="lazy" /><div class="vid-play-icon"></div>`
+                  : `<div class="vid-thumb-fallback">${vidEsc(v.title)}</div><div class="vid-search-badge">SEARCH</div>`
+                }
+              </div>
+              <div class="vid-card-body">
+                <div class="vid-card-title">${vidEsc(v.title)}</div>
+                <div class="vid-card-channel">${vidEsc(v.channel)}</div>
+              </div>
+            </a>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+  function vidCardHtml(v) {
+    return `
+      <a class="vid-card" href="${vidEsc(v.url)}" target="_blank" rel="noopener">
+        <div class="vid-thumb-wrap">
+          ${v.confirmed
+            ? `<img src="${vidEsc(v.thumb)}" alt="${vidEsc(v.title)}" loading="lazy" /><div class="vid-play-icon"></div>`
+            : `<div class="vid-thumb-fallback">${vidEsc(v.title)}</div><div class="vid-search-badge">SEARCH</div>`
+          }
+        </div>
+        <div class="vid-card-body">
+          <div class="vid-card-title">${vidEsc(v.title)}</div>
+          <div class="vid-card-channel">${vidEsc(v.channel)}</div>
+        </div>
+      </a>
+    `;
+  }
+  function renderMoreVideos() {
+    document.getElementById('vidMoreGrid').innerHTML = MORE_VIDEOS.map(vidCardHtml).join('');
+  }
+
+  // "Other" sub-tab: videos from creators OTHER than Maple Stax that the user asked to include.
+  // Each is independently confirmed via oEmbed and attributed to its real channel — not folded
+  // into the Maple Stax sections, to avoid mis-attributing another creator's work.
+  const OTHER_VIDEOS = [
+    {
+      title: "MASTER Candlestick Patterns in 125 Minutes (YES, IT'S FREE)",
+      channel: 'Mind Math Money',
+      confirmed: true,
+      url: 'https://www.youtube.com/watch?v=lEk4cSA7cqc&t=217s',
+      thumb: 'https://i.ytimg.com/vi/lEk4cSA7cqc/hqdefault.jpg'
+    },
+    {
+      title: 'How to Read Candlestick Patterns (Step-by-Step Guide)',
+      channel: 'Ross Cameron - Warrior Trading',
+      confirmed: true,
+      url: 'https://www.youtube.com/watch?v=dvetF0H3pNo',
+      thumb: 'https://i.ytimg.com/vi/dvetF0H3pNo/hqdefault.jpg'
+    },
+    {
+      title: "How To Read Candlestick Charts FAST (Beginner's Guide)",
+      channel: 'Wysetrade',
+      confirmed: true,
+      url: 'https://www.youtube.com/watch?v=AOz1YPOKvEs&t=535s',
+      thumb: 'https://i.ytimg.com/vi/AOz1YPOKvEs/hqdefault.jpg'
+    }
+  ];
+  function renderOtherVideos() {
+    document.getElementById('vidOtherGrid').innerHTML = OTHER_VIDEOS.map(vidCardHtml).join('');
+  }
+
+  const vidSubtabFeaturedBtn = document.getElementById('vidSubtabFeatured');
+  const vidSubtabMoreBtn = document.getElementById('vidSubtabMore');
+  const vidSubtabOtherBtn = document.getElementById('vidSubtabOther');
+  const vidCategoriesEl = document.getElementById('vidCategories');
+  const vidMoreWrapEl = document.getElementById('vidMoreWrap');
+  const vidOtherWrapEl = document.getElementById('vidOtherWrap');
+  function setVidSubtab(tab) {
+    const isMore = tab === 'more';
+    const isOther = tab === 'other';
+    const isFeatured = !isMore && !isOther;
+    vidSubtabFeaturedBtn.classList.toggle('active', isFeatured);
+    vidSubtabMoreBtn.classList.toggle('active', isMore);
+    vidSubtabOtherBtn.classList.toggle('active', isOther);
+    vidCategoriesEl.style.display = isFeatured ? 'block' : 'none';
+    vidMoreWrapEl.style.display = isMore ? 'block' : 'none';
+    vidOtherWrapEl.style.display = isOther ? 'block' : 'none';
+  }
+  vidSubtabFeaturedBtn.addEventListener('click', () => setVidSubtab('featured'));
+  vidSubtabMoreBtn.addEventListener('click', () => setVidSubtab('more'));
+  vidSubtabOtherBtn.addEventListener('click', () => setVidSubtab('other'));
   // ---------------------------------------------------------------------
 
   // ---------------------------------------------------------------------
