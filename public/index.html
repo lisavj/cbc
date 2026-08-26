@@ -200,6 +200,159 @@
   }
   .faq-empty { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
 
+  /* ---------------------------------------------------------------------
+     Flashcards tab. Ported from the standalone MapleStax CBC Wire app
+     (cbc-wire.app) — deck selector, chart panel with indicator/status
+     overlays, multiple-choice question card, and Previous/Next nav.
+  --------------------------------------------------------------------- */
+  .fc-toolbar { margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #fcDeckSelect {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    min-width: 220px;
+  }
+  #fcDeckSelect:focus { outline: none; border-color: var(--accent); }
+  .fc-empty { color: var(--muted); text-align: center; padding: 70px 20px; }
+  .fc-empty-icon { font-size: 30px; margin-bottom: 12px; color: var(--accent); }
+  .fc-empty-title { color: var(--text); font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .fc-empty-sub { font-size: 13px; }
+
+  .fc-chart-wrap {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .fc-chart-svg { display: block; width: 100%; height: auto; }
+  .fc-chart-timer {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .fc-indicators-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(18, 22, 31, 0.92);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    z-index: 2;
+    max-width: 190px;
+  }
+  .fc-ind-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 10px;
+  }
+  .fc-ind-hide-btn { background: none; border: none; color: var(--accent); font-size: 10px; cursor: pointer; font-weight: 700; padding: 0; }
+  .fc-indicators-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+  .fc-indicators-grid label { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+  .fc-indicators-grid input { accent-color: var(--accent); }
+  .fc-indicators-panel.collapsed .fc-indicators-grid { display: none; }
+  .fc-status-table {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    background: rgba(18, 22, 31, 0.92);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+    z-index: 2;
+    min-width: 150px;
+  }
+  .fc-status-head { font-weight: 700; color: var(--text); margin-bottom: 5px; }
+  .fc-status-row { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; color: var(--muted); }
+  .fc-status-pill { font-weight: 700; font-size: 10px; padding: 1px 6px; border-radius: 4px; }
+  .fc-status-pill.bullish { background: rgba(34, 197, 94, 0.18); color: var(--bull); }
+  .fc-status-pill.bearish { background: rgba(239, 68, 68, 0.18); color: var(--bear); }
+  .fc-status-pill.neutral { background: rgba(107, 114, 128, 0.18); color: var(--muted); }
+
+  .fc-question-box {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 14px;
+  }
+  .fc-card-title { color: var(--accent); font-weight: 700; font-size: 15px; margin-bottom: 10px; }
+  .fc-card-question { color: var(--text); font-size: 13.5px; line-height: 1.6; margin-bottom: 16px; }
+  .fc-select-label { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 10px; }
+  .fc-answers { display: flex; flex-direction: column; gap: 10px; }
+  .fc-answer-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: left;
+    color: var(--text);
+    font-size: 13.5px;
+    cursor: pointer;
+    font-family: var(--sans);
+  }
+  .fc-answer-btn:hover:not(.locked) { border-color: var(--muted); }
+  .fc-answer-letter {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--panel-border);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .fc-answer-btn.correct { background: rgba(34, 197, 94, 0.15); border-color: var(--bull); color: #bff7d6; }
+  .fc-answer-btn.correct .fc-answer-letter { background: var(--bull); color: #05170c; }
+  .fc-answer-btn.incorrect { background: rgba(239, 68, 68, 0.15); border-color: var(--bear); color: #ffd3d3; }
+  .fc-answer-btn.incorrect .fc-answer-letter { background: var(--bear); color: #210404; }
+  .fc-feedback { margin-top: 14px; border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; }
+  .fc-feedback.correct { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.35); }
+  .fc-feedback.incorrect { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.35); }
+  .fc-feedback-head { font-weight: 700; margin-bottom: 6px; }
+  .fc-feedback.correct .fc-feedback-head { color: var(--bull); }
+  .fc-feedback.incorrect .fc-feedback-head { color: var(--bear); }
+  .fc-reveal-label { display: flex; align-items: center; gap: 7px; margin-top: 10px; font-size: 12px; color: var(--muted); cursor: pointer; }
+
+  .fc-footer-row { display: flex; justify-content: space-between; align-items: center; }
+  .fc-card-counter { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .fc-nav-buttons { display: flex; gap: 8px; }
+  .fc-nav-buttons button {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .fc-nav-buttons button:hover:not(:disabled) { border-color: var(--muted); color: var(--text); }
+  .fc-nav-buttons button:disabled { opacity: 0.35; cursor: default; }
+
   main {
     max-width: 880px;
     margin: 0 auto;
@@ -740,6 +893,7 @@
     <div class="view-tabs" id="viewTabs">
       <button class="view-tab-btn active" id="tabAlertsBtn" data-view="alerts">Alerts</button>
       <button class="view-tab-btn" id="tabFaqBtn" data-view="faq">FAQ</button>
+      <button class="view-tab-btn" id="tabFlashBtn" data-view="flashcards">Flashcards</button>
     </div>
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
@@ -798,6 +952,46 @@
       <input type="text" id="faqSearch" placeholder="Search FAQ…" />
     </div>
     <div id="faqList"></div>
+  </div>
+
+  <div id="flashView" style="display:none;">
+    <div class="fc-toolbar">
+      <select id="fcDeckSelect">
+        <option value="">Select a deck…</option>
+      </select>
+      <div class="fc-chart-timer" id="fcChartTimer" style="display:none;">0:00</div>
+    </div>
+    <div id="fcEmpty" class="fc-empty">
+      <div class="fc-empty-icon">✳</div>
+      <div class="fc-empty-title">Select a deck to begin</div>
+      <div class="fc-empty-sub">Choose a deck from the dropdown above to start practicing flashcards.</div>
+    </div>
+    <div id="fcComingSoon" class="fc-empty" style="display:none;">
+      <div class="fc-empty-icon">🚧</div>
+      <div class="fc-empty-title" id="fcComingSoonTitle">Coming soon</div>
+      <div class="fc-empty-sub">This deck hasn't been populated yet — check back soon.</div>
+    </div>
+    <div id="fcCard" style="display:none;">
+      <div class="fc-chart-wrap">
+        <div class="fc-indicators-panel" id="fcIndicatorsPanel"></div>
+        <svg id="fcChartSvg" class="fc-chart-svg" viewBox="0 0 1200 620" preserveAspectRatio="none"></svg>
+        <div class="fc-status-table" id="fcStatusTable"></div>
+      </div>
+      <div class="fc-question-box">
+        <div class="fc-card-title" id="fcCardTitle"></div>
+        <div class="fc-card-question" id="fcCardQuestion"></div>
+        <div class="fc-select-label">SELECT THE BEST ANSWER</div>
+        <div class="fc-answers" id="fcAnswers"></div>
+        <div class="fc-feedback" id="fcFeedback" style="display:none;"></div>
+      </div>
+      <div class="fc-footer-row">
+        <div class="fc-card-counter" id="fcCardCounter"></div>
+        <div class="fc-nav-buttons">
+          <button id="fcPrevBtn">← Previous</button>
+          <button id="fcNextBtn">Next →</button>
+        </div>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -1151,22 +1345,664 @@
 
   const tabAlertsBtn = document.getElementById('tabAlertsBtn');
   const tabFaqBtn = document.getElementById('tabFaqBtn');
+  const tabFlashBtn = document.getElementById('tabFlashBtn');
+  const flashViewEl = document.getElementById('flashView');
   function setView(view) {
     const isFaq = view === 'faq';
-    tabAlertsBtn.classList.toggle('active', !isFaq);
+    const isFlash = view === 'flashcards';
+    const isAlerts = !isFaq && !isFlash;
+    tabAlertsBtn.classList.toggle('active', isAlerts);
     tabFaqBtn.classList.toggle('active', isFaq);
+    tabFlashBtn.classList.toggle('active', isFlash);
     faqViewEl.style.display = isFaq ? 'block' : 'none';
-    mainListEl.style.display = isFaq ? 'none' : '';
-    symbolTabsEl.style.display = isFaq ? 'none' : '';
-    if (isFaq) {
+    flashViewEl.style.display = isFlash ? 'block' : 'none';
+    mainListEl.style.display = isAlerts ? '' : 'none';
+    symbolTabsEl.style.display = isAlerts ? '' : 'none';
+    if (!isAlerts) {
       emptyStateEl.style.display = 'none';
     } else {
       // restore the empty-state visibility to whatever it should be based on content
       emptyStateEl.style.display = mainListEl.children.length ? 'none' : 'block';
     }
+    if (isFlash) fcOnShow();
   }
   tabAlertsBtn.addEventListener('click', () => setView('alerts'));
   tabFaqBtn.addEventListener('click', () => setView('faq'));
+  tabFlashBtn.addEventListener('click', () => setView('flashcards'));
+  // ---------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------
+  // FLASHCARDS TAB
+  // Ported from the standalone MapleStax CBC Wire app (cbc-wire.app).
+  // Content for "CBC Basics" (2 cards) was transcribed verbatim from
+  // screenshots/video the user supplied of the live app. The other 4 decks
+  // listed there (Opening Range, Market Open, VWAP & EMA(200), EMA Cloud)
+  // have no source content yet, so they render a "Coming soon" state —
+  // fill in FLASHCARD_DECKS below once that content is available.
+  //
+  // Each card's price chart is a stylized, deterministically-generated
+  // (seeded, not random) candlestick illustration shaped to match what was
+  // visible in the source screenshots/video — not a replay of real OHLC
+  // data, since that wasn't available. The "Reveal Chart" toggle extends
+  // it with a few more bars past a "DECISION" marker, mirroring the
+  // decision-bar reveal mechanic shown in the source video.
+  // ---------------------------------------------------------------------
+  const FLASHCARD_DECKS = {
+    cbc_basics: {
+      name: 'CBC Basics',
+      cards: [
+        {
+          title: 'Scalping the near Market Open',
+          question: 'What is the best strategy to scalp the open?',
+          answers: [
+            { label: '3 minute CBC', correct: true },
+            { label: '10 minute CBC', correct: false },
+            { label: 'When Price opens between the EMA(9) and EMA(20)', correct: false }
+          ],
+          explanation: 'Generally, the 3 minute CBC offers one of the best strategies to scalp at open. You may find such just before market open, or after price has determined a CBC direction after open.',
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BULLISH', cbc10: 'BEARISH', openRange: '—', emaCloud: 'BEARISH', vwap: 'ABOVE', ema200: 'ABOVE' },
+          chart: { seed: 11, bars: 40, startPrice: 25920, trend: 'recover', startTime: 4 * 60 + 48 }
+        },
+        {
+          title: 'Using CBC in combination with other Indicators',
+          question: "Core to the MapleStax's strategy is CBC which offers insight, coupled with other indicators as to where the market may be headed. Once a CBC candle is printed, the trader should be triggered to examine all the other indicators at their disposal (shown conveniently in the table) to consider a trade decision. What do you see in this case and would you pull the trigger?",
+          answers: [
+            { label: 'Go Long, 3 prior candles are Green and EMA Cloud is thinning', correct: false },
+            { label: 'Sit on Hands - no trade yet.', correct: false },
+            { label: 'Go Short, 3min CBC is Short.', correct: true }
+          ],
+          explanation: "Going short is the best choice. White dots are indicating that price is closing inside the Bearish EMA Cloud. VWAP and EMA(200) is above us indicating pricing is bearish. We've closed below Low ORB.",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BEARISH', cbc10: 'BULLISH', openRange: 'BELOW RANGE', emaCloud: 'BEARISH', vwap: 'BELOW', ema200: 'BELOW' },
+          chart: { seed: 22, bars: 40, startPrice: 18650, trend: 'decline', startTime: 6 * 60 + 12 }
+        }
+      ]
+    },
+    opening_range: {
+      name: 'Opening Range',
+      cards: [
+        {
+          title: 'Bearish Pinbar closing inside Opening Range',
+          question: 'A bearish pinbar has closed inside the ORB-H (opening range high). The current bar closed inside the bearish pinbar. Based on this chart what is your best decision here?',
+          answers: [
+            { label: "Enter a short position at this candle's close", correct: false },
+            { label: 'BRSG - go long while the current candle is showing red with potential to go grind.', correct: true },
+            { label: 'Sit tight and wait for price action to fully close above ORB-H', correct: false }
+          ],
+          explanation: "BRSG (Buy Red Sell Green) We want to go long on this candle. Look at ALL the data. 1) Look at your MapleStax CBC Table. 2) CBC 3min is bullish 3) Our EMA Cloud is Bullish 4) We are above VWAP as well as the EMA(200). This is a textbook BRSG opportunity, on the current candle, we go long - preferably as the current candle paints RED before switching to GREEN color. What's our first target? The pivot high established by the 'red' pinbar. (Yes, this was a trick question with a purpose → to get you to look at ALL the data, not just the last bar)",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BULLISH', cbc10: 'BEARISH', openRange: 'ABOVE RANGE', emaCloud: 'BULLISH', vwap: 'ABOVE', ema200: 'ABOVE' },
+          chart: { seed: 31, bars: 44, startPrice: 27180, trend: 'rally_pullback', startTime: 5 * 60, levels: ['PMH'], signals: [{ frac: 0.05, type: 'SHORT' }, { frac: 0.35, type: 'SHORT' }, { frac: 0.5, type: 'LONG' }, { frac: 0.65, type: 'SHORT' }, { frac: 0.95, type: 'SHORT' }] }
+        },
+        {
+          title: 'Opening Range High vs CBC',
+          question: "Thirty (30) minutes after the Opening Range is set, market appears to linger near the EMA(20) until it rises to burst through the ORB high with multiple candles up to YDH (yesterday's high) at which point it gets resistance and leads us to a Bearish CBC and subsequent candle sitting above ORB-H. What's the best probable choice?",
+          answers: [
+            { label: 'CBC is Bearish, go Short', correct: false },
+            { label: 'Go Long because ORB-H and other indicators suggest a bullish market mood.', correct: true }
+          ],
+          explanation: "Clearly a difficult choice. Traders are so apt to see CBC indicating bearish that they will immediately accept that as gospel. However, if you look carefully, ORB-H has offered an area of support. Combine that with all the elements shown in the MapleStax CBC table indicating bullish sentiment. There's potentially 20+ points to be had, with a target of the last pivot in the chart.",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BEARISH', cbc10: 'BULLISH', openRange: 'ABOVE RANGE', emaCloud: 'BULLISH', vwap: 'ABOVE', ema200: 'ABOVE' },
+          chart: { seed: 42, bars: 44, startPrice: 25060, trend: 'rally_chop', startTime: 6 * 60 + 12, levels: ['YDH', 'YDL'], signals: [{ frac: 0.05, type: 'SHORT' }, { frac: 0.42, type: 'SHORT' }, { frac: 0.52, type: 'LONG' }, { frac: 0.65, type: 'SHORT' }, { frac: 0.95, type: 'SHORT' }] }
+        },
+        {
+          title: 'Range Bound in the Opening Range',
+          question: "The market opens with a nice bearish candle offering a nice short entry of 20pts for an experienced trader. However, assume you missed it. At this point, you find that you're mostly range-bound with multiple price reversals. Generally it's best to be patient. Given most of the morning candles have seen the support of VWAP and the EMA(200) what's your best move given what is shown here?",
+          answers: [
+            { label: 'Go Long, Market is demonstrating EMA(200) support', correct: false },
+            { label: 'Go Short now or wait one more candle', correct: true },
+            { label: 'Sit on hands!', correct: false }
+          ],
+          explanation: "This is a tough one. Beginners may want to wait to see if the next candle closes below EMA(200). You would not be wrong, but may loose some opportunity. Intermediate or Advanced traders may see otherwise and make a better Probably Trade going Short. Why? Pay particular attention to the following: Look at the Table and indicators - mostly Bearish. If you place a BRSG (buy red, sell green) short entry, your RISK is very small → the high of the previous candle. For those whom selected going Long, you'd making an assumption of a bounce on the EMA(200) would be jumping to a conclusion placing you on the wrong side of the V.",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BEARISH', cbc10: 'BEARISH', openRange: 'BELOW RANGE', emaCloud: 'BEARISH', vwap: 'BELOW', ema200: 'ABOVE' },
+          chart: { seed: 53, bars: 40, startPrice: 23950, trend: 'range_then_drop', startTime: 5 * 60 + 30, levels: ['PMH', 'PML'], signals: [{ frac: 0.02, type: 'SHORT' }, { frac: 0.38, type: 'SHORT' }, { frac: 0.52, type: 'LONG' }, { frac: 0.68, type: 'LONG' }, { frac: 0.97, type: 'SHORT' }] }
+        }
+      ]
+    },
+    market_open: {
+      name: 'Market Open',
+      cards: [
+        {
+          title: 'Strong Bearish CBC at Market Open',
+          question: "The premarket has been bullish for the last hour with the opening bar presenting the opposite insight, CBC Bearish at its close at the bottom of the bullish cloud near EMA(20). What's the best move here?",
+          answers: [
+            { label: 'BRSG - enter a Long position', correct: false },
+            { label: 'Strong Bearish Candle, Go Short', correct: false },
+            { label: 'Sit on hands - significant volatile move', correct: true }
+          ],
+          explanation: "Yes, it is said that the best scalping can happen with CBC 3min bar, but look at the table at that open. It's signaling something different with a bullish EMA cloud, bullish trend, and an EMA(200)+VWAP suggesting bullish territory. A skilled trader may take 20+ on the short and win, but for most, Sit on hands might be the better choice given potential significant volatility presented by this one candle. Don't base your decisions on a single indicator.",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BEARISH', cbc10: 'BULLISH', openRange: 'INSIDE RANGE', emaCloud: 'BULLISH', vwap: 'ABOVE', ema200: 'ABOVE' },
+          chart: { seed: 61, bars: 50, startPrice: 25705, trend: 'grind_up_reversal', startTime: 5 * 60, levels: ['PMH'], signals: [{ frac: 0.05, type: 'SHORT' }, { frac: 0.32, type: 'LONG' }, { frac: 0.58, type: 'SHORT' }] }
+        },
+        {
+          title: 'Big Bearish Market Open Candle',
+          question: "At market open, traders witness a significant immediate drop in the market potentially loosing the opportunity to go short. What's your next move?",
+          answers: [
+            { label: 'Go short assuming more short momentum', correct: false },
+            { label: 'Wait for a BRSG opportunity against this candle or EMA retest.', correct: true },
+            { label: 'Go Long', correct: false }
+          ],
+          explanation: "The best answer is B. Once a large candle has printed and your below the EMA Cloud, wait for a retracement for a short entry or once at least 50% of the candle has been retraced, consider a short. A) May stop you out. C) Is very risky as per the Table, going against multiple signals.",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BEARISH', cbc10: 'BULLISH', openRange: 'INSIDE RANGE', emaCloud: 'BEARISH', vwap: 'BELOW', ema200: 'BELOW' },
+          chart: { seed: 72, bars: 50, startPrice: 25515, trend: 'range_then_breakdown', startTime: 5 * 60, levels: ['YDH', 'PML'], signals: [{ frac: 0.06, type: 'SHORT' }, { frac: 0.22, type: 'LONG' }, { frac: 0.48, type: 'SHORT' }, { frac: 0.68, type: 'LONG' }] }
+        }
+      ]
+    },
+    vwap_ema200: {
+      name: 'VWAP & EMA(200)',
+      cards: [
+        {
+          title: 'The Power of Levels',
+          question: "VWAP and EMA(200) were just tested and rejected offering a powerful opportunity when coupled with CBC. However, with the production of a very strong and significant short candle at market open, what's your best but --most conservative-- move here?",
+          answers: [
+            { label: 'Go Short, now, and take 20pts', correct: false },
+            { label: 'Wait for retracement into EMA Cloud', correct: true },
+            { label: 'Lower wick showing bottom, go Long', correct: false }
+          ],
+          explanation: "In this position, the best --most conservative-- move it to wait. You have a strong rejection by both VWAP and EMA(200) confirming your short. You have what appears to be a crossing of the EMA Cloud and at Market Open, a large set of sellers have established themselves in this opening candle hitting a pivot level. Since you're beyond the cloud, waiting will allow you to have the safer, more conservative opportunity to go short after we re-enter the cloud. Sure, if you chose option A, you would not be wrong and you could collect 20 points, but that would be an aggressive trade.",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BEARISH', cbc10: 'BULLISH', openRange: 'INSIDE RANGE', emaCloud: 'BEARISH', vwap: 'BELOW', ema200: 'BELOW' },
+          chart: { seed: 84, bars: 50, startPrice: 24600, trend: 'decline_recover_reversal', startTime: 5 * 60, levels: ['YDL', 'PML'], signals: [{ frac: 0.12, type: 'LONG' }, { frac: 0.45, type: 'SHORT' }, { frac: 0.62, type: 'LONG' }, { frac: 0.86, type: 'SHORT' }] }
+        }
+      ]
+    },
+    ema_cloud: {
+      name: 'EMA Cloud',
+      cards: [
+        {
+          title: 'Examine Probability Carefully',
+          question: "3min CBC is Red and the lat few candles appear to be ranging while price is slowing entering a bullish cloud. What's your move here?",
+          answers: [
+            { label: 'Sit on hands until we see a candle break out of the range', correct: false },
+            { label: 'Current candle closed below previous candle, Go Short', correct: false },
+            { label: 'Go Long', correct: true }
+          ],
+          explanation: "Before you make a decision, glance at the table and examine what it's offering. Price hasn't entered the bullish EMA Cloud in over 30 minutes. Is this the time to hesitate when it does? No - this is the opportunity to leverage the table and pull the trigger for a long position. Consider the factors: VWAP, EMA(200), EMA Cloud, and 10m CBC Long all are favoring taking a long position and keeping risk small for a very favorable bullish move.",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BEARISH', cbc10: 'BULLISH', openRange: 'ABOVE RANGE', emaCloud: 'BULLISH', vwap: 'ABOVE', ema200: 'ABOVE' },
+          chart: { seed: 91, bars: 50, startPrice: 23705, trend: 'climb_dip_recover', startTime: 9 * 60 + 30, levels: ['PMH', 'YDH', 'PML'], signals: [{ frac: 0.42, type: 'SHORT' }, { frac: 0.62, type: 'LONG' }] }
+        },
+        {
+          title: 'Price Support in the Cloud',
+          question: "Market Open has been volatile and this trader has decided to wait patiently for an opportunity to open up. Given what's shown in the chart at this point, what's the best probable move the trader can make?",
+          answers: [
+            { label: 'Go short. Recently witnessed bearish CBC', correct: false },
+            { label: 'Go Long. We are witnessing Cloud support', correct: true },
+            { label: 'Sit on hands. Trend not sufficiently significant.', correct: false }
+          ],
+          explanation: "The best probability is Option B. The table is 100% bullish on all levels listed. We have witnessed three 'white dots' on the EMA(20) while closing prices within the cloud and the current candle is displaying a 3min CBC Long. This is an A+ Retracement at it's best - more intermediate or advanced traders know to BRSG (buy red, sell green) at the next candle, which does in fact show a red candle for entry, but given all signs are pointing up, this is an excellent probability of Long Profit. Secure your 20pts!",
+          symbol: 'NQ1!',
+          status: { market: 'NEW YORK', cbc3: 'BULLISH', cbc10: 'BULLISH', openRange: 'ABOVE RANGE', emaCloud: 'BULLISH', vwap: 'ABOVE', ema200: 'ABOVE' },
+          chart: { seed: 97, bars: 50, startPrice: 23705, trend: 'climb_chop_recover', startTime: 10 * 60 + 30, levels: ['PMH'], signals: [{ frac: 0.15, type: 'LONG' }, { frac: 0.42, type: 'SHORT' }, { frac: 0.62, type: 'SHORT' }, { frac: 0.82, type: 'LONG' }] }
+        }
+      ]
+    }
+  };
+
+  const fcDeckSelect = document.getElementById('fcDeckSelect');
+  const fcEmptyEl = document.getElementById('fcEmpty');
+  const fcComingSoonEl = document.getElementById('fcComingSoon');
+  const fcComingSoonTitleEl = document.getElementById('fcComingSoonTitle');
+  const fcCardEl = document.getElementById('fcCard');
+  const fcIndicatorsPanel = document.getElementById('fcIndicatorsPanel');
+  const fcStatusTable = document.getElementById('fcStatusTable');
+  const fcChartSvg = document.getElementById('fcChartSvg');
+  const fcChartTimer = document.getElementById('fcChartTimer');
+  const fcCardTitle = document.getElementById('fcCardTitle');
+  const fcCardQuestion = document.getElementById('fcCardQuestion');
+  const fcAnswersEl = document.getElementById('fcAnswers');
+  const fcFeedbackEl = document.getElementById('fcFeedback');
+  const fcCardCounter = document.getElementById('fcCardCounter');
+  const fcPrevBtn = document.getElementById('fcPrevBtn');
+  const fcNextBtn = document.getElementById('fcNextBtn');
+
+  Object.keys(FLASHCARD_DECKS).forEach(key => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = FLASHCARD_DECKS[key].name;
+    fcDeckSelect.appendChild(opt);
+  });
+
+  const FC_INDICATORS = [
+    ['CBC Flips', true], ['EMA Cloud', true],
+    ['EMA 200', true], ['VWAP', true],
+    ['YDH/YDL', true], ['NY OR', true],
+    ['HTF Signals', true], ['Touch Dots', true],
+    ['Status Table', true], ['Pivots', false],
+    ['YDC', false], ['Bill Breaker', false]
+  ];
+  const fcIndicatorState = {};
+  FC_INDICATORS.forEach(([name, def]) => { fcIndicatorState[name] = def; });
+  let fcIndicatorsCollapsed = false;
+
+  function fcRenderIndicatorsPanel() {
+    fcIndicatorsPanel.classList.toggle('collapsed', fcIndicatorsCollapsed);
+    fcIndicatorsPanel.innerHTML = `
+      <div class="fc-ind-head">INDICATORS <button class="fc-ind-hide-btn" id="fcIndHideBtn">${fcIndicatorsCollapsed ? 'SHOW' : 'HIDE'}</button></div>
+      <div class="fc-indicators-grid">
+        ${FC_INDICATORS.map(([name]) => `<label><input type="checkbox" data-ind="${escapeHtml(name)}" ${fcIndicatorState[name] ? 'checked' : ''}> ${escapeHtml(name)}</label>`).join('')}
+      </div>`;
+    document.getElementById('fcIndHideBtn').addEventListener('click', () => {
+      fcIndicatorsCollapsed = !fcIndicatorsCollapsed;
+      fcRenderIndicatorsPanel();
+    });
+    fcIndicatorsPanel.querySelectorAll('input[data-ind]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        fcIndicatorState[cb.dataset.ind] = cb.checked;
+        fcRenderChart();
+      });
+    });
+  }
+
+  function fcStatusPillClass(v) {
+    if (v === 'BULLISH' || v === 'ABOVE') return 'bullish';
+    if (v === 'BEARISH' || v === 'BELOW') return 'bearish';
+    return 'neutral';
+  }
+  function fcRenderStatusTable(card) {
+    if (!fcIndicatorState['Status Table']) { fcStatusTable.style.display = 'none'; return; }
+    fcStatusTable.style.display = '';
+    const s = card.status;
+    const rows = [
+      ['Market', s.market, 'neutral'],
+      ['CBC (3m)', s.cbc3, fcStatusPillClass(s.cbc3)],
+      ['CBC (10m)', s.cbc10, fcStatusPillClass(s.cbc10)],
+      ['Opening range', s.openRange, /RANGE/.test(s.openRange) ? 'bearish' : 'neutral'],
+      ['EMA cloud', s.emaCloud, fcStatusPillClass(s.emaCloud)],
+      ['VWAP', s.vwap, fcStatusPillClass(s.vwap)],
+      ['EMA 200', s.ema200, fcStatusPillClass(s.ema200)]
+    ];
+    fcStatusTable.innerHTML = `
+      <div class="fc-status-head">MapleStax CBC ⚡ ${escapeHtml(card.symbol)}</div>
+      ${rows.map(([label, val, cls]) => `<div class="fc-status-row"><span>${escapeHtml(label)}:</span><span class="fc-status-pill ${cls}">${escapeHtml(val)}</span></div>`).join('')}
+    `;
+  }
+
+  // Seeded PRNG (mulberry32) so each card's chart is stable across renders,
+  // not randomized on every reload.
+  function fcMulberry32(seed) {
+    let a = seed;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function fcGenerateSeries(chart, revealExtra) {
+    const rng = fcMulberry32(chart.seed);
+    const total = chart.bars + revealExtra;
+    const candles = [];
+    let price = chart.startPrice;
+    const step = chart.startPrice * 0.0009;
+    for (let i = 0; i < total; i++) {
+      const frac = i / (chart.bars - 1);
+      const inBase = i < chart.bars;
+      let drift;
+      if (chart.trend === 'recover') {
+        // decline through the first ~55% of the base window, then climb —
+        // and keep climbing through any revealed bars.
+        drift = frac < 0.55 ? -step * 1.3 : step * 1.6;
+      } else if (chart.trend === 'decline') {
+        // gentle chop, then a steady decline that continues through reveal.
+        drift = frac < 0.3 ? step * 0.15 : -step * 1.15;
+      } else if (chart.trend === 'rally_pullback') {
+        // brief opening chop, a strong rally, then a mild pullback/consolidation.
+        if (frac < 0.15) drift = Math.sin(i * 0.9) * step * 0.7;
+        else if (frac < 0.55) drift = step * 1.7;
+        else drift = -step * 0.55 + Math.sin(i * 0.6) * step * 0.5;
+      } else if (chart.trend === 'rally_chop') {
+        // opening chop, a strong rally up to resistance, then chop near highs.
+        if (frac < 0.2) drift = Math.sin(i * 0.9) * step * 0.6;
+        else if (frac < 0.65) drift = step * 1.7;
+        else drift = Math.sin(i * 0.7) * step * 0.7;
+      } else if (chart.trend === 'range_then_drop') {
+        // initial bearish candle, recovery rally, range-bound chop near highs —
+        // then (only in the revealed bars, past the DECISION marker) a sharp
+        // breakdown, matching the source video's reveal.
+        if (!inBase) drift = -step * 1.9;
+        else if (frac < 0.12) drift = -step * 1.1;
+        else if (frac < 0.5) drift = step * 1.6;
+        else drift = Math.sin(i * 0.8) * step * 0.8;
+      } else if (chart.trend === 'grind_up_reversal') {
+        // steady bullish grind through most of the base window, then a sharp
+        // bearish reversal in the final base bars (the "current candle" the
+        // question refers to), continuing lower through any revealed bars.
+        if (frac < 0.85) drift = step * 0.5 + Math.sin(i * 0.4) * step * 0.3;
+        else drift = -step * 2.2;
+      } else if (chart.trend === 'range_then_breakdown') {
+        // range-bound chop for most of the base window, then a decisive
+        // breakdown in the final base bars that's already visible before
+        // "Reveal Chart" is checked, continuing lower through reveal.
+        if (frac < 0.72) drift = Math.sin(i * 0.7) * step * 0.6;
+        else drift = -step * 1.6;
+      } else if (chart.trend === 'decline_recover_reversal') {
+        // a sharp opening decline, a brief consolidation at the low, a
+        // bullish recovery grind back up toward the level tested earlier,
+        // then a sharp bearish reversal candle at the very end (already
+        // visible before reveal) that continues lower through reveal.
+        if (frac < 0.35) drift = -step * 1.8;
+        else if (frac < 0.46) drift = Math.sin(i * 1.1) * step * 0.4;
+        else if (frac < 0.88) drift = step * 1.15 + Math.sin(i * 0.5) * step * 0.2;
+        else drift = -step * 2.4;
+      } else if (chart.trend === 'climb_dip_recover') {
+        // a bullish grind higher into the cloud, a sharp dip back out of it
+        // (the "ranging" pullback the question describes), then a recovery
+        // climb that continues through any revealed bars.
+        if (frac < 0.45) drift = step * 1.05 + Math.sin(i * 0.45) * step * 0.2;
+        else if (frac < 0.65) drift = -step * 1.7;
+        else drift = step * 0.95 + Math.sin(i * 0.4) * step * 0.2;
+      } else if (chart.trend === 'climb_chop_recover') {
+        // an early bullish climb, an extended choppy consolidation back
+        // inside/below the cloud, then a late recovery climb that continues
+        // through any revealed bars.
+        if (frac < 0.3) drift = step * 1.05 + Math.sin(i * 0.45) * step * 0.2;
+        else if (frac < 0.75) drift = -step * 0.25 + Math.sin(i * 0.7) * step * 0.7;
+        else drift = step * 1.2 + Math.sin(i * 0.4) * step * 0.2;
+      } else {
+        drift = Math.sin(i * 0.6) * step * 0.6;
+      }
+      const noise = (rng() - 0.5) * step * 3.2;
+      const open = price;
+      price = price + drift + noise;
+      const close = price;
+      const wick = Math.abs(close - open) * (0.4 + rng() * 0.9) + step * 0.4;
+      const high = Math.max(open, close) + wick * rng();
+      const low = Math.min(open, close) - wick * rng();
+      candles.push({ open, high, low, close });
+    }
+    // EMAs
+    function ema(period) {
+      const k = 2 / (period + 1);
+      let prev = candles[0].close;
+      return candles.map((c, i) => { prev = i === 0 ? c.close : c.close * k + prev * (1 - k); return prev; });
+    }
+    const ema9 = ema(9), ema20 = ema(20), ema200 = ema(Math.min(60, total));
+    // VWAP-style running average (no real volume data available; approximated
+    // as a smoothed running mean of the typical price for visual purposes).
+    let cum = 0;
+    const vwap = candles.map((c, i) => { cum += (c.high + c.low + c.close) / 3; return cum / (i + 1); });
+    return { candles, ema9, ema20, ema200, vwap };
+  }
+
+  function fcFormatTime(mins) {
+    const h = Math.floor(mins / 60) % 24, m = Math.floor(mins % 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+
+  let fcRevealed = false;
+  function fcRenderChart() {
+    const card = fcCurrentCard();
+    if (!card) return;
+    const revealExtra = fcRevealed ? Math.round(card.chart.bars * 0.28) : 0;
+    const series = fcGenerateSeries(card.chart, revealExtra);
+    const n = series.candles.length;
+    const baseBars = card.chart.bars;
+    const W = 1200, H = 620, padL = 8, padR = 185, padT = 34, padB = 26;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const xStep = plotW / n;
+    let lo = Infinity, hi = -Infinity;
+    series.candles.forEach((c, i) => { lo = Math.min(lo, c.low, series.ema9[i], series.ema20[i]); hi = Math.max(hi, c.high, series.ema9[i], series.ema20[i]); });
+    if (fcIndicatorState['EMA 200']) series.ema200.forEach(v => { lo = Math.min(lo, v); hi = Math.max(hi, v); });
+    // Reference price levels (PMH/PML/YDH/YDL) — placed just outside the
+    // base window's own high/low rather than fabricated absolute prices,
+    // since this chart is a stylized illustration, not real OHLC data.
+    let baseHigh = -Infinity, baseLow = Infinity;
+    for (let i = 0; i < baseBars; i++) { baseHigh = Math.max(baseHigh, series.candles[i].high); baseLow = Math.min(baseLow, series.candles[i].low); }
+    const levelPrices = { PMH: baseHigh * 1.004, PML: baseLow * 0.996, YDH: baseHigh * 1.012, YDL: baseLow * 0.985 };
+    const levelColors = { PMH: '#22c55e', YDH: '#22c55e', PML: '#ef4444', YDL: '#ef4444' };
+    const activeLevels = (fcIndicatorState['YDH/YDL'] && card.chart.levels) ? card.chart.levels : [];
+    activeLevels.forEach(k => { lo = Math.min(lo, levelPrices[k]); hi = Math.max(hi, levelPrices[k]); });
+    const pad = (hi - lo) * 0.06;
+    lo -= pad; hi += pad;
+    const y = (v) => padT + plotH * (1 - (v - lo) / (hi - lo));
+    const x = (i) => padL + xStep * i + xStep / 2;
+
+    let svg = '';
+    // gridlines + price labels
+    const gridN = 5;
+    for (let g = 0; g <= gridN; g++) {
+      const price = lo + ((hi - lo) * g) / gridN;
+      const yy = y(price);
+      svg += `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" stroke="#1f2530" stroke-width="1"/>`;
+      svg += `<text x="${W - padR + 8}" y="${(yy + 3).toFixed(1)}" fill="#6b7280" font-size="11" font-family="ui-monospace,monospace">${price.toFixed(2)}</text>`;
+    }
+    // x-axis time labels every ~6 bars
+    for (let i = 0; i < n; i += 6) {
+      svg += `<text x="${x(i).toFixed(1)}" y="${H - 8}" fill="#6b7280" font-size="10" font-family="ui-monospace,monospace" text-anchor="middle">${fcFormatTime(card.chart.startTime + i * 3)}</text>`;
+    }
+    // EMA cloud (9/20) — split into contiguous same-sign segments so the
+    // ribbon flips color the same way the live indicator's does.
+    if (fcIndicatorState['EMA Cloud']) {
+      let segStart = 0;
+      for (let i = 1; i <= n; i++) {
+        const flip = i === n || (series.ema9[i] >= series.ema20[i]) !== (series.ema9[segStart] >= series.ema20[segStart]);
+        if (flip) {
+          const bullish = series.ema9[segStart] >= series.ema20[segStart];
+          let top = '', bot = '';
+          for (let j = segStart; j < i; j++) { top += `${x(j).toFixed(1)},${y(series.ema9[j]).toFixed(1)} `; }
+          for (let j = i - 1; j >= segStart; j--) { bot += `${x(j).toFixed(1)},${y(series.ema20[j]).toFixed(1)} `; }
+          svg += `<polygon points="${top}${bot}" fill="${bullish ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)'}" stroke="${bullish ? '#22c55e' : '#ef4444'}" stroke-width="1" opacity="0.85"/>`;
+          segStart = i;
+        }
+      }
+    }
+    // VWAP + EMA200 lines
+    if (fcIndicatorState['VWAP']) {
+      svg += `<polyline points="${series.vwap.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="#a855f7" stroke-width="1.5"/>`;
+    }
+    if (fcIndicatorState['EMA 200']) {
+      svg += `<polyline points="${series.ema200.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="#eab308" stroke-width="1.5"/>`;
+    }
+    // Reference levels (PMH/PML/YDH/YDL) plus "last value" tags for the
+    // active overlay lines (EMA9/20, EMA200, VWAP, last price) — all pinned
+    // to the right margin like the live indicator's price-scale labels.
+    // Positions are decluttered vertically (min gap enforced) so values
+    // that land close together don't render as overlapping garbled text —
+    // the dashed reference line for a level still marks its true price.
+    const rightBadges = activeLevels.map(k => ({ label: k, price: levelPrices[k], color: levelColors[k], text: '#05170c', line: true }));
+    if (fcIndicatorState['EMA Cloud'] && n > 0) {
+      rightBadges.push({ label: 'EMA 9', price: series.ema9[n - 1], color: '#d8c48a', text: '#2a2110' });
+      rightBadges.push({ label: 'EMA 20', price: series.ema20[n - 1], color: '#d8c48a', text: '#2a2110' });
+    }
+    if (fcIndicatorState['VWAP'] && n > 0) {
+      rightBadges.push({ label: 'VWAP', price: series.vwap[n - 1], color: '#a855f7', text: '#ffffff' });
+    }
+    if (fcIndicatorState['EMA 200'] && n > 0) {
+      rightBadges.push({ label: 'EMA 200', price: series.ema200[n - 1], color: '#eab308', text: '#1a1400' });
+    }
+    if (n > 0) {
+      const lastC = series.candles[n - 1];
+      const bull = lastC.close >= lastC.open;
+      rightBadges.push({ label: null, price: lastC.close, color: bull ? '#22c55e' : '#ef4444', text: bull ? '#05170c' : '#fff' });
+    }
+    rightBadges.forEach(b => { b.yy = y(b.price); });
+    rightBadges.sort((a, b) => a.yy - b.yy);
+    for (let i = 1; i < rightBadges.length; i++) {
+      const minGap = 14;
+      if (rightBadges[i].yy - rightBadges[i - 1].yy < minGap) rightBadges[i].yy = rightBadges[i - 1].yy + minGap;
+    }
+    const bx = W - padR + 70;
+    rightBadges.forEach(b => {
+      if (b.line) {
+        svg += `<line x1="${padL}" y1="${y(b.price).toFixed(1)}" x2="${W - padR}" y2="${y(b.price).toFixed(1)}" stroke="${b.color}" stroke-width="1" stroke-dasharray="2,3" opacity="0.7"/>`;
+      }
+      if (b.label) {
+        const bw = Math.max(28, b.label.length * 6.4 + 12);
+        svg += `<rect x="${bx.toFixed(1)}" y="${(b.yy - 8).toFixed(1)}" width="${bw.toFixed(1)}" height="16" rx="2" fill="${b.color}"/>`;
+        svg += `<text x="${(bx + bw / 2).toFixed(1)}" y="${(b.yy + 4).toFixed(1)}" fill="${b.text}" font-size="9" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${b.label}</text>`;
+        svg += `<text x="${(bx + bw + 4).toFixed(1)}" y="${(b.yy + 4).toFixed(1)}" fill="${b.color}" font-size="9" font-weight="600" font-family="ui-monospace,monospace">${b.price.toFixed(2)}</text>`;
+      } else {
+        svg += `<rect x="${bx.toFixed(1)}" y="${(b.yy - 8).toFixed(1)}" width="46" height="16" rx="2" fill="${b.color}"/>`;
+        svg += `<text x="${(bx + 23).toFixed(1)}" y="${(b.yy + 4).toFixed(1)}" fill="${b.text}" font-size="9" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${b.price.toFixed(2)}</text>`;
+      }
+    });
+    // reveal shading + decision marker
+    if (fcRevealed) {
+      const xd = x(baseBars) - xStep / 2;
+      svg += `<rect x="${xd.toFixed(1)}" y="${padT}" width="${(W - padR - xd).toFixed(1)}" height="${plotH.toFixed(1)}" fill="rgba(245,166,35,0.08)"/>`;
+      svg += `<line x1="${xd.toFixed(1)}" y1="${padT}" x2="${xd.toFixed(1)}" y2="${padT + plotH}" stroke="#f5a623" stroke-width="1.5" stroke-dasharray="4,4"/>`;
+      svg += `<rect x="${(xd - 34).toFixed(1)}" y="10" width="68" height="16" rx="3" fill="#f5a623"/>`;
+      svg += `<text x="${xd.toFixed(1)}" y="22" fill="#1a1400" font-size="10" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">DECISION</text>`;
+    }
+    // candles
+    if (fcIndicatorState['CBC Flips']) {
+      series.candles.forEach((c, i) => {
+        const bull = c.close >= c.open;
+        const col = bull ? '#22c55e' : '#ef4444';
+        const xc = x(i);
+        svg += `<line x1="${xc.toFixed(1)}" y1="${y(c.high).toFixed(1)}" x2="${xc.toFixed(1)}" y2="${y(c.low).toFixed(1)}" stroke="${col}" stroke-width="1"/>`;
+        const yo = y(c.open), yc = y(c.close);
+        const bodyTop = Math.min(yo, yc), bodyH = Math.max(Math.abs(yo - yc), 1.4);
+        svg += `<rect x="${(xc - xStep * 0.32).toFixed(1)}" y="${bodyTop.toFixed(1)}" width="${(xStep * 0.64).toFixed(1)}" height="${bodyH.toFixed(1)}" fill="${col}"/>`;
+      });
+    }
+    // LONG/SHORT badges at the base window's clearest swing points
+    function badge(i, txt, bull) {
+      const xc = x(i), yy = bull ? y(series.candles[i].low) + 16 : y(series.candles[i].high) - 16;
+      const w = txt.length * 6.4 + 14;
+      svg += `<rect x="${(xc - w / 2).toFixed(1)}" y="${(yy - 9).toFixed(1)}" width="${w.toFixed(1)}" height="18" rx="3" fill="${bull ? '#22c55e' : '#ef4444'}"/>`;
+      svg += `<text x="${xc.toFixed(1)}" y="${(yy + 4).toFixed(1)}" fill="#fff" font-size="10" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${txt}</text>`;
+    }
+    if (fcIndicatorState['HTF Signals']) {
+      if (card.chart.signals) {
+        card.chart.signals.forEach(s => badge(Math.min(n - 1, Math.round(baseBars * s.frac)), s.type, s.type === 'LONG'));
+      } else {
+        const i1 = Math.round(baseBars * 0.18), i2 = Math.round(baseBars * 0.62);
+        badge(i1, 'SHORT', false);
+        badge(i2, card.chart.trend === 'recover' ? 'LONG' : 'SHORT', card.chart.trend === 'recover');
+      }
+    }
+    fcChartSvg.innerHTML = svg;
+    fcChartSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  }
+
+  let fcDeckKey = '';
+  let fcCardIndex = 0;
+  let fcAnswered = null; // index of chosen answer, or null
+  let fcTimerStart = 0;
+  let fcTimerHandle = null;
+
+  function fcCurrentDeck() { return fcDeckKey ? FLASHCARD_DECKS[fcDeckKey] : null; }
+  function fcCurrentCard() {
+    const deck = fcCurrentDeck();
+    return deck && !deck.comingSoon ? deck.cards[fcCardIndex] : null;
+  }
+
+  function fcStartTimer() {
+    clearInterval(fcTimerHandle);
+    fcTimerStart = Date.now();
+    fcChartTimer.textContent = '0:00';
+    fcTimerHandle = setInterval(() => {
+      const s = Math.floor((Date.now() - fcTimerStart) / 1000);
+      fcChartTimer.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }, 1000);
+  }
+
+  function fcRenderAnswers(card) {
+    fcAnswersEl.innerHTML = card.answers.map((a, i) => {
+      let cls = '';
+      if (fcAnswered !== null) {
+        if (a.correct) cls = 'correct';
+        else if (i === fcAnswered) cls = 'incorrect';
+      }
+      return `<button type="button" class="fc-answer-btn ${cls} ${fcAnswered !== null ? 'locked' : ''}" data-idx="${i}">
+        <span class="fc-answer-letter">${String.fromCharCode(65 + i)}</span><span>${escapeHtml(a.label)}</span>
+      </button>`;
+    }).join('');
+    fcAnswersEl.querySelectorAll('.fc-answer-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (fcAnswered !== null) return;
+        fcAnswered = parseInt(btn.dataset.idx, 10);
+        fcRevealed = false;
+        fcRenderCard();
+      });
+    });
+  }
+
+  function fcRenderFeedback(card) {
+    if (fcAnswered === null) { fcFeedbackEl.style.display = 'none'; return; }
+    const wasCorrect = card.answers[fcAnswered].correct;
+    fcFeedbackEl.style.display = '';
+    fcFeedbackEl.className = `fc-feedback ${wasCorrect ? 'correct' : 'incorrect'}`;
+    fcFeedbackEl.innerHTML = `
+      <div class="fc-feedback-head">${wasCorrect ? '✓ Correct!' : '✗ Incorrect'}</div>
+      <div>${escapeHtml(card.explanation)}</div>
+      <label class="fc-reveal-label"><input type="checkbox" id="fcRevealChk" ${fcRevealed ? 'checked' : ''}> Reveal Chart</label>
+    `;
+    document.getElementById('fcRevealChk').addEventListener('change', (e) => {
+      fcRevealed = e.target.checked;
+      fcRenderChart();
+    });
+  }
+
+  function fcRenderCard() {
+    const deck = fcCurrentDeck();
+    const card = fcCurrentCard();
+    if (!card) return;
+    fcCardTitle.textContent = card.title;
+    fcCardQuestion.textContent = card.question;
+    fcRenderAnswers(card);
+    fcRenderFeedback(card);
+    fcRenderStatusTable(card);
+    fcRenderChart();
+    fcCardCounter.textContent = `Card ${fcCardIndex + 1} of ${deck.cards.length}`;
+    fcPrevBtn.disabled = fcCardIndex === 0;
+    fcNextBtn.disabled = fcCardIndex === deck.cards.length - 1;
+  }
+
+  function fcGoToCard(idx) {
+    fcCardIndex = idx;
+    fcAnswered = null;
+    fcRevealed = false;
+    fcRenderCard();
+    fcStartTimer();
+  }
+
+  function fcOnShow() {
+    // called each time the Flashcards tab is activated; nothing to do if
+    // no deck is selected yet, otherwise make sure the timer is running.
+    if (fcCurrentCard() && !fcTimerHandle) fcStartTimer();
+  }
+
+  fcDeckSelect.addEventListener('change', () => {
+    fcDeckKey = fcDeckSelect.value;
+    clearInterval(fcTimerHandle);
+    fcTimerHandle = null;
+    const deck = fcCurrentDeck();
+    if (!deck) {
+      fcEmptyEl.style.display = '';
+      fcComingSoonEl.style.display = 'none';
+      fcCardEl.style.display = 'none';
+      fcChartTimer.style.display = 'none';
+      return;
+    }
+    if (deck.comingSoon) {
+      fcEmptyEl.style.display = 'none';
+      fcComingSoonEl.style.display = '';
+      fcCardEl.style.display = 'none';
+      fcChartTimer.style.display = 'none';
+      fcComingSoonTitleEl.textContent = `${deck.name} — coming soon`;
+      return;
+    }
+    fcEmptyEl.style.display = 'none';
+    fcComingSoonEl.style.display = 'none';
+    fcCardEl.style.display = '';
+    fcChartTimer.style.display = '';
+    fcRenderIndicatorsPanel();
+    fcGoToCard(0);
+  });
+  fcPrevBtn.addEventListener('click', () => { if (fcCardIndex > 0) fcGoToCard(fcCardIndex - 1); });
+  fcNextBtn.addEventListener('click', () => {
+    const deck = fcCurrentDeck();
+    if (deck && fcCardIndex < deck.cards.length - 1) fcGoToCard(fcCardIndex + 1);
+  });
   // ---------------------------------------------------------------------
 
   const symbolTabsEl = document.getElementById('symbolTabs');
