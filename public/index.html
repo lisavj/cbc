@@ -1199,7 +1199,14 @@
         <option value="7">7</option>
       </select>
     </div>
-    <button id="downloadBtn">Download</button>
+    <div class="type-filter-wrap">
+      <button id="backupBtn">Backup ▾</button>
+      <div class="type-filter-panel" id="backupPanel">
+        <div class="type-filter-row" id="backupDownloadRow" style="cursor:pointer;">⬇ Download alerts (current filter)</div>
+        <div class="type-filter-row" id="backupUploadRow" style="cursor:pointer;">⬆ Upload / restore alerts…</div>
+        <input type="file" id="backupUploadInput" accept="application/json,.json" style="display:none;">
+      </div>
+    </div>
     <button id="clearBtn">Clear all</button>
   </div>
 </header>
@@ -1405,7 +1412,11 @@
   const connEl = document.getElementById('conn');
   const pulseEl = document.getElementById('pulse');
   const clearBtn = document.getElementById('clearBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
+  const backupBtn = document.getElementById('backupBtn');
+  const backupPanel = document.getElementById('backupPanel');
+  const backupDownloadRow = document.getElementById('backupDownloadRow');
+  const backupUploadRow = document.getElementById('backupUploadRow');
+  const backupUploadInput = document.getElementById('backupUploadInput');
   const colorToggleBtn = document.getElementById('colorToggleBtn');
   let colorsOn = localStorage.getItem('colorsOn') !== 'false'; // default true
   document.body.classList.toggle('plain-mode', !colorsOn);
@@ -2980,6 +2991,16 @@
       def: 'Fires once when a CBC flip happens right at VWAP while price is clear of the nearest major support/resistance level (Pivot Points PP/R1/R2/R3/S1/S2/S3, or the current session\'s ORB high/low) by at least a minimum distance — nothing structural nearby to cap the move, so reward is high relative to risk. Minimum distance is auto by symbol root (MES/MGC=6, M2K=4, MNQ=60, other=6), overridable in Settings.'
     },
     {
+      test: (l) => /High Confluence Setup/i.test(l),
+      title: 'High Confluence Setup (Long/Short)',
+      def: 'Fires once when the 0-5 confluence score newly reaches the configured threshold — message includes the score and which factors contributed. One of the 7 on-chart marker types (letter "C").'
+    },
+    {
+      test: (l) => /LTF EMA20 Pierce/i.test(l),
+      title: 'LTF EMA20 Pierce - Entry (Long/Short)',
+      def: 'Fires once when the HTF direction is already confirmed and price pierces the chart\'s own (LTF) EMA20 — the first bar back inside after being outside it. A single-line pierce, distinct from the EMA9/20 Zone Entry above and from EMA20 Touch\'s regressive-candle requirement below. One of the 7 on-chart marker types (letter "L").'
+    },
+    {
       test: (l) => /LTF EMA20 Touch/i.test(l),
       title: 'EMA20 Touch - Pullback Entry (LTF)',
       def: 'Fires when price touches the chart\'s own (LTF) EMA20 on a REGRESSIVE candle — moving down into the touch during a confirmed uptrend, or up into it during a confirmed downtrend — i.e. CBC confirms the trend continuing, not the regression itself.'
@@ -3143,6 +3164,19 @@
 
   const OTHER_TYPE = 'Other (unrecognized)';
   const ALL_TYPE_TITLES = ALERT_TYPE_DEFS.map(d => d.title).concat([OTHER_TYPE]);
+  // The 7 on-chart marker types from the Pine script (A+/Zone/VWAP/Confluence/HTF Flip/Pierce/Key
+  // Level) — same set the script's own "Show on-chart markers" master checkbox covers. Gives the
+  // dashboard's Alert Types filter a matching one-click master row, so alerts can be narrowed down
+  // to just what shows up as a chart marker without hand-picking each checkbox.
+  const SEVEN_MARKER_TITLES = [
+    'A+ Setup (Long/Short)',
+    'Price Enters HTF EMA9/20 Zone - Entry',
+    'VWAP Bounce - High R:R (Long/Short)',
+    'High Confluence Setup (Long/Short)',
+    'HTF CBC Flip (Long/Short)',
+    'LTF EMA20 Pierce - Entry (Long/Short)',
+    'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)'
+  ].filter(t => ALL_TYPE_TITLES.includes(t));
   // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
   // Proximity types (VWAP/EMA20/EMA200/Bill Breakers are common levels price crosses constantly),
   // unlike Pivot/YDH/YDL/ORB proximity which fires far less often and stays on by default.
@@ -3522,8 +3556,14 @@
   function renderTypeFilterPanel() {
     const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
     const paCheckedCount = paTitles.filter(t => enabledTypes.has(t)).length;
+    const markerCheckedCount = SEVEN_MARKER_TITLES.filter(t => enabledTypes.has(t)).length;
     const nonPaTitles = ALL_TYPE_TITLES.filter(t => !t.startsWith(PRICE_ACTION_PREFIX));
-    const rowsHtml = nonPaTitles.map((title) => {
+    // Master row: checks/unchecks exactly the 7 on-chart-marker alert types at once (A+ Setup,
+    // Zone Entry, VWAP Bounce, High Confluence Setup, HTF CBC Flip, LTF EMA20 Pierce, Key Level) —
+    // indeterminate when some but not all are individually enabled, same pattern as the Price
+    // Action master row below.
+    const markerMasterHtml = `<label class="type-filter-row type-filter-master" title="Checks or unchecks just the 7 alert types that also show as on-chart markers."><input type="checkbox" id="markerMasterCheckbox" ${markerCheckedCount === SEVEN_MARKER_TITLES.length ? 'checked' : ''}> 7 Markers: All (${markerCheckedCount}/${SEVEN_MARKER_TITLES.length})</label>`;
+    const rowsHtml = markerMasterHtml + nonPaTitles.map((title) => {
       const checked = enabledTypes.has(title) ? 'checked' : '';
       const tip = ALERT_TYPE_DEF_BY_TITLE.get(title) || (title === OTHER_TYPE ? 'Any alert whose text doesn\'t match a known type — still shown, just as plain text.' : '');
       return `<label class="type-filter-row" ${tip ? `title="${escapeHtml(tip)}"` : ''}><input type="checkbox" data-type-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
@@ -3542,6 +3582,8 @@
     </div>`;
     const masterEl = document.getElementById('paMasterCheckbox');
     if (masterEl) masterEl.indeterminate = paCheckedCount > 0 && paCheckedCount < paTitles.length;
+    const markerMasterEl = document.getElementById('markerMasterCheckbox');
+    if (markerMasterEl) markerMasterEl.indeterminate = markerCheckedCount > 0 && markerCheckedCount < SEVEN_MARKER_TITLES.length;
   }
   renderTypeFilterPanel();
 
@@ -3701,12 +3743,21 @@
       render();
       return;
     }
+    if (e.target.id === 'markerMasterCheckbox') {
+      if (e.target.checked) SEVEN_MARKER_TITLES.forEach(t => enabledTypes.add(t));
+      else SEVEN_MARKER_TITLES.forEach(t => enabledTypes.delete(t));
+      saveEnabledTypes();
+      renderTypeFilterPanel();
+      render();
+      return;
+    }
     if (e.target.matches('input[data-type-title]')) {
       const title = decodeURIComponent(e.target.dataset.typeTitle);
       if (e.target.checked) enabledTypes.add(title);
       else enabledTypes.delete(title);
       saveEnabledTypes();
-      if (title.startsWith(PRICE_ACTION_PREFIX)) renderTypeFilterPanel(); // keep master row's count/indeterminate state in sync
+      // keep the relevant master row's count/indeterminate state in sync
+      if (title.startsWith(PRICE_ACTION_PREFIX) || SEVEN_MARKER_TITLES.includes(title)) renderTypeFilterPanel();
       render();
     }
   });
@@ -4308,7 +4359,36 @@
     if (voiceOn) speakAlert(alert);
   };
 
-  downloadBtn.addEventListener('click', () => {
+  // ---- Backup ▾ pulldown: Download (export what's loaded) / Upload (restore from a backup) ----
+  backupBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !backupPanel.classList.contains('open');
+    backupPanel.classList.toggle('open');
+    if (opening) positionBackupPanel();
+  });
+  document.addEventListener('click', (e) => {
+    if (!backupPanel.contains(e.target) && e.target !== backupBtn) {
+      backupPanel.classList.remove('open');
+    }
+  });
+  function positionBackupPanel() {
+    const margin = 8;
+    const rect = backupBtn.getBoundingClientRect();
+    const panelWidth = backupPanel.offsetWidth || 260;
+    let left = rect.right - panelWidth;
+    left = Math.min(left, window.innerWidth - margin - panelWidth);
+    left = Math.max(left, margin);
+    let top = rect.bottom + 6;
+    top = Math.min(top, window.innerHeight - margin - 40);
+    backupPanel.style.left = left + 'px';
+    backupPanel.style.top = top + 'px';
+  }
+  window.addEventListener('resize', () => {
+    if (backupPanel.classList.contains('open')) positionBackupPanel();
+  });
+
+  backupDownloadRow.addEventListener('click', () => {
+    backupPanel.classList.remove('open');
     const toExport = activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter);
     if (!toExport.length) { alert('No alerts to download.'); return; }
     const blob = new Blob([JSON.stringify(toExport, null, 2)], { type: 'application/json' });
@@ -4322,6 +4402,50 @@
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  });
+
+  // Upload/restore: reads the chosen file locally (never leaves the browser except in the POST
+  // below), confirms since this REPLACES whatever alerts are currently stored server-side, then
+  // posts to the same token-protected /restore endpoint the curl-based restore flow uses.
+  backupUploadRow.addEventListener('click', () => {
+    backupPanel.classList.remove('open');
+    backupUploadInput.value = '';
+    backupUploadInput.click();
+  });
+  backupUploadInput.addEventListener('change', () => {
+    const file = backupUploadInput.files && backupUploadInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch (e) {
+        alert('That file is not valid JSON: ' + e.message);
+        return;
+      }
+      if (!Array.isArray(parsed)) {
+        alert('Expected a JSON array of alerts (the same shape the Download button saves).');
+        return;
+      }
+      if (!confirm(`Restore ${parsed.length} alert(s) from "${file.name}"? This replaces whatever alerts are currently stored.`)) return;
+      const token = prompt('Enter your webhook token to confirm (leave blank if you did not set one):') || '';
+      fetch('/restore?token=' + encodeURIComponent(token), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed),
+      }).then(async (r) => {
+        const msg = await r.text();
+        if (r.ok) {
+          alerts = parsed.slice(0, 500);
+          render();
+          alert(msg);
+        } else {
+          alert('Could not restore: ' + msg);
+        }
+      }).catch((e) => alert('Could not restore: ' + e.message));
+    };
+    reader.readAsText(file);
   });
 
   clearBtn.addEventListener('click', () => {
