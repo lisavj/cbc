@@ -6,7 +6,14 @@
 //
 // Alerts are kept in memory (fast, instant dashboard updates) and mirrored to alerts.json
 // on disk so they survive a restart/redeploy. Only the most recent MAX_ALERTS are kept.
-
+//
+// PERSISTENCE ACROSS DEPLOYS (Render): Render's default web service disk is ephemeral —
+// every new deploy (e.g. a git push) spins up a brand-new container, wiping any files not
+// in the git repo, alerts.json included. To keep alerts across deploys, attach a Render
+// "Disk" (Render dashboard -> your service -> Disks -> Add Disk), mount it at e.g. /data,
+// then set an environment variable DATA_DIR=/data on the service. If DATA_DIR isn't set,
+// this falls back to the old behavior (alerts.json next to the code) — same as before, so
+// nothing changes for anyone not using a Disk.
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +23,16 @@ const PORT = process.env.PORT || 3000;
 const SECRET = process.env.WEBHOOK_SECRET || ''; // set this in your host's env vars
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || ''; // optional: paste a Discord channel webhook URL here to forward alerts
 const MAX_ALERTS = 500;
-const DATA_FILE = path.join(__dirname, 'alerts.json');
+const DATA_DIR = process.env.DATA_DIR || __dirname; // point this at a mounted Render Disk to survive deploys
+const DATA_FILE = path.join(DATA_DIR, 'alerts.json');
+
+// Make sure DATA_DIR exists (a freshly-mounted Disk is already there on Render, but this
+// covers a custom path elsewhere, e.g. local testing with DATA_DIR set to a new folder).
+try {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+} catch (e) {
+  console.error('Could not create DATA_DIR', DATA_DIR, e.message);
+}
 
 // TradingView sends the alert body as plain text by default (whatever you typed in the
 // alert message box). It can also be JSON if you formatted it that way. Accept both.
@@ -164,6 +180,31 @@ app.post('/clear', (req, res) => {
   alerts = [];
   saveAlerts();
   res.status(200).send('Cleared');
+});
+
+// ---- Restore alerts from a previously-saved backup ----
+// Use this to bring back alert history after moving to a new/empty disk (e.g. the one-time
+// switch to a Render persistent Disk): first save a backup by visiting /alerts in a browser
+// and saving what it returns, then after the switch POST that same JSON here, e.g.:
+//   curl -X POST "https://YOUR-APP.onrender.com/restore?token=YOUR_SECRET" \
+//        -H "Content-Type: application/json" --data-binary @alerts.json
+// Replaces whatever alerts are currently stored (same "last MAX_ALERTS win" trimming as normal).
+app.post('/restore', (req, res) => {
+  if (SECRET && req.query.token !== SECRET) {
+    return res.status(401).send('Unauthorized');
+  }
+  let parsed;
+  try {
+    parsed = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  } catch (e) {
+    return res.status(400).send('Body is not valid JSON: ' + e.message);
+  }
+  if (!Array.isArray(parsed)) {
+    return res.status(400).send('Expected a JSON array of alerts (the same shape /alerts returns).');
+  }
+  alerts = parsed.slice(0, MAX_ALERTS);
+  saveAlerts();
+  res.status(200).send(`Restored ${alerts.length} alert(s).`);
 });
 
 app.listen(PORT, () => {
