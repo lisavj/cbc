@@ -1165,6 +1165,7 @@
       <button id="typeFilterBtn">Alert Types ▾</button>
       <div class="type-filter-panel" id="typeFilterPanel"></div>
     </div>
+    <button id="sevenMarkersToggleBtn" title="Shows only the 7 on-chart marker alert types (A+/Zone/VWAP/Confluence/HTF Flip/Pierce/Key Level). Use the symbol tabs above the list for one symbol at a time, or switch View to Chronological and check multiple symbols there for a single merged, time-ordered feed. Turning this off restores whatever Alert Types you had selected before.">7 Markers View: Off</button>
     <button id="colorToggleBtn">Colors: On</button>
     <button id="entryZoneToggleBtn">Entry Zone: Off</button>
     <div class="type-filter-wrap">
@@ -1439,6 +1440,36 @@
     showEntryZone = !showEntryZone;
     localStorage.setItem('showEntryZone', String(showEntryZone));
     entryZoneToggleBtn.textContent = showEntryZone ? 'Entry Zone: On' : 'Entry Zone: Off';
+    render();
+  });
+
+  // ---- "7 Markers View" one-click toggle ----
+  // A shortcut on top of the existing Alert Types filter + View dropdown, not a new display mode:
+  // ON temporarily replaces whatever Alert Types you had checked with exactly the 7 on-chart-marker
+  // types (same set as the "7 Markers: All" master row inside Alert Types ▾), remembering your prior
+  // selection so OFF restores it exactly. The "tab for each symbol" and "merged" views this enables
+  // are the page's existing controls: the symbol tabs above the list already give one-symbol-at-a-time
+  // (Tiered view), and switching View ▾ to Chronological with multiple symbols checked there already
+  // gives one merged, time-ordered feed across symbols — both untouched, just now filtered to the 7.
+  const sevenMarkersToggleBtn = document.getElementById('sevenMarkersToggleBtn');
+  let sevenMarkersViewOn = localStorage.getItem('sevenMarkersViewOn') === 'true'; // default false
+  let enabledTypesBeforeSevenView = null; // snapshot to restore on OFF; null when not currently ON
+  sevenMarkersToggleBtn.textContent = sevenMarkersViewOn ? '7 Markers View: On' : '7 Markers View: Off';
+  sevenMarkersToggleBtn.addEventListener('click', () => {
+    sevenMarkersViewOn = !sevenMarkersViewOn;
+    localStorage.setItem('sevenMarkersViewOn', String(sevenMarkersViewOn));
+    sevenMarkersToggleBtn.textContent = sevenMarkersViewOn ? '7 Markers View: On' : '7 Markers View: Off';
+    if (sevenMarkersViewOn) {
+      enabledTypesBeforeSevenView = new Set(enabledTypes);
+      enabledTypes.clear();
+      SEVEN_MARKER_TITLES.forEach(t => enabledTypes.add(t));
+    } else if (enabledTypesBeforeSevenView) {
+      enabledTypes.clear();
+      enabledTypesBeforeSevenView.forEach(t => enabledTypes.add(t));
+      enabledTypesBeforeSevenView = null;
+    }
+    saveEnabledTypes();
+    renderTypeFilterPanel();
     render();
   });
   // Chronological view: per symbol, show every filtered alert as one flat time-ordered list instead
@@ -3195,6 +3226,14 @@
   }
   function saveEnabledTypes() {
     localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
+  }
+  // If the page loads with "7 Markers View" already ON from a previous visit, force Alert Types to
+  // the 7 right now (there's no prior selection to snapshot/restore in that case — turning it OFF
+  // will just leave Alert Types as the 7, same as unchecking the master row manually would).
+  if (sevenMarkersViewOn) {
+    enabledTypes.clear();
+    SEVEN_MARKER_TITLES.forEach(t => enabledTypes.add(t));
+    saveEnabledTypes();
   }
 
   // Which categories trigger a VOICE callout — separate selection from the Alert Types display
