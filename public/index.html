@@ -3780,8 +3780,13 @@
   function renderVoiceFilterPanel() {
     const paTitles = ALL_TYPE_TITLES.filter(t => t.startsWith(PRICE_ACTION_PREFIX));
     const paCheckedCount = paTitles.filter(t => voiceEnabledTypes.has(t)).length;
+    const markerCheckedCount = SEVEN_MARKER_TITLES.filter(t => voiceEnabledTypes.has(t)).length;
     const nonPaTitles = ALL_TYPE_TITLES.filter(t => !t.startsWith(PRICE_ACTION_PREFIX));
-    const rowsHtml = nonPaTitles.map((title) => {
+    // Same override behavior as the Alert Types panel's "7 Markers Only": checking this turns OFF
+    // every other voice-enabled type and turns ON just these 7, so voice only calls out alerts that
+    // also show as one of the 7 on-chart markers. Unchecking just turns the 7 back off.
+    const markerMasterHtml = `<label class="type-filter-row type-filter-master" title="Checking this turns OFF voice for every other alert type and turns it ON for just these 7 — an override, not an add-on-top. Unchecking just turns the 7 back off."><input type="checkbox" id="markerMasterVoiceCheckbox" ${markerCheckedCount === SEVEN_MARKER_TITLES.length ? 'checked' : ''}> 7 Markers Only (${markerCheckedCount}/${SEVEN_MARKER_TITLES.length})</label>`;
+    const rowsHtml = markerMasterHtml + nonPaTitles.map((title) => {
       const checked = voiceEnabledTypes.has(title) ? 'checked' : '';
       return `<label class="type-filter-row"><input type="checkbox" data-voice-title="${encodeURIComponent(title)}" ${checked}> ${escapeHtml(title)}</label>`;
     }).join('')
@@ -3796,6 +3801,8 @@
     </div>`;
     const masterEl = document.getElementById('paMasterVoiceCheckbox');
     if (masterEl) masterEl.indeterminate = paCheckedCount > 0 && paCheckedCount < paTitles.length;
+    const markerMasterEl = document.getElementById('markerMasterVoiceCheckbox');
+    if (markerMasterEl) markerMasterEl.indeterminate = markerCheckedCount > 0 && markerCheckedCount < SEVEN_MARKER_TITLES.length;
   }
   renderVoiceFilterPanel();
 
@@ -3846,11 +3853,22 @@
       saveVoiceEnabledTypes();
       return;
     }
+    if (e.target.id === 'markerMasterVoiceCheckbox') {
+      if (e.target.checked) {
+        voiceEnabledTypes.clear();
+        SEVEN_MARKER_TITLES.forEach(t => voiceEnabledTypes.add(t));
+      } else {
+        SEVEN_MARKER_TITLES.forEach(t => voiceEnabledTypes.delete(t));
+      }
+      renderVoiceFilterPanel();
+      saveVoiceEnabledTypes();
+      return;
+    }
     if (e.target.matches('input[data-voice-title]')) {
       const title = decodeURIComponent(e.target.dataset.voiceTitle);
       if (e.target.checked) voiceEnabledTypes.add(title);
       else voiceEnabledTypes.delete(title);
-      if (title.startsWith(PRICE_ACTION_PREFIX)) renderVoiceFilterPanel();
+      if (title.startsWith(PRICE_ACTION_PREFIX) || SEVEN_MARKER_TITLES.includes(title)) renderVoiceFilterPanel();
       saveVoiceEnabledTypes();
     }
   });
