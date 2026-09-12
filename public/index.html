@@ -3601,7 +3601,7 @@
     // Zone Entry, VWAP Bounce, High Confluence Setup, HTF CBC Flip, LTF EMA20 Pierce, Key Level) —
     // indeterminate when some but not all are individually enabled, same pattern as the Price
     // Action master row below.
-    const markerMasterHtml = `<label class="type-filter-row type-filter-master" title="Checks or unchecks just the 7 alert types that also show as on-chart markers."><input type="checkbox" id="markerMasterCheckbox" ${markerCheckedCount === SEVEN_MARKER_TITLES.length ? 'checked' : ''}> 7 Markers: All (${markerCheckedCount}/${SEVEN_MARKER_TITLES.length})</label>`;
+    const markerMasterHtml = `<label class="type-filter-row type-filter-master" title="Checking this turns OFF every other alert type and turns ON just these 7 — an override, not an add-on-top. Unchecking just turns the 7 back off."><input type="checkbox" id="markerMasterCheckbox" ${markerCheckedCount === SEVEN_MARKER_TITLES.length ? 'checked' : ''}> 7 Markers Only (${markerCheckedCount}/${SEVEN_MARKER_TITLES.length})</label>`;
     const rowsHtml = markerMasterHtml + nonPaTitles.map((title) => {
       const checked = enabledTypes.has(title) ? 'checked' : '';
       const tip = ALERT_TYPE_DEF_BY_TITLE.get(title) || (title === OTHER_TYPE ? 'Any alert whose text doesn\'t match a known type — still shown, just as plain text.' : '');
@@ -3783,8 +3783,16 @@
       return;
     }
     if (e.target.id === 'markerMasterCheckbox') {
-      if (e.target.checked) SEVEN_MARKER_TITLES.forEach(t => enabledTypes.add(t));
-      else SEVEN_MARKER_TITLES.forEach(t => enabledTypes.delete(t));
+      // Checking this ON overrides the whole Alert Types filter down to just these 7 — every other
+      // type gets switched off automatically, rather than only adding the 7 on top of whatever else
+      // was already checked. Unchecking it just removes the 7 again (doesn't try to restore
+      // whatever was on before — use the "7 Markers View" header toggle instead if you want that).
+      if (e.target.checked) {
+        enabledTypes.clear();
+        SEVEN_MARKER_TITLES.forEach(t => enabledTypes.add(t));
+      } else {
+        SEVEN_MARKER_TITLES.forEach(t => enabledTypes.delete(t));
+      }
       saveEnabledTypes();
       renderTypeFilterPanel();
       render();
