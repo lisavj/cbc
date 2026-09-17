@@ -112,6 +112,60 @@
     font-weight: 600;
   }
 
+  /* Multilevel pulldown: groups Journal / Rules / Checklist / Autopsy under one
+     nav item, same visual language as the plain tab buttons, but opens a small
+     submenu instead of switching views directly. */
+  .nav-dropdown { position: relative; }
+  .nav-dropdown-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .nav-dropdown-btn:hover { color: var(--text); }
+  .nav-dropdown-btn.active {
+    background: var(--accent);
+    color: #1a1400;
+    font-weight: 600;
+  }
+  .nav-dropdown-caret { font-size: 9px; transform: translateY(1px); }
+  .nav-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 160px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    display: none;
+    flex-direction: column;
+    gap: 1px;
+    z-index: 40;
+  }
+  .nav-dropdown.open .nav-dropdown-menu { display: flex; }
+  .nav-dropdown-item {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .nav-dropdown-item:hover { background: rgba(245,166,35,0.1); }
+  .nav-dropdown-item.active { background: var(--accent); color: #1a1400; font-weight: 600; }
+
   .symbol-tabs {
     display: flex;
     flex-wrap: wrap;
@@ -1184,7 +1238,7 @@
   .pc-table { border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
   .pc-header-row, .pc-row {
     display: grid;
-    grid-template-columns: 40px 1fr 70px;
+    grid-template-columns: 40px 1fr 220px 70px;
     align-items: center;
     gap: 10px;
   }
@@ -1208,6 +1262,19 @@
   .pc-text { color: var(--text); line-height: 1.4; }
   .pc-check { display: flex; justify-content: center; }
   .pc-check input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--jr-green); }
+  .pc-line-cell { display: flex; align-items: flex-end; height: 100%; }
+  .pc-note-line {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    padding: 4px 2px;
+  }
+  .pc-note-line:focus { outline: none; border-bottom-color: var(--accent); }
+  .pc-note-line::placeholder { color: var(--muted); }
   .pc-actions { display: flex; justify-content: flex-end; margin-bottom: 18px; }
   .pc-howto {
     background: var(--panel);
@@ -1215,6 +1282,62 @@
     border-radius: 8px;
     padding: 14px 18px;
   }
+
+  /* Impulsive Trade Autopsy */
+  .at-intro { margin-bottom: 14px; }
+  .at-field { margin-bottom: 16px; }
+  .at-field > label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .at-line {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 6px;
+  }
+  .at-line:focus { outline: none; border-color: var(--accent); }
+  .at-radio-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .at-radio-row-wrap .at-radio-opt { flex: 1 1 260px; }
+  .at-radio-opt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .at-radio-opt input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
+  .at-outcome-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .at-pnl-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+  .at-pnl-input { width: 110px; }
+  .at-list-empty { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; }
+  .at-list-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .at-list-row:hover { border-color: var(--muted); }
+  .at-list-main { display: flex; flex-direction: column; gap: 2px; }
+  .at-list-date { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .at-list-title { font-size: 13px; color: var(--text); }
+  .at-list-score { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 700; white-space: nowrap; }
+
   .jr-meta-row { display: flex; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
   .jr-field { display: flex; flex-direction: column; gap: 6px; }
   .jr-field label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -1297,9 +1420,15 @@
       <button class="view-tab-btn" id="tabFaqBtn" data-view="faq">FAQ</button>
       <button class="view-tab-btn" id="tabFlashBtn" data-view="flashcards">Flashcards</button>
       <button class="view-tab-btn" id="tabVideosBtn" data-view="videos">Videos</button>
-      <button class="view-tab-btn" id="tabJournalBtn" data-view="journal">Journal</button>
-      <button class="view-tab-btn" id="tabRulesBtn" data-view="rules">Rules</button>
-      <button class="view-tab-btn" id="tabChecklistBtn" data-view="checklist">Checklist</button>
+      <div class="nav-dropdown" id="journalDropdown">
+        <button class="nav-dropdown-btn" id="journalDropdownBtn" type="button">Journal <span class="nav-dropdown-caret">▾</span></button>
+        <div class="nav-dropdown-menu" id="journalDropdownMenu">
+          <button class="nav-dropdown-item" id="tabJournalBtn" data-view="journal">Journal</button>
+          <button class="nav-dropdown-item" id="tabRulesBtn" data-view="rules">Rules</button>
+          <button class="nav-dropdown-item" id="tabChecklistBtn" data-view="checklist">Checklist</button>
+          <button class="nav-dropdown-item" id="tabAutopsyBtn" data-view="autopsy">Autopsy</button>
+        </div>
+      </div>
     </div>
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
@@ -1581,6 +1710,7 @@
         <div class="pc-header-row">
           <div class="pc-num"></div>
           <div class="pc-text">Criteria</div>
+          <div class="pc-text">Notes</div>
           <div class="pc-check">Check</div>
         </div>
         <div id="pcList"></div>
@@ -1592,6 +1722,102 @@
       <div class="pc-howto">
         <div class="rl-rule-title">How to Use This</div>
         <div class="rl-rule-text">Keep a printed copy of this checklist at your desk. Mark each trade's checklist score in your journal. Over time you will see a direct correlation: trades where all 10 boxes were checked outperform trades where shortcuts were made. Let the data convince you, not the theory.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ AUTOPSY ============================ -->
+  <div id="autopsyView" style="display:none;">
+    <div id="atListView">
+      <div class="at-intro">
+        <div class="rl-section-title">Impulsive Trade Autopsy</div>
+        <div class="pc-note">Every impulsive trade you take is data. The worst thing you can do is ignore it, feel shame about it, and move on. The best thing you can do is dissect it calmly after the session and extract the lesson from it. Fill out the template below after any session where you took a trade outside your plan. Be honest — no one else needs to see this.</div>
+      </div>
+      <div class="jr-toolbar">
+        <div class="jr-spacer"></div>
+        <button id="atAddBtn" class="jr-add-btn">+ New Autopsy</button>
+      </div>
+      <div id="atList"></div>
+    </div>
+
+    <div id="atEditorView" style="display:none;">
+      <div class="jr-editor-header">
+        <button id="atBackBtn" class="jr-back-btn">← Back</button>
+        <div class="jr-spacer"></div>
+        <span id="atSaveStatus" class="jr-save-status">Saved ✓</span>
+        <button id="atSaveBtn" class="jr-save-btn">Save</button>
+        <button id="atDeleteBtn" class="jr-danger-btn" style="display:none;">Delete</button>
+      </div>
+
+      <div class="at-field">
+        <label>Date &amp; Session</label>
+        <input type="text" id="atDateSession" class="at-line" placeholder="e.g. 2026-09-17, London AM session">
+      </div>
+
+      <div class="jr-meta-row">
+        <div class="jr-field"><label>Symbol</label><input type="text" id="atSymbol" class="at-line"></div>
+        <div class="jr-field"><label>Instrument</label><input type="text" id="atInstrument" class="at-line"></div>
+        <div class="jr-field"><label>Direction</label><input type="text" id="atDirection" class="at-line"></div>
+        <div class="jr-field"><label>Size</label><input type="text" id="atSize" class="at-line"></div>
+      </div>
+
+      <div class="at-field">
+        <label>Was it in my plan?</label>
+        <div class="at-radio-row" data-atgroup="inPlan">
+          <label class="at-radio-opt"><input type="radio" name="atInPlan" value="Yes"> Yes</label>
+          <label class="at-radio-opt"><input type="radio" name="atInPlan" value="No"> No</label>
+          <label class="at-radio-opt"><input type="radio" name="atInPlan" value="Partially"> Partially</label>
+        </div>
+      </div>
+
+      <div class="at-field">
+        <label>What triggered the impulse?</label>
+        <input type="text" id="atTrigger" class="at-line">
+      </div>
+
+      <div class="at-field">
+        <label>What story did I tell myself to justify it?</label>
+        <input type="text" id="atStory" class="at-line">
+      </div>
+
+      <div class="at-field">
+        <label>What warning signals did I ignore?</label>
+        <input type="text" id="atWarningSignals" class="at-line">
+      </div>
+
+      <div class="at-field">
+        <label>What was the outcome?</label>
+        <div class="at-outcome-row">
+          <div class="at-radio-row" data-atgroup="outcome">
+            <label class="at-radio-opt"><input type="radio" name="atOutcome" value="Winner"> Winner</label>
+            <label class="at-radio-opt"><input type="radio" name="atOutcome" value="Loser"> Loser</label>
+            <label class="at-radio-opt"><input type="radio" name="atOutcome" value="Scratch"> Scratch</label>
+          </div>
+          <label class="at-pnl-label">P&amp;L: $ <input type="text" id="atPnl" class="at-line at-pnl-input"></label>
+        </div>
+      </div>
+
+      <div class="at-field">
+        <label>Did the outcome reinforce the behavior?</label>
+        <div class="at-radio-row at-radio-row-wrap" data-atgroup="reinforced">
+          <label class="at-radio-opt"><input type="radio" name="atReinforced" value="Yes"> Yes (won, making it harder to stop next time)</label>
+          <label class="at-radio-opt"><input type="radio" name="atReinforced" value="No"> No (lost. Did I learn the right lesson?)</label>
+        </div>
+      </div>
+
+      <div class="at-field">
+        <label>What will I do differently next time?</label>
+        <input type="text" id="atDifferently" class="at-line">
+      </div>
+
+      <div class="jr-meta-row">
+        <div class="jr-field"><label>My process score for this session (1-10)</label><input type="text" id="atScore" class="at-line" style="max-width:80px;"></div>
+        <div class="jr-field" style="flex:1;"><label>Reason</label><input type="text" id="atReason" class="at-line"></div>
+      </div>
+
+      <div class="pc-howto">
+        <div class="rl-rule-title">Why This Matters</div>
+        <div class="rl-rule-text">A losing impulsive trade that you autopsy and learn from is worth more than ten winning trades you took on autopilot. The autopsy is where growth actually happens. Make it a non-negotiable part of your post-session routine.</div>
       </div>
     </div>
   </div>
@@ -1991,10 +2217,16 @@
   const rulesViewEl = document.getElementById('rulesView');
   const tabChecklistBtn = document.getElementById('tabChecklistBtn');
   const checklistViewEl = document.getElementById('checklistView');
+  const tabAutopsyBtn = document.getElementById('tabAutopsyBtn');
+  const autopsyViewEl = document.getElementById('autopsyView');
+  const journalDropdown = document.getElementById('journalDropdown');
+  const journalDropdownBtn = document.getElementById('journalDropdownBtn');
   let videosRendered = false;
   let journalRendered = false;
   let rulesRendered = false;
   let checklistRendered = false;
+  let autopsyRendered = false;
+  const JOURNAL_DROPDOWN_VIEWS = ['journal', 'rules', 'checklist', 'autopsy'];
   function setView(view) {
     const isFaq = view === 'faq';
     const isFlash = view === 'flashcards';
@@ -2002,7 +2234,8 @@
     const isJournal = view === 'journal';
     const isRules = view === 'rules';
     const isChecklist = view === 'checklist';
-    const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal && !isRules && !isChecklist;
+    const isAutopsy = view === 'autopsy';
+    const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal && !isRules && !isChecklist && !isAutopsy;
     tabAlertsBtn.classList.toggle('active', isAlerts);
     tabFaqBtn.classList.toggle('active', isFaq);
     tabFlashBtn.classList.toggle('active', isFlash);
@@ -2010,12 +2243,16 @@
     tabJournalBtn.classList.toggle('active', isJournal);
     tabRulesBtn.classList.toggle('active', isRules);
     tabChecklistBtn.classList.toggle('active', isChecklist);
+    tabAutopsyBtn.classList.toggle('active', isAutopsy);
+    journalDropdownBtn.classList.toggle('active', JOURNAL_DROPDOWN_VIEWS.includes(view));
+    journalDropdown.classList.remove('open');
     faqViewEl.style.display = isFaq ? 'block' : 'none';
     flashViewEl.style.display = isFlash ? 'block' : 'none';
     videosViewEl.style.display = isVideos ? 'block' : 'none';
     journalViewEl.style.display = isJournal ? 'block' : 'none';
     rulesViewEl.style.display = isRules ? 'block' : 'none';
     checklistViewEl.style.display = isChecklist ? 'block' : 'none';
+    autopsyViewEl.style.display = isAutopsy ? 'block' : 'none';
     mainListEl.style.display = isAlerts ? '' : 'none';
     symbolTabsEl.style.display = isAlerts ? '' : 'none';
     if (!isAlerts) {
@@ -2029,6 +2266,7 @@
     if (isJournal && !journalRendered) { jrInit(); journalRendered = true; }
     if (isRules && !rulesRendered) { rlInit(); rulesRendered = true; }
     if (isChecklist && !checklistRendered) { pcInit(); checklistRendered = true; }
+    if (isAutopsy && !autopsyRendered) { atInit(); autopsyRendered = true; }
   }
   tabAlertsBtn.addEventListener('click', () => setView('alerts'));
   tabFaqBtn.addEventListener('click', () => setView('faq'));
@@ -2037,6 +2275,20 @@
   tabJournalBtn.addEventListener('click', () => setView('journal'));
   tabRulesBtn.addEventListener('click', () => setView('rules'));
   tabChecklistBtn.addEventListener('click', () => setView('checklist'));
+  tabAutopsyBtn.addEventListener('click', () => setView('autopsy'));
+
+  // Multilevel pulldown: click the "Journal" nav item to toggle its submenu
+  // (Journal / Rules / Checklist / Autopsy) open and closed; clicking anywhere
+  // else on the page closes it; clicking an item inside it both navigates
+  // (via the listeners above, since each item is also a data-view button)
+  // and closes the menu.
+  journalDropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    journalDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!journalDropdown.contains(e.target)) journalDropdown.classList.remove('open');
+  });
   // ---------------------------------------------------------------------
 
   // ---------------------------------------------------------------------
@@ -5268,6 +5520,7 @@
       <div class="pc-row" data-pc="${i}">
         <div class="pc-num">${i + 1}</div>
         <div class="pc-text">${escapeHtml(text)}</div>
+        <div class="pc-line-cell"><input type="text" class="pc-note-line" data-pcnote="${i}" maxlength="100" placeholder="Notes…"></div>
         <div class="pc-check"><input type="checkbox" data-pcbox="${i}"></div>
       </div>
     `).join('');
@@ -5304,8 +5557,200 @@
 
   function pcClear() {
     document.querySelectorAll('#pcList input[data-pcbox]').forEach(b => { b.checked = false; });
+    document.querySelectorAll('#pcList input[data-pcnote]').forEach(n => { n.value = ''; });
     document.querySelectorAll('#pcList .pc-row').forEach(r => r.classList.remove('pc-checked'));
     pcRenderStatus();
+  }
+  // ---------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------
+  // IMPULSIVE TRADE AUTOPSY TAB
+  // Unlike Journal/Rules (one entry per calendar date), this is a plain list —
+  // you can log more than one impulsive trade in the same session. Each entry
+  // gets a server-generated id. New entries POST to /autopsy (server assigns
+  // the id and hands the saved entry back); edits to an existing entry PUT to
+  // /autopsy/<id>. Same debounced-autosave + explicit Save button pattern as
+  // the Journal and Rules tabs.
+  // ---------------------------------------------------------------------
+  let atEntries = {};      // id -> entry object
+  let atEditingId = null;  // id of the entry currently open in the editor (null = unsaved new entry)
+  let atSaveTimer = null;
+
+  function atInit() {
+    fetch('/autopsy').then(r => r.json()).then(list => {
+      atEntries = {};
+      (list || []).forEach(e => { atEntries[e.id] = e; });
+      atRenderList();
+    }).catch(() => { atRenderList(); });
+
+    document.getElementById('atAddBtn').addEventListener('click', atOpenNew);
+    document.getElementById('atBackBtn').addEventListener('click', () => { atFlushSave(); atShowList(); });
+    document.getElementById('atSaveBtn').addEventListener('click', atFlushSave);
+    document.getElementById('atDeleteBtn').addEventListener('click', atDeleteCurrent);
+
+    ['atDateSession', 'atSymbol', 'atInstrument', 'atDirection', 'atSize', 'atTrigger', 'atStory',
+     'atWarningSignals', 'atPnl', 'atDifferently', 'atScore', 'atReason'].forEach(id => {
+      document.getElementById(id).addEventListener('input', atScheduleSave);
+    });
+    document.querySelectorAll('#atEditorView input[type="radio"]').forEach(r => {
+      r.addEventListener('change', atScheduleSave);
+    });
+  }
+
+  function atRenderList() {
+    const rows = Object.values(atEntries).sort((a, b) => (b.dateSession || '').localeCompare(a.dateSession || ''));
+    const listEl = document.getElementById('atList');
+    if (!rows.length) {
+      listEl.innerHTML = '<div class="at-list-empty">No autopsies logged yet. After any session where you took a trade outside your plan, click "+ New Autopsy" and be honest with yourself.</div>';
+      return;
+    }
+    listEl.innerHTML = rows.map(e => {
+      const title = [e.symbol, e.instrument].filter(Boolean).join(' · ') || '(no symbol)';
+      const score = (e.score !== undefined && e.score !== null && e.score !== '') ? `Score: ${escapeHtml(String(e.score))}/10` : '';
+      return `
+        <div class="at-list-row" data-id="${e.id}">
+          <div class="at-list-main">
+            <div class="at-list-date">${escapeHtml(e.dateSession || '(no date/session)')}</div>
+            <div class="at-list-title">${escapeHtml(title)}</div>
+          </div>
+          <div class="at-list-score">${score}</div>
+        </div>
+      `;
+    }).join('');
+    listEl.querySelectorAll('.at-list-row').forEach(el => {
+      el.addEventListener('click', () => atOpenEntry(el.dataset.id));
+    });
+  }
+
+  function atShowList() {
+    document.getElementById('atListView').style.display = '';
+    document.getElementById('atEditorView').style.display = 'none';
+    atRenderList();
+  }
+
+  function atSetRadio(name, value) {
+    document.querySelectorAll(`#atEditorView input[name="${name}"]`).forEach(r => {
+      r.checked = (r.value === value);
+    });
+  }
+
+  function atGetRadio(name) {
+    const checked = document.querySelector(`#atEditorView input[name="${name}"]:checked`);
+    return checked ? checked.value : null;
+  }
+
+  function atOpenNew() {
+    atFlushSave();
+    atEditingId = null;
+    const blank = {
+      id: null, dateSession: jrTodayKey(), symbol: '', instrument: '', direction: '', size: '',
+      inPlan: null, trigger: '', story: '', warningSignals: '', outcome: null, pnl: '',
+      reinforced: null, differently: '', score: '', reason: '',
+    };
+    atFillEditor(blank);
+    document.getElementById('atDeleteBtn').style.display = 'none';
+    document.getElementById('atSaveStatus').classList.remove('show');
+    document.getElementById('atListView').style.display = 'none';
+    document.getElementById('atEditorView').style.display = '';
+  }
+
+  function atOpenEntry(id) {
+    atFlushSave();
+    atEditingId = id;
+    const entry = atEntries[id];
+    if (!entry) { atShowList(); return; }
+    atFillEditor(entry);
+    document.getElementById('atDeleteBtn').style.display = '';
+    document.getElementById('atSaveStatus').classList.remove('show');
+    document.getElementById('atListView').style.display = 'none';
+    document.getElementById('atEditorView').style.display = '';
+  }
+
+  function atFillEditor(entry) {
+    document.getElementById('atDateSession').value = entry.dateSession || '';
+    document.getElementById('atSymbol').value = entry.symbol || '';
+    document.getElementById('atInstrument').value = entry.instrument || '';
+    document.getElementById('atDirection').value = entry.direction || '';
+    document.getElementById('atSize').value = entry.size || '';
+    document.getElementById('atTrigger').value = entry.trigger || '';
+    document.getElementById('atStory').value = entry.story || '';
+    document.getElementById('atWarningSignals').value = entry.warningSignals || '';
+    document.getElementById('atPnl').value = entry.pnl || '';
+    document.getElementById('atDifferently').value = entry.differently || '';
+    document.getElementById('atScore').value = entry.score || '';
+    document.getElementById('atReason').value = entry.reason || '';
+    atSetRadio('atInPlan', entry.inPlan);
+    atSetRadio('atOutcome', entry.outcome);
+    atSetRadio('atReinforced', entry.reinforced);
+  }
+
+  function atScheduleSave() {
+    clearTimeout(atSaveTimer);
+    atSaveTimer = setTimeout(atFlushSave, 700);
+  }
+
+  function atCollectEntry() {
+    return {
+      dateSession: document.getElementById('atDateSession').value,
+      symbol: document.getElementById('atSymbol').value,
+      instrument: document.getElementById('atInstrument').value,
+      direction: document.getElementById('atDirection').value,
+      size: document.getElementById('atSize').value,
+      inPlan: atGetRadio('atInPlan'),
+      trigger: document.getElementById('atTrigger').value,
+      story: document.getElementById('atStory').value,
+      warningSignals: document.getElementById('atWarningSignals').value,
+      outcome: atGetRadio('atOutcome'),
+      pnl: document.getElementById('atPnl').value,
+      reinforced: atGetRadio('atReinforced'),
+      differently: document.getElementById('atDifferently').value,
+      score: document.getElementById('atScore').value,
+      reason: document.getElementById('atReason').value,
+    };
+  }
+
+  function atIsBlank(e) {
+    return !e.symbol && !e.instrument && !e.direction && !e.size && !e.inPlan && !e.trigger &&
+      !e.story && !e.warningSignals && !e.outcome && !e.pnl && !e.reinforced && !e.differently &&
+      !e.score && !e.reason;
+  }
+
+  function atFlushSave() {
+    clearTimeout(atSaveTimer);
+    // Only relevant while the editor is actually open (atEditingId set, or a brand-new
+    // unsaved entry — the editor being visible is what tells us that).
+    if (document.getElementById('atEditorView').style.display === 'none') return;
+    const entry = atCollectEntry();
+    if (atIsBlank(entry) && !atEditingId) return; // nothing entered for a brand-new entry — don't create it
+
+    const statusEl = document.getElementById('atSaveStatus');
+    const onSaved = (saved) => {
+      atEntries[saved.id] = saved;
+      atEditingId = saved.id;
+      document.getElementById('atDeleteBtn').style.display = '';
+      statusEl.classList.add('show');
+      setTimeout(() => statusEl.classList.remove('show'), 1200);
+    };
+
+    if (atEditingId) {
+      fetch('/autopsy/' + encodeURIComponent(atEditingId), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
+      }).then(r => r.json()).then(onSaved).catch(() => {});
+    } else {
+      fetch('/autopsy', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
+      }).then(r => r.json()).then(onSaved).catch(() => {});
+    }
+  }
+
+  function atDeleteCurrent() {
+    if (!atEditingId) { atShowList(); return; }
+    if (!confirm('Delete this autopsy entry? This cannot be undone.')) return;
+    fetch('/autopsy/' + encodeURIComponent(atEditingId), { method: 'DELETE' }).then(() => {
+      delete atEntries[atEditingId];
+      atEditingId = null;
+      atShowList();
+    });
   }
   // ---------------------------------------------------------------------
 </script>
