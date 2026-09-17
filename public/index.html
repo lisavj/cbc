@@ -1179,7 +1179,7 @@
   /* Pre-Trade Checklist — plain scratch sheet inside the Rules tab: nothing here
      is saved or sent to the server, it's just an on-screen version of the printed
      desk checklist, with a Clear button since it has no per-day persistence. */
-  .pc-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--panel-border); }
+  .pc-section { }
   .pc-note { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 4px 0 14px; }
   .pc-table { border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
   .pc-header-row, .pc-row {
@@ -1299,6 +1299,7 @@
       <button class="view-tab-btn" id="tabVideosBtn" data-view="videos">Videos</button>
       <button class="view-tab-btn" id="tabJournalBtn" data-view="journal">Journal</button>
       <button class="view-tab-btn" id="tabRulesBtn" data-view="rules">Rules</button>
+      <button class="view-tab-btn" id="tabChecklistBtn" data-view="checklist">Checklist</button>
     </div>
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
@@ -1569,7 +1570,10 @@
     </div>
 
     <div id="rlSummary" class="rl-summary"></div>
+  </div>
 
+  <!-- ============================ CHECKLIST ============================ -->
+  <div id="checklistView" style="display:none;">
     <div class="pc-section">
       <div class="rl-section-title">Pre-Trade Checklist</div>
       <div class="pc-note">Print this page and keep it at your desk. Every item must be checked before entry. If even one is unchecked, the trade does not qualify. If all are checked, take the trade with full commitment and no second-guessing.</div>
@@ -1985,27 +1989,33 @@
   const journalViewEl = document.getElementById('journalView');
   const tabRulesBtn = document.getElementById('tabRulesBtn');
   const rulesViewEl = document.getElementById('rulesView');
+  const tabChecklistBtn = document.getElementById('tabChecklistBtn');
+  const checklistViewEl = document.getElementById('checklistView');
   let videosRendered = false;
   let journalRendered = false;
   let rulesRendered = false;
+  let checklistRendered = false;
   function setView(view) {
     const isFaq = view === 'faq';
     const isFlash = view === 'flashcards';
     const isVideos = view === 'videos';
     const isJournal = view === 'journal';
     const isRules = view === 'rules';
-    const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal && !isRules;
+    const isChecklist = view === 'checklist';
+    const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal && !isRules && !isChecklist;
     tabAlertsBtn.classList.toggle('active', isAlerts);
     tabFaqBtn.classList.toggle('active', isFaq);
     tabFlashBtn.classList.toggle('active', isFlash);
     tabVideosBtn.classList.toggle('active', isVideos);
     tabJournalBtn.classList.toggle('active', isJournal);
     tabRulesBtn.classList.toggle('active', isRules);
+    tabChecklistBtn.classList.toggle('active', isChecklist);
     faqViewEl.style.display = isFaq ? 'block' : 'none';
     flashViewEl.style.display = isFlash ? 'block' : 'none';
     videosViewEl.style.display = isVideos ? 'block' : 'none';
     journalViewEl.style.display = isJournal ? 'block' : 'none';
     rulesViewEl.style.display = isRules ? 'block' : 'none';
+    checklistViewEl.style.display = isChecklist ? 'block' : 'none';
     mainListEl.style.display = isAlerts ? '' : 'none';
     symbolTabsEl.style.display = isAlerts ? '' : 'none';
     if (!isAlerts) {
@@ -2018,6 +2028,7 @@
     if (isVideos && !videosRendered) { renderVideos(); renderMoreVideos(); renderOtherVideos(); videosRendered = true; }
     if (isJournal && !journalRendered) { jrInit(); journalRendered = true; }
     if (isRules && !rulesRendered) { rlInit(); rulesRendered = true; }
+    if (isChecklist && !checklistRendered) { pcInit(); checklistRendered = true; }
   }
   tabAlertsBtn.addEventListener('click', () => setView('alerts'));
   tabFaqBtn.addEventListener('click', () => setView('faq'));
@@ -2025,6 +2036,7 @@
   tabVideosBtn.addEventListener('click', () => setView('videos'));
   tabJournalBtn.addEventListener('click', () => setView('journal'));
   tabRulesBtn.addEventListener('click', () => setView('rules'));
+  tabChecklistBtn.addEventListener('click', () => setView('checklist'));
   // ---------------------------------------------------------------------
 
   // ---------------------------------------------------------------------
@@ -5120,8 +5132,6 @@
     document.getElementById('rlPhysicalList').innerHTML = RL_PHYSICAL.map(rlItemHtml).join('');
     document.getElementById('rlMentalList').innerHTML = RL_MENTAL.map(rlItemHtml).join('');
     RL_ALL_IDS.forEach(rlWireItem);
-
-    pcInit();
   }
 
   function rlItemHtml(q) {
@@ -5234,7 +5244,7 @@
   // ---------------------------------------------------------------------
 
   // ---------------------------------------------------------------------
-  // PRE-TRADE CHECKLIST (inside the Rules tab)
+  // PRE-TRADE CHECKLIST TAB
   // A plain numbered checklist, one checkbox per item — NOT saved anywhere,
   // just an on-screen version of the printed desk checklist. State lives
   // only in the checkboxes themselves for as long as the page is open, with
