@@ -78,6 +78,28 @@ function saveRules() {
   }
 }
 
+// Autopsy is a plain LIST, not date-keyed like Journal/Rules — you can log more
+// than one impulsive trade in the same session. Stored as { "<id>": <entry> },
+// same disk-mirroring pattern; ids are server-generated the same way alert ids are.
+const AUTOPSY_FILE = path.join(DATA_DIR, 'autopsy.json');
+
+let autopsyEntries = {};
+try {
+  if (fs.existsSync(AUTOPSY_FILE)) {
+    autopsyEntries = JSON.parse(fs.readFileSync(AUTOPSY_FILE, 'utf8'));
+  }
+} catch (e) {
+  console.error('Could not read autopsy.json, starting fresh:', e.message);
+}
+
+function saveAutopsy() {
+  try {
+    fs.writeFileSync(AUTOPSY_FILE, JSON.stringify(autopsyEntries, null, 2));
+  } catch (e) {
+    console.error('Could not write autopsy.json:', e.message);
+  }
+}
+
 // TradingView sends the alert body as plain text by default (whatever you typed in the
 // alert message box). It can also be JSON if you formatted it that way. Accept both.
 // NOTE: because this is registered for type '*/*', req.body is ALWAYS a raw string here —
@@ -330,6 +352,73 @@ app.put('/rules/:date', (req, res) => {
 app.delete('/rules/:date', (req, res) => {
   delete rulesEntries[req.params.date];
   saveRules();
+  res.status(200).send('Deleted');
+});
+
+// ============================================================================
+// Autopsy routes — a list, not date-keyed: you can log more than one
+// impulsive trade in the same session.
+// GET    /autopsy       -> array of all entries
+// POST   /autopsy       -> create a new entry (server assigns the id), echoes it back
+// PUT    /autopsy/:id   -> update an existing entry by id, echoes it back
+// DELETE /autopsy/:id   -> remove one entry
+// ============================================================================
+function cleanAutopsyBody(body) {
+  const oneOf = (v, allowed) => (allowed.includes(v) ? v : null);
+  return {
+    dateSession: body.dateSession || '',
+    symbol: body.symbol || '',
+    instrument: body.instrument || '',
+    direction: body.direction || '',
+    size: body.size || '',
+    inPlan: oneOf(body.inPlan, ['Yes', 'No', 'Partially']),
+    trigger: body.trigger || '',
+    story: body.story || '',
+    warningSignals: body.warningSignals || '',
+    outcome: oneOf(body.outcome, ['Winner', 'Loser', 'Scratch']),
+    pnl: body.pnl || '',
+    reinforced: oneOf(body.reinforced, ['Yes', 'No']),
+    differently: body.differently || '',
+    score: body.score || '',
+    reason: body.reason || '',
+  };
+}
+
+app.get('/autopsy', (req, res) => {
+  res.json(Object.values(autopsyEntries));
+});
+
+app.post('/autopsy', (req, res) => {
+  let body;
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+  } catch (e) {
+    return res.status(400).send('Body is not valid JSON: ' + e.message);
+  }
+  const id = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  const entry = { id, ...cleanAutopsyBody(body) };
+  autopsyEntries[id] = entry;
+  saveAutopsy();
+  res.json(entry);
+});
+
+app.put('/autopsy/:id', (req, res) => {
+  let body;
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+  } catch (e) {
+    return res.status(400).send('Body is not valid JSON: ' + e.message);
+  }
+  const id = req.params.id;
+  const entry = { id, ...cleanAutopsyBody(body) };
+  autopsyEntries[id] = entry;
+  saveAutopsy();
+  res.json(entry);
+});
+
+app.delete('/autopsy/:id', (req, res) => {
+  delete autopsyEntries[req.params.id];
+  saveAutopsy();
   res.status(200).send('Deleted');
 });
 
