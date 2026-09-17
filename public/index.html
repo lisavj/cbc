@@ -1075,8 +1075,146 @@
   .jr-danger-btn { color: var(--jr-red); border-color: rgba(239,68,68,0.4); }
   .jr-danger-btn:hover { background: rgba(239,68,68,0.1); }
   .jr-editor-actions { display: flex; align-items: center; gap: 12px; }
+  .jr-save-btn { background: var(--accent); color: #1a1400; font-weight: 600; border: 1px solid var(--accent); font-family: var(--sans); font-size: 12px; padding: 7px 16px; border-radius: 6px; cursor: pointer; }
+  .jr-save-btn:hover { opacity: 0.9; }
   .jr-save-status { font-family: var(--mono); font-size: 12px; color: var(--jr-green); opacity: 0; transition: opacity 0.2s; }
   .jr-save-status.show { opacity: 1; }
+
+  /* ---------------------------------------------------------------------
+     RULES TAB — pre-trade physical/mental warning-sign checklist, one
+     Y/N + note per question, saved per calendar day (mirrors the Journal
+     tab's per-date save model, its own /rules/<date> backend endpoint).
+  --------------------------------------------------------------------- */
+  .rl-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; row-gap: 8px; }
+  .rl-date-nav { display: flex; align-items: center; gap: 6px; }
+  #rlDate {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+  .rl-section { margin-bottom: 22px; }
+  .rl-section-title {
+    color: var(--text);
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+  .rl-item {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .rl-item.rl-flagged { border-color: var(--accent); }
+  .rl-item-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .rl-item-text {
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.5;
+    flex: 1 1 auto;
+  }
+  .rl-yn { display: flex; gap: 10px; flex-shrink: 0; }
+  .rl-yn-opt {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+  }
+  .rl-yn-opt input { accent-color: var(--accent); margin: 0; cursor: pointer; }
+  .rl-yn-opt.rl-yn-y.rl-checked { color: var(--jr-red); border-color: var(--jr-red); background: rgba(239,68,68,0.1); }
+  .rl-yn-opt.rl-yn-n.rl-checked { color: var(--jr-green); border-color: var(--jr-green); background: rgba(34,197,94,0.1); }
+  .rl-note {
+    width: 100%;
+    margin-top: 10px;
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    resize: vertical;
+    min-height: 44px;
+  }
+  .rl-note:focus { outline: none; border-color: var(--accent); }
+  .rl-note::placeholder { color: var(--muted); }
+  .rl-rule-box {
+    background: rgba(245, 166, 35, 0.08);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+  }
+  .rl-rule-title { color: var(--accent); font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+  .rl-rule-text { color: var(--text); font-size: 13px; line-height: 1.55; }
+  .rl-summary {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 700;
+  }
+  .rl-summary.rl-ok { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.35); color: var(--jr-green); }
+  .rl-summary.rl-warn { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: var(--jr-red); }
+  .rl-summary.rl-neutral { background: var(--panel); border: 1px solid var(--panel-border); color: var(--muted); }
+
+  /* Pre-Trade Checklist — plain scratch sheet inside the Rules tab: nothing here
+     is saved or sent to the server, it's just an on-screen version of the printed
+     desk checklist, with a Clear button since it has no per-day persistence. */
+  .pc-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--panel-border); }
+  .pc-note { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 4px 0 14px; }
+  .pc-table { border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+  .pc-header-row, .pc-row {
+    display: grid;
+    grid-template-columns: 40px 1fr 70px;
+    align-items: center;
+    gap: 10px;
+  }
+  .pc-header-row {
+    background: var(--panel);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 10px 14px;
+  }
+  .pc-row {
+    padding: 12px 14px;
+    border-top: 1px solid var(--panel-border);
+    font-size: 13px;
+  }
+  .pc-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
+  .pc-row.pc-checked { background: rgba(34,197,94,0.06); }
+  .pc-num { color: var(--jr-red); font-weight: 700; font-family: var(--mono); font-size: 12px; }
+  .pc-text { color: var(--text); line-height: 1.4; }
+  .pc-check { display: flex; justify-content: center; }
+  .pc-check input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--jr-green); }
+  .pc-actions { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+  .pc-howto {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 14px 18px;
+  }
   .jr-meta-row { display: flex; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
   .jr-field { display: flex; flex-direction: column; gap: 6px; }
   .jr-field label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
@@ -1160,6 +1298,7 @@
       <button class="view-tab-btn" id="tabFlashBtn" data-view="flashcards">Flashcards</button>
       <button class="view-tab-btn" id="tabVideosBtn" data-view="videos">Videos</button>
       <button class="view-tab-btn" id="tabJournalBtn" data-view="journal">Journal</button>
+      <button class="view-tab-btn" id="tabRulesBtn" data-view="rules">Rules</button>
     </div>
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
@@ -1346,6 +1485,7 @@
         <button id="jrBackBtn" class="jr-back-btn">‹ Back to overview</button>
         <div class="jr-editor-actions">
           <span id="jrSaveStatus" class="jr-save-status">Saved ✓</span>
+          <button id="jrSaveBtn" class="jr-save-btn">Save</button>
           <button id="jrDeleteBtn" class="jr-danger-btn" style="display:none;">Delete</button>
         </div>
       </div>
@@ -1395,6 +1535,59 @@
             <div class="jr-editable" id="jrWins" contenteditable="true" data-placeholder="What went well? What worked?"></div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================ RULES ============================ -->
+  <div id="rulesView" style="display:none;">
+    <div class="rl-toolbar">
+      <div class="rl-date-nav">
+        <button id="rlPrevDay" class="jr-arrow" title="Previous day">‹</button>
+        <input type="date" id="rlDate">
+        <button id="rlNextDay" class="jr-arrow" title="Next day">›</button>
+        <button id="rlTodayBtn" class="jr-today-btn">Today</button>
+      </div>
+      <div class="jr-spacer"></div>
+      <span id="rlSaveStatus" class="jr-save-status">Saved ✓</span>
+      <button id="rlSaveBtn" class="jr-save-btn">Save</button>
+    </div>
+
+    <div class="rl-section">
+      <div class="rl-section-title">Physical Signals: What Your Body Is Telling You</div>
+      <div id="rlPhysicalList"></div>
+    </div>
+
+    <div class="rl-section">
+      <div class="rl-section-title">Mental Signals: What Your Mind Is Telling You</div>
+      <div id="rlMentalList"></div>
+    </div>
+
+    <div class="rl-rule-box">
+      <div class="rl-rule-title">The Rule</div>
+      <div class="rl-rule-text">If you recognize more than two of the signals above before an entry, whether physical or mental, that trade does not qualify. Step away from the platform for at least five minutes before you do anything else.</div>
+    </div>
+
+    <div id="rlSummary" class="rl-summary"></div>
+
+    <div class="pc-section">
+      <div class="rl-section-title">Pre-Trade Checklist</div>
+      <div class="pc-note">Print this page and keep it at your desk. Every item must be checked before entry. If even one is unchecked, the trade does not qualify. If all are checked, take the trade with full commitment and no second-guessing.</div>
+      <div class="pc-table">
+        <div class="pc-header-row">
+          <div class="pc-num"></div>
+          <div class="pc-text">Criteria</div>
+          <div class="pc-check">Check</div>
+        </div>
+        <div id="pcList"></div>
+      </div>
+      <div id="pcStatus" class="rl-summary"></div>
+      <div class="pc-actions">
+        <button id="pcClearBtn" class="jr-today-btn">Clear checklist</button>
+      </div>
+      <div class="pc-howto">
+        <div class="rl-rule-title">How to Use This</div>
+        <div class="rl-rule-text">Keep a printed copy of this checklist at your desk. Mark each trade's checklist score in your journal. Over time you will see a direct correlation: trades where all 10 boxes were checked outperform trades where shortcuts were made. Let the data convince you, not the theory.</div>
       </div>
     </div>
   </div>
@@ -1790,23 +1983,29 @@
   const videosViewEl = document.getElementById('videosView');
   const tabJournalBtn = document.getElementById('tabJournalBtn');
   const journalViewEl = document.getElementById('journalView');
+  const tabRulesBtn = document.getElementById('tabRulesBtn');
+  const rulesViewEl = document.getElementById('rulesView');
   let videosRendered = false;
   let journalRendered = false;
+  let rulesRendered = false;
   function setView(view) {
     const isFaq = view === 'faq';
     const isFlash = view === 'flashcards';
     const isVideos = view === 'videos';
     const isJournal = view === 'journal';
-    const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal;
+    const isRules = view === 'rules';
+    const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal && !isRules;
     tabAlertsBtn.classList.toggle('active', isAlerts);
     tabFaqBtn.classList.toggle('active', isFaq);
     tabFlashBtn.classList.toggle('active', isFlash);
     tabVideosBtn.classList.toggle('active', isVideos);
     tabJournalBtn.classList.toggle('active', isJournal);
+    tabRulesBtn.classList.toggle('active', isRules);
     faqViewEl.style.display = isFaq ? 'block' : 'none';
     flashViewEl.style.display = isFlash ? 'block' : 'none';
     videosViewEl.style.display = isVideos ? 'block' : 'none';
     journalViewEl.style.display = isJournal ? 'block' : 'none';
+    rulesViewEl.style.display = isRules ? 'block' : 'none';
     mainListEl.style.display = isAlerts ? '' : 'none';
     symbolTabsEl.style.display = isAlerts ? '' : 'none';
     if (!isAlerts) {
@@ -1818,12 +2017,14 @@
     if (isFlash) fcOnShow();
     if (isVideos && !videosRendered) { renderVideos(); renderMoreVideos(); renderOtherVideos(); videosRendered = true; }
     if (isJournal && !journalRendered) { jrInit(); journalRendered = true; }
+    if (isRules && !rulesRendered) { rlInit(); rulesRendered = true; }
   }
   tabAlertsBtn.addEventListener('click', () => setView('alerts'));
   tabFaqBtn.addEventListener('click', () => setView('faq'));
   tabFlashBtn.addEventListener('click', () => setView('flashcards'));
   tabVideosBtn.addEventListener('click', () => setView('videos'));
   tabJournalBtn.addEventListener('click', () => setView('journal'));
+  tabRulesBtn.addEventListener('click', () => setView('rules'));
   // ---------------------------------------------------------------------
 
   // ---------------------------------------------------------------------
@@ -4566,6 +4767,7 @@
     privateChk.addEventListener('change', () => { jrPrivate = privateChk.checked; localStorage.setItem('jrPrivate', String(jrPrivate)); jrRenderOverview(); });
 
     document.getElementById('jrBackBtn').addEventListener('click', () => { jrFlushSave(); jrShowOverview(); });
+    document.getElementById('jrSaveBtn').addEventListener('click', jrFlushSave);
     document.getElementById('jrDeleteBtn').addEventListener('click', jrDeleteCurrent);
 
     ['jrDate', 'jrTitle', 'jrAmount'].forEach(id => {
@@ -4865,6 +5067,235 @@
   function jrUpdateEmptyState(editable) {
     const empty = editable.innerHTML.trim() === '' || editable.innerHTML.trim() === '<br>';
     editable.setAttribute('data-empty', empty ? 'true' : 'false');
+  }
+  // ---------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------
+  // RULES TAB
+  // Pre-trade physical/mental warning-sign checklist ("Physical Signals" /
+  // "Mental Signals" + "The Rule"). Each question gets a Y checkbox, an N
+  // checkbox (mutually exclusive — checking one unchecks the other), and a
+  // free-text note. Saved per calendar day, mirroring the Journal tab's
+  // model: fetched as a list from GET /rules, upserted one day at a time via
+  // PUT /rules/<date>, same debounced-autosave + explicit Save button
+  // pattern as jrScheduleSave/jrFlushSave above. The exact question text is
+  // reproduced verbatim from the source checklist.
+  // ---------------------------------------------------------------------
+  const RL_PHYSICAL = [
+    { id: 'p1', text: 'You feel a sudden urgency, like you need to act RIGHT NOW or miss it forever' },
+    { id: 'p2', text: "Your jaw is tight, your shoulders are tense, or you're leaning toward the screen" },
+    { id: 'p3', text: "Your breathing is shallow or you're holding your breath" },
+    { id: 'p4', text: "Your heart rate is elevated and you haven't even entered yet" },
+    { id: 'p5', text: 'You feel a rush or excitement about the trade, not calm confidence' },
+    { id: 'p6', text: 'You are moving faster than normal (clicks, scrolling, order entry)' },
+  ];
+  const RL_MENTAL = [
+    { id: 'm1', text: 'You are telling yourself "This one is different" or "I just know this will work"' },
+    { id: 'm2', text: "You are bending your criteria, telling yourself it's close enough to your setup" },
+    { id: 'm3', text: 'You are focused on how much you could make, not on your stop and risk' },
+    { id: 'm4', text: 'You are still thinking about the last trade, whether a loss you want to recover or a win you want to repeat' },
+    { id: 'm5', text: 'You skipped your checklist and are about to enter anyway' },
+    { id: 'm6', text: 'You feel like sitting on your hands would be "wasting" an opportunity' },
+    { id: 'm7', text: 'You are thinking about your P&L number and how this trade can fix it' },
+  ];
+  const RL_ALL_IDS = RL_PHYSICAL.concat(RL_MENTAL).map(q => q.id);
+
+  let rlEntries = {};       // date string -> entry object
+  let rlEditingDate = null; // the date currently loaded in the editor
+  let rlSaveTimer = null;
+
+  function rlInit() {
+    fetch('/rules').then(r => r.json()).then(list => {
+      rlEntries = {};
+      (list || []).forEach(e => { rlEntries[e.date] = e; });
+      rlOpenDate(jrTodayKey());
+    }).catch(() => { rlOpenDate(jrTodayKey()); });
+
+    document.getElementById('rlDate').addEventListener('change', (e) => { rlFlushSave(); rlOpenDate(e.target.value || jrTodayKey()); });
+    document.getElementById('rlPrevDay').addEventListener('click', () => rlShiftDay(-1));
+    document.getElementById('rlNextDay').addEventListener('click', () => rlShiftDay(1));
+    document.getElementById('rlTodayBtn').addEventListener('click', () => { rlFlushSave(); rlOpenDate(jrTodayKey()); });
+    document.getElementById('rlSaveBtn').addEventListener('click', rlFlushSave);
+
+    document.getElementById('rlPhysicalList').innerHTML = RL_PHYSICAL.map(rlItemHtml).join('');
+    document.getElementById('rlMentalList').innerHTML = RL_MENTAL.map(rlItemHtml).join('');
+    RL_ALL_IDS.forEach(rlWireItem);
+
+    pcInit();
+  }
+
+  function rlItemHtml(q) {
+    return `
+      <div class="rl-item" data-id="${q.id}">
+        <div class="rl-item-row">
+          <div class="rl-item-text">${escapeHtml(q.text)}</div>
+          <div class="rl-yn">
+            <label class="rl-yn-opt rl-yn-y"><input type="checkbox" data-rlq="${q.id}" data-rlv="Y"> Y</label>
+            <label class="rl-yn-opt rl-yn-n"><input type="checkbox" data-rlq="${q.id}" data-rlv="N"> N</label>
+          </div>
+        </div>
+        <textarea class="rl-note" data-rlnote="${q.id}" placeholder="Notes…"></textarea>
+      </div>
+    `;
+  }
+
+  function rlWireItem(id) {
+    const itemEl = document.querySelector(`.rl-item[data-id="${id}"]`);
+    const yBox = itemEl.querySelector('input[data-rlv="Y"]');
+    const nBox = itemEl.querySelector('input[data-rlv="N"]');
+    const note = itemEl.querySelector('textarea[data-rlnote]');
+    yBox.addEventListener('change', () => { if (yBox.checked) nBox.checked = false; rlUpdateItemVisual(itemEl); rlScheduleSave(); });
+    nBox.addEventListener('change', () => { if (nBox.checked) yBox.checked = false; rlUpdateItemVisual(itemEl); rlScheduleSave(); });
+    note.addEventListener('input', rlScheduleSave);
+  }
+
+  function rlUpdateItemVisual(itemEl) {
+    const yBox = itemEl.querySelector('input[data-rlv="Y"]');
+    const nBox = itemEl.querySelector('input[data-rlv="N"]');
+    itemEl.querySelector('.rl-yn-y').classList.toggle('rl-checked', yBox.checked);
+    itemEl.querySelector('.rl-yn-n').classList.toggle('rl-checked', nBox.checked);
+    // "Y" here means "yes, I'm noticing this warning sign" — flag the card so a scan down the page
+    // shows which signals are currently live, same visual language as everything else on this page.
+    itemEl.classList.toggle('rl-flagged', yBox.checked);
+  }
+
+  function rlShiftDay(delta) {
+    rlFlushSave();
+    const d = new Date(rlEditingDate || jrTodayKey());
+    d.setDate(d.getDate() + delta);
+    rlOpenDate(jrDateKey(d));
+  }
+
+  function rlOpenDate(dateKey) {
+    rlEditingDate = dateKey;
+    document.getElementById('rlDate').value = dateKey;
+    const entry = rlEntries[dateKey] || { date: dateKey, items: {} };
+    RL_ALL_IDS.forEach(id => {
+      const itemEl = document.querySelector(`.rl-item[data-id="${id}"]`);
+      const it = entry.items && entry.items[id] || {};
+      itemEl.querySelector('input[data-rlv="Y"]').checked = it.answer === 'Y';
+      itemEl.querySelector('input[data-rlv="N"]').checked = it.answer === 'N';
+      itemEl.querySelector('textarea[data-rlnote]').value = it.note || '';
+      rlUpdateItemVisual(itemEl);
+    });
+    document.getElementById('rlSaveStatus').classList.remove('show');
+    rlRenderSummary(entry);
+  }
+
+  function rlRenderSummary(entry) {
+    const items = (entry && entry.items) || {};
+    const flagged = RL_ALL_IDS.filter(id => items[id] && items[id].answer === 'Y').length;
+    const answered = RL_ALL_IDS.filter(id => items[id] && items[id].answer).length;
+    const box = document.getElementById('rlSummary');
+    if (answered === 0) {
+      box.className = 'rl-summary rl-neutral';
+      box.textContent = 'Work through the checklist above before this trade.';
+    } else if (flagged > 2) {
+      box.className = 'rl-summary rl-warn';
+      box.textContent = `⚠ ${flagged} warning sign${flagged === 1 ? '' : 's'} flagged — per The Rule, this trade does not qualify. Step away for at least 5 minutes.`;
+    } else {
+      box.className = 'rl-summary rl-ok';
+      box.textContent = flagged === 0 ? 'No warning signs flagged.' : `${flagged} warning sign${flagged === 1 ? '' : 's'} flagged — within The Rule's threshold.`;
+    }
+  }
+
+  function rlScheduleSave() {
+    clearTimeout(rlSaveTimer);
+    rlSaveTimer = setTimeout(rlFlushSave, 700);
+  }
+
+  function rlFlushSave() {
+    clearTimeout(rlSaveTimer);
+    if (!rlEditingDate) return;
+    const items = {};
+    let hasAny = false;
+    RL_ALL_IDS.forEach(id => {
+      const itemEl = document.querySelector(`.rl-item[data-id="${id}"]`);
+      const yChecked = itemEl.querySelector('input[data-rlv="Y"]').checked;
+      const nChecked = itemEl.querySelector('input[data-rlv="N"]').checked;
+      const note = itemEl.querySelector('textarea[data-rlnote]').value;
+      const answer = yChecked ? 'Y' : nChecked ? 'N' : null;
+      if (answer || (note && note.trim())) hasAny = true;
+      items[id] = { answer, note };
+    });
+    const entry = { date: rlEditingDate, items };
+    rlRenderSummary(entry);
+    // Nothing at all filled in for a brand-new day — don't create an empty record.
+    if (!hasAny && !rlEntries[rlEditingDate]) return;
+    fetch('/rules/' + encodeURIComponent(rlEditingDate), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
+    }).then(r => r.json()).then(saved => {
+      rlEntries[rlEditingDate] = saved;
+      const statusEl = document.getElementById('rlSaveStatus');
+      statusEl.classList.add('show');
+      setTimeout(() => statusEl.classList.remove('show'), 1200);
+    }).catch(() => {});
+  }
+  // ---------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------
+  // PRE-TRADE CHECKLIST (inside the Rules tab)
+  // A plain numbered checklist, one checkbox per item — NOT saved anywhere,
+  // just an on-screen version of the printed desk checklist. State lives
+  // only in the checkboxes themselves for as long as the page is open, with
+  // a "Clear checklist" button to reset it. Text reproduced verbatim.
+  // ---------------------------------------------------------------------
+  const PC_ITEMS = [
+    'This setup is in my written trading plan for today',
+    'I can clearly identify my entry, stop, and target before I click',
+    'My risk on this trade is within my defined per-trade limit',
+    'I have at least 2 confluent reasons for this entry, not just one signal',
+    'I am not entering because of urgency, a recent loss, or FOMO',
+    'The market context supports this trade (trend, structure, and volume align)',
+    'I have not yet hit my daily trade limit or daily loss limit',
+    'My stop is a real structural level, not just a number that feels okay to lose',
+    'I ran the Pause Protocol and I am in a calm, deliberate state',
+    'I am fully prepared to accept the loss if this trade stops out',
+  ];
+
+  function pcInit() {
+    document.getElementById('pcList').innerHTML = PC_ITEMS.map((text, i) => `
+      <div class="pc-row" data-pc="${i}">
+        <div class="pc-num">${i + 1}</div>
+        <div class="pc-text">${escapeHtml(text)}</div>
+        <div class="pc-check"><input type="checkbox" data-pcbox="${i}"></div>
+      </div>
+    `).join('');
+    PC_ITEMS.forEach((_, i) => {
+      document.querySelector(`.pc-row[data-pc="${i}"] input[data-pcbox]`)
+        .addEventListener('change', () => pcUpdateRow(i));
+    });
+    document.getElementById('pcClearBtn').addEventListener('click', pcClear);
+    pcRenderStatus();
+  }
+
+  function pcUpdateRow(i) {
+    const row = document.querySelector(`.pc-row[data-pc="${i}"]`);
+    const checked = row.querySelector('input[data-pcbox]').checked;
+    row.classList.toggle('pc-checked', checked);
+    pcRenderStatus();
+  }
+
+  function pcRenderStatus() {
+    const boxes = Array.from(document.querySelectorAll('#pcList input[data-pcbox]'));
+    const checkedCount = boxes.filter(b => b.checked).length;
+    const box = document.getElementById('pcStatus');
+    if (checkedCount === 0) {
+      box.className = 'rl-summary rl-neutral';
+      box.textContent = `0 / ${boxes.length} checked.`;
+    } else if (checkedCount === boxes.length) {
+      box.className = 'rl-summary rl-ok';
+      box.textContent = `All ${boxes.length} checked — this trade qualifies.`;
+    } else {
+      box.className = 'rl-summary rl-warn';
+      box.textContent = `${checkedCount} / ${boxes.length} checked — this trade does not qualify yet.`;
+    }
+  }
+
+  function pcClear() {
+    document.querySelectorAll('#pcList input[data-pcbox]').forEach(b => { b.checked = false; });
+    document.querySelectorAll('#pcList .pc-row').forEach(r => r.classList.remove('pc-checked'));
+    pcRenderStatus();
   }
   // ---------------------------------------------------------------------
 </script>
