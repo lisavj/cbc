@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v8 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v10 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -18,7 +18,17 @@
      plan" / "have not hit DLL") are now combined into a single row, item 1, titled "Plan
      & risk limit check" with both as side-by-side checkboxes -- everything after has
      shifted up one number accordingly. Frontend-only change, no server.js update needed
-     for this one. -->
+     for this one.
+     v9: Item 3 (Entry/Stop/Target/Size/Risk) now has two extra optional rows below the
+     main one -- "Order 2" and "Order 3" -- each with its own Entry/Stop/Target boxes,
+     for scaling into more than one order on the same trade. Only the original main row
+     is required for the item to count as checked; the two extra rows are optional and
+     don't affect the "N / 9 checked" count. Frontend-only change, no server.js update
+     needed for this one.
+     v10: Item 4's structural-level list ("Stop is at a real structural level") now has
+     an "Equal Highs/Lows" option, with its own High/Low pulldown (like Premarket/ORB/
+     Session) PLUS a small Price text box next to it. Frontend-only change, no server.js
+     update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1280,6 +1290,13 @@
   .pc-split { border: none; border-top: 1px dashed var(--panel-border); margin: 12px 0 0 22px; }
 
   .pc-box-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-left: 22px; }
+
+  /* Optional Order 2 / Order 3 rows under item 3 -- own 3-column grid (just
+     Entry/Stop/Target, no Size/Risk box) and a dashed top border + label to
+     read as clearly-optional extras rather than more of the required row. */
+  .pc-box-extra-row { margin: 12px 0 0 22px; padding-top: 10px; border-top: 1px dashed var(--panel-border); max-width: 420px; }
+  .pc-box-extra-row .pc-sub-block-label { margin-left: 0; }
+  .pc-box-extra-row .pc-box-grid { grid-template-columns: repeat(3, 1fr); margin-left: 0; }
   .pc-box-field label { display: block; color: var(--muted); font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
   .pc-box-field input {
     width: 100%;
@@ -1324,6 +1341,19 @@
   }
   .pc-sub-check select.pc-mini:focus { outline: none; border-color: var(--accent); }
 
+  .pc-sub-check.with-price { gap: 6px; }
+  .pc-sub-check input.pc-mini-price {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 5px;
+    width: 68px;
+  }
+  .pc-sub-check input.pc-mini-price:focus { outline: none; border-color: var(--accent); }
+
   /* Time / Symbol fields in the checklist toolbar, next to the date nav */
   .pc-meta-field { display: flex; align-items: center; gap: 6px; }
   .pc-meta-field label { font-size: 10.5px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; }
@@ -1338,6 +1368,25 @@
   }
   .pc-meta-field input:focus { outline: none; border-color: var(--accent); }
   .pc-meta-field input[type="text"] { width: 90px; }
+
+  /* v11: Symbol went from a free-text field to a picker -- a dropdown of
+     every symbol already saved for the selected date, plus a "+ New
+     symbol…" option that reveals a small text box for starting a new entry
+     on that date. Same visual language as .pc-meta-field. */
+  .pc-symbol-picker { display: flex; align-items: center; gap: 6px; }
+  .pc-symbol-picker label { font-size: 10.5px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; }
+  .pc-symbol-picker select, .pc-symbol-picker input {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 5px 7px;
+  }
+  .pc-symbol-picker select:focus, .pc-symbol-picker input:focus { outline: none; border-color: var(--accent); }
+  .pc-symbol-picker select { min-width: 130px; }
+  .pc-symbol-picker input#pcSymbolNewInput { width: 100px; }
 
   .pc-image-field { display: flex; align-items: center; gap: 8px; }
   .pc-image-field input[type="file"] { display: none; }
@@ -1354,6 +1403,30 @@
   .pc-image-chip a.pc-image-chip-link:hover { text-decoration: underline; }
   .pc-image-chip button.pc-image-chip-remove { background: transparent; border: none; color: var(--jr-red, #ef4444); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 3px; }
   .pc-image-chip button.pc-image-chip-remove:hover { opacity: 0.75; }
+
+  /* v11: "Checklist entries for this date" block in the Journal day editor --
+     one chip per checklist entry saved on that date (across all symbols),
+     each opening that entry in a new tab/window via a deep link into the
+     Checklist tab, plus an inline "+ Add" control to start a brand-new
+     checklist entry for this date without leaving the Journal. */
+  .jr-checklist-links-wrap { margin: -6px 0 18px; }
+  .jr-checklist-links-label { font-size: 10.5px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+  .jr-checklist-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .jr-checklist-chip { display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 6px; padding: 6px 10px; font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .jr-checklist-chip .jr-cc-symbol { color: var(--text); font-weight: 600; }
+  .jr-checklist-chip .jr-cc-score { color: var(--muted); font-size: 11px; }
+  .jr-checklist-chip .jr-cc-score.jr-cc-complete { color: var(--jr-green); }
+  .jr-checklist-chip a.jr-cc-open { color: var(--accent); text-decoration: none; }
+  .jr-checklist-chip a.jr-cc-open:hover { text-decoration: underline; }
+  .jr-checklist-add { display: flex; align-items: center; gap: 6px; }
+  .jr-checklist-add input {
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 5px; color: var(--text);
+    font-family: var(--mono); font-size: 12px; padding: 5px 7px; width: 90px;
+  }
+  .jr-checklist-add input:focus { outline: none; border-color: var(--accent); }
+  .jr-checklist-add button { background: var(--panel); border: 1px solid var(--panel-border); color: var(--text); font-family: var(--sans); font-size: 12px; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+  .jr-checklist-add button:hover { border-color: var(--muted); }
+  .jr-checklist-empty { color: var(--muted); font-size: 12px; font-family: var(--mono); }
   .pc-howto {
     background: var(--panel);
     border: 1px solid var(--panel-border);
@@ -1718,6 +1791,11 @@
         </div>
       </div>
 
+      <div class="jr-checklist-links-wrap">
+        <div class="jr-checklist-links-label">Checklist entries for this date</div>
+        <div id="jrChecklistLinks" class="jr-checklist-links"></div>
+      </div>
+
       <div class="jr-box">
         <div class="jr-box-header jr-premarket-h">◔ Premarket · plan &amp; levels</div>
         <div class="jr-toolbar-row" data-jrtoolbar="premarket"></div>
@@ -1798,7 +1876,13 @@
           <button id="pcTodayBtn" class="jr-today-btn">Today</button>
         </div>
         <div class="pc-meta-field"><label for="pcTime">Time</label><input type="time" id="pcTime"></div>
-        <div class="pc-meta-field"><label for="pcSymbol">Symbol</label><input type="text" id="pcSymbol" placeholder="MES1!" maxlength="20"></div>
+        <div class="pc-symbol-picker">
+          <label for="pcSymbolSelect">Symbol</label>
+          <select id="pcSymbolSelect"></select>
+          <span id="pcSymbolNewWrap" class="pc-symbol-new-wrap" style="display:none;">
+            <input type="text" id="pcSymbolNewInput" placeholder="e.g. MES1!" maxlength="20">
+          </span>
+        </div>
         <div class="pc-image-field">
           <input type="file" id="pcImageInput" accept="image/*" multiple>
           <label for="pcImageInput" id="pcAttachBtn" class="pc-attach-btn">📎 Attach image(s)</label>
@@ -1807,7 +1891,7 @@
         <div class="jr-spacer"></div>
         <span id="pcSaveStatus" class="jr-save-status">Saved ✓</span>
         <button id="pcSaveBtn" class="jr-save-btn">Save</button>
-        <button id="pcClearBtn" class="jr-today-btn">Clear day</button>
+        <button id="pcClearBtn" class="jr-today-btn">Clear entry</button>
       </div>
 
       <div id="pcImageGallery" class="pc-image-gallery"></div>
@@ -1920,7 +2004,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v8</footer>
+<footer>tv-webhook-dashboard · v10</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5633,7 +5717,24 @@
       { key: 'target', label: 'Target' },
       { key: 'size', label: 'Size' },
       { key: 'risk', label: 'Risk', placeholder: '300 (default)' },
-    ] },
+    ],
+      // Two extra optional rows for scaling into more than one order --
+      // Entry/Stop/Target only (no separate Size/Risk box per row), since
+      // these are additional orders off the same overall trade plan above.
+      // Not required for the item to count as "complete" -- only the main
+      // row above is required, these are blank unless you're using them.
+      extraRows: [
+        { label: 'Order 2 (optional)', fields: [
+          { key: 'entry2', label: 'Entry' },
+          { key: 'stop2', label: 'Stop' },
+          { key: 'target2', label: 'Target' },
+        ] },
+        { label: 'Order 3 (optional)', fields: [
+          { key: 'entry3', label: 'Entry' },
+          { key: 'stop3', label: 'Stop' },
+          { key: 'target3', label: 'Target' },
+        ] },
+      ] },
     { id: 'c4', type: 'combo', text: 'Risk limit + stop structure',
       subLabel1: 'Risk within limit',
       check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
@@ -5641,6 +5742,7 @@
       checks2: [
         { key: 'priorDay', label: 'Prior Day High/Low' },
         { key: 'swing', label: 'Swing High/Low' },
+        { key: 'equalHighsLows', label: 'Equal Highs/Lows', select: { key: 'equalHighsLowsSide', options: ['High', 'Low'] }, priceField: { key: 'equalHighsLowsPrice', placeholder: 'Price' } },
         { key: 'pivot', label: 'Pivot Point', select: { key: 'pivotLevel', options: ['S1', 'S2', 'S3', 'R1', 'R2', 'R3'] } },
         { key: 'orderBlock', label: 'Order Block' },
         { key: 'premarket', label: 'Premarket', select: { key: 'premarketSide', options: ['High', 'Low'] } },
@@ -5679,9 +5781,46 @@
     { id: 'c9', type: 'check', text: 'I am fully prepared to accept the loss if this trade stops out' },
   ];
 
-  let pcEntries = {};       // date string -> entry object
-  let pcEditingDate = null; // the date currently loaded
+  // v11: entries are keyed by DATE + SYMBOL, not date alone, so more than
+  // one symbol can have its own checklist entry on the same calendar day.
+  // pcEntries is keyed by the same composite string the server uses
+  // internally ("<date>::<SYMBOLKEY>"); pcSymbolKey()/pcCompositeKey() build
+  // and read that key consistently everywhere (including from jrRenderChecklistLinks
+  // in the Journal tab, which shares this same cache).
+  let pcEntries = {};              // "<date>::<SYMBOLKEY>" -> entry object
+  let pcEntriesLoaded = false;
+  let pcEntriesLoadPromise = null;
+  let pcEditingDate = null;        // the date currently loaded
+  let pcEditingSymbolKey = null;   // the symbol key currently loaded, or null while in "+ New symbol" mode with nothing saved yet
+  let pcEditingSymbolDisplay = ''; // the display text for the symbol currently loaded
   let pcSaveTimer = null;
+
+  function pcSymbolKey(symbol) {
+    const s = (symbol || '').toString().trim().toUpperCase();
+    return s || '_BLANK_';
+  }
+  function pcCompositeKey(date, symbolKey) {
+    return date + '::' + symbolKey;
+  }
+  function pcSymbolUrlSegment(symbolKey) {
+    return symbolKey === '_BLANK_' ? '_none_' : encodeURIComponent(symbolKey);
+  }
+  function pcEntriesForDate(date) {
+    return Object.values(pcEntries).filter(e => e.date === date);
+  }
+  // Shared loader -- both the Checklist tab and the Journal tab's "Checklist
+  // entries for this date" block read from the same pcEntries cache, so
+  // whichever tab is opened first fetches it once and the other reuses it.
+  function pcEnsureEntriesLoaded() {
+    if (pcEntriesLoadPromise) return pcEntriesLoadPromise;
+    pcEntriesLoadPromise = fetch('/checklist').then(r => r.json()).then(list => {
+      pcEntries = {};
+      (list || []).forEach(e => { pcEntries[pcCompositeKey(e.date, pcSymbolKey(e.symbol))] = e; });
+      pcEntriesLoaded = true;
+      return pcEntries;
+    }).catch(() => { pcEntriesLoaded = true; return pcEntries; });
+    return pcEntriesLoadPromise;
+  }
 
   function pcRenderItem(item, i) {
     const num = i + 1;
@@ -5696,16 +5835,28 @@
       const fields = item.fields.map(f => `
         <div class="pc-box-field"><label>${escapeHtml(f.label)}</label><input type="text" data-field="${f.key}" placeholder="${escapeHtml(f.placeholder || '—')}"></div>
       `).join('');
+      const extraRows = (item.extraRows || []).map(row => {
+        const rowFields = row.fields.map(f => `
+          <div class="pc-box-field"><label>${escapeHtml(f.label)}</label><input type="text" data-field="${f.key}" placeholder="${escapeHtml(f.placeholder || '—')}"></div>
+        `).join('');
+        return `<div class="pc-box-extra-row">
+          <div class="pc-sub-block-label">${escapeHtml(row.label)}</div>
+          <div class="pc-box-grid">${rowFields}</div>
+        </div>`;
+      }).join('');
       return `<div class="pc-item complex" data-pc="${item.id}">
         <div class="pc-item-head"><div class="pc-item-num">${num}</div><div class="pc-item-text">${escapeHtml(item.text)}</div></div>
         <div class="pc-box-grid">${fields}</div>
+        ${extraRows}
       </div>`;
     }
     if (item.type === 'combo') {
       const subChecks = item.checks2.map(c => {
         const opts = c.select ? c.select.options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('') : '';
         const pulldown = c.select ? `<select class="pc-mini" data-field="${c.select.key}"><option value="">—</option>${opts}</select>` : '';
-        return `<div class="pc-sub-check${c.select ? ' with-pulldown' : ''}"><input type="checkbox" id="${item.id}-${c.key}" data-field="${c.key}"><label for="${item.id}-${c.key}">${escapeHtml(c.label)}</label>${pulldown}</div>`;
+        const priceBox = c.priceField ? `<input type="text" class="pc-mini-price" data-field="${c.priceField.key}" placeholder="${escapeHtml(c.priceField.placeholder || 'Price')}">` : '';
+        const extraClasses = (c.select ? ' with-pulldown' : '') + (c.priceField ? ' with-price' : '');
+        return `<div class="pc-sub-check${extraClasses}"><input type="checkbox" id="${item.id}-${c.key}" data-field="${c.key}"><label for="${item.id}-${c.key}">${escapeHtml(c.label)}</label>${pulldown}${priceBox}</div>`;
       }).join('');
       return `<div class="pc-item complex" data-pc="${item.id}">
         <div class="pc-item-head"><div class="pc-item-num">${num}</div><div class="pc-item-text">${escapeHtml(item.text)}</div></div>
