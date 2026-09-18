@@ -34,6 +34,16 @@ try {
   console.error('Could not create DATA_DIR', DATA_DIR, e.message);
 }
 
+// Checklist attached-image storage: one file per date, so re-attaching for
+// the same day overwrites rather than accumulating. Lives under DATA_DIR
+// (same Render Disk as everything else) so it survives deploys too.
+const CHECKLIST_UPLOADS_DIR = path.join(DATA_DIR, 'uploads', 'checklist');
+try {
+  fs.mkdirSync(CHECKLIST_UPLOADS_DIR, { recursive: true });
+} catch (e) {
+  console.error('Could not create CHECKLIST_UPLOADS_DIR', CHECKLIST_UPLOADS_DIR, e.message);
+}
+
 // ============================================================================
 // Journal + Rules persistence — same "keep an in-memory copy, mirror to a JSON
 // file on disk under DATA_DIR" pattern as alerts.json above, so a Render Disk
@@ -124,7 +134,10 @@ function saveAutopsy() {
 // for ANY route, not just /webhook — so every route below that expects JSON must parse
 // req.body itself (see /restore, /journal/:date, /rules/:date) rather than assuming
 // Express already parsed it into an object.
-app.use(express.text({ type: '*/*', limit: '1mb' }));
+// Bumped from 1mb to 8mb at v5 to fit the Checklist's attached-image upload
+// (a base64 data URL, resized/compressed client-side before it's sent, but
+// still comfortably bigger than every other route's small JSON/text body).
+app.use(express.text({ type: '*/*', limit: '8mb' }));
 
 // ---- Load any alerts saved from a previous run ----
 let alerts = [];
@@ -260,6 +273,9 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ---- Checklist attached images (served straight off disk) ----
+app.use('/checklist-uploads', express.static(CHECKLIST_UPLOADS_DIR));
+
 // ---- Clear all stored alerts ----
 app.post('/clear', (req, res) => {
   if (SECRET && req.query.token !== SECRET) {
@@ -376,7 +392,7 @@ app.delete('/rules/:date', (req, res) => {
 // ============================================================================
 // Checklist routes — same date-keyed upsert pattern as /rules.
 // GET    /checklist        -> array of all entries
-// PUT    /checklist/:date   -> upsert one day, body is { date, items: { <id>: {<field>: bool|string, ...} } }
+// PUT    /checklist/:date   -> upsert one day, body is { date, time, symbol, items: { <id>: {<field>: bool|string, ...} } }
 // DELETE /checklist/:date   -> remove one day (used by the "Clear day" button)
 //
 // v4: items are no longer a fixed {checked, note} shape -- the frontend now has
@@ -414,7 +430,11 @@ app.put('/checklist/:date', (req, res) => {
     });
     cleanItems[id] = cleanFields;
   });
-  const entry = { date, items: cleanItems };
+  // v4: two day-level fields (Time, Symbol) sit alongside the items, not
+  // inside any one of them -- same string coercion as the item fields above.
+  const time = body.time === null || body.time === undefined ? '' : String(body.time);
+  const symbol = body.symbol === null || body.symbol === undefined ? '' : String(body.symbol);
+  const entry = { date, time, symbol, items: cleanItems };
   checklistEntries[date] = entry;
   saveChecklist();
   res.json(entry);
@@ -424,6 +444,143 @@ app.delete('/checklist/:date', (req, res) => {
   delete checklistEntries[req.params.date];
   saveChecklist();
   res.status(200).send('Deleted');
+});
+
+// ============================================================================
+// Checklist attached-image routes — MULTIPLE images per day, each stored as
+// its own file on disk (not inside checklist.json, which just holds an
+// `images` array of {filename, url, name, uploadedAt} references) so the
+// JSON store stays small and fast to read/write.
+//
+// v7: filenames are date+time+original-name based, e.g.
+//   2026-09-18_14-32-05-a1b2_entry-screenshot.jpg
+// so every upload gets its own file (nothing overwrites a prior attach) and
+// the filename itself is human-readable in a folder listing. The random
+// 4-char tag guards against two uploads landing in the same second.
+//
+// POST   /checklist/:date/image             -> body { dataUrl, originalName? } ; appends one image, returns updated entry
+// DELETE /checklist/:date/image/:filename   -> removes one image by filename, returns updated entry
+// ============================================================================
+const CHECKLIST_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Only allow a small known set of image mime types through, and map each to
+// a fixed extension.
+const IMAGE_MIME_EXT = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+// Strips any extension, then keeps only filesystem-safe characters -- this
+// is the ONLY thing derived from client input that ends up in the filename,
+// so it's tightly whitelisted (no slashes, dots, or path-traversal tricks).
+function sanitizeImageBaseName(name) {
+  const noExt = String(name || '').replace(/\.[a-zA-Z0-9]{1,6}$/, '');
+  const safe = noExt.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+  return safe || 'image';
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+// Builds a unique, sortable, human-readable filename: date + time + a short
+// random tag (collision guard) + the sanitized original name + extension.
+function buildChecklistImageFilename(date, ext, originalName) {
+  const now = new Date();
+  const timePart = `${pad2(now.getHours())}-${pad2(now.getMinutes())}-${pad2(now.getSeconds())}`;
+  const rand = Math.random().toString(36).slice(2, 6);
+  const base = sanitizeImageBaseName(originalName);
+  return `${date}_${timePart}-${rand}_${base}.${ext}`;
+}
+
+// A filename supplied back to us for deletion must exactly match this shape
+// (same charset buildChecklistImageFilename produces) before it's allowed
+// anywhere near the filesystem -- blocks path traversal / arbitrary unlink.
+const CHECKLIST_IMAGE_FILENAME_RE = /^[a-zA-Z0-9_-]+\.(jpg|png|webp|gif)$/;
+
+function checklistImagesArray(date) {
+  const existing = checklistEntries[date];
+  if (existing && Array.isArray(existing.images)) return existing.images;
+  return [];
+}
+
+app.post('/checklist/:date/image', (req, res) => {
+  const date = req.params.date;
+  if (!CHECKLIST_DATE_RE.test(date)) {
+    return res.status(400).send('Invalid date, expected YYYY-MM-DD');
+  }
+  let body;
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+  } catch (e) {
+    return res.status(400).send('Body is not valid JSON: ' + e.message);
+  }
+  const dataUrl = typeof body.dataUrl === 'string' ? body.dataUrl : '';
+  const match = /^data:(image\/[a-zA-Z+]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) {
+    return res.status(400).send('Expected a base64 image data URL in body.dataUrl');
+  }
+  const mime = match[1].toLowerCase();
+  const ext = IMAGE_MIME_EXT[mime];
+  if (!ext) {
+    return res.status(400).send('Unsupported image type: ' + mime);
+  }
+  let buffer;
+  try {
+    buffer = Buffer.from(match[2], 'base64');
+  } catch (e) {
+    return res.status(400).send('Could not decode base64 image data: ' + e.message);
+  }
+  if (buffer.length === 0) {
+    return res.status(400).send('Decoded image is empty');
+  }
+
+  const filename = buildChecklistImageFilename(date, ext, body.originalName);
+  const filePath = path.join(CHECKLIST_UPLOADS_DIR, filename);
+  try {
+    fs.writeFileSync(filePath, buffer);
+  } catch (e) {
+    console.error('Could not write checklist image', filePath, e.message);
+    return res.status(500).send('Could not save image: ' + e.message);
+  }
+
+  const existing = checklistEntries[date] || { date, time: '', symbol: '', items: {} };
+  if (!Array.isArray(existing.images)) existing.images = [];
+  // Drop the old single-image field from a pre-v7 entry, if present.
+  if (existing.image) delete existing.image;
+  existing.images.push({
+    filename,
+    url: `/checklist-uploads/${filename}`,
+    name: (body.originalName ? String(body.originalName) : filename),
+    uploadedAt: new Date().toISOString(),
+  });
+  checklistEntries[date] = existing;
+  saveChecklist();
+  res.json(existing);
+});
+
+app.delete('/checklist/:date/image/:filename', (req, res) => {
+  const date = req.params.date;
+  const filename = req.params.filename;
+  if (!CHECKLIST_DATE_RE.test(date)) {
+    return res.status(400).send('Invalid date, expected YYYY-MM-DD');
+  }
+  if (!CHECKLIST_IMAGE_FILENAME_RE.test(filename)) {
+    return res.status(400).send('Invalid image filename');
+  }
+  const filePath = path.join(CHECKLIST_UPLOADS_DIR, filename);
+  try {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  } catch (e) {
+    console.error('Could not remove checklist image', filePath, e.message);
+  }
+  const existing = checklistEntries[date];
+  if (existing && Array.isArray(existing.images)) {
+    existing.images = existing.images.filter((img) => img.filename !== filename);
+    saveChecklist();
+  }
+  res.json(existing || { date, time: '', symbol: '', items: {}, images: [] });
 });
 
 // ============================================================================
