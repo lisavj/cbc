@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v11 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v12 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -41,7 +41,15 @@
      one right from the Journal. REQUIRES the matching server.js from this same round --
      the /checklist routes all gained a :symbol segment, and old checklist.json entries
      (keyed by date only) migrate automatically to date+symbol the first time the new
-     server.js starts. Deploy both files together. -->
+     server.js starts. Deploy both files together.
+     v12: BUGFIX -- the v11 deep link from a Journal "Open ↗" chip (?view=checklist&date=
+     &symbol=) was crashing the whole script on load. The deep-link handler ran too early
+     in the file, before PC_ITEMS (a `const` further down) had been initialized, so
+     pcInit() threw "Cannot access 'PC_ITEMS' before initialization" and silently killed
+     every script statement after it -- which is why the date/symbol/items list all showed
+     blank when opened from the Journal link. Moved that handler to the very end of the
+     script, after everything it depends on is defined. Frontend-only change, no server.js
+     update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2017,7 +2025,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v11</footer>
+<footer>tv-webhook-dashboard · v12</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5060,16 +5068,6 @@
     setTimeout(() => pulseEl.classList.remove('live'), 1500);
   }
 
-  // Deep-link support: a link opened from the Journal tab's "Open ↗"
-  // checklist chips (or "+ Add checklist entry") includes ?view=checklist&
-  // date=...&symbol=... so it lands directly on that entry when opened in a
-  // new tab/window, instead of the default Alerts view. pcInit() (fired by
-  // setView below) reads the same params to pick the actual date+symbol.
-  (function handleDeepLinkView() {
-    const params = new URLSearchParams(location.search);
-    if (params.get('view') === 'checklist') setView('checklist');
-  })();
-
   // Initial load
   fetch('/alerts').then(r => r.json()).then(data => {
     alerts = data;
@@ -6603,6 +6601,21 @@
     });
   }
   // ---------------------------------------------------------------------
+
+  // Deep-link support: a link opened from the Journal tab's "Open ↗"
+  // checklist chips (or "+ Add checklist entry") includes ?view=checklist&
+  // date=...&symbol=... so it lands directly on that entry when opened in a
+  // new tab/window, instead of the default Alerts view. pcInit() (fired by
+  // setView below) reads the same params to pick the actual date+symbol.
+  // IMPORTANT: this must run at the very end of the script, after PC_ITEMS
+  // and every pc*/jr* function above it have been declared/initialized --
+  // calling setView('checklist') (which calls pcInit(), which reads
+  // PC_ITEMS) any earlier throws a "Cannot access 'PC_ITEMS' before
+  // initialization" error that silently kills the rest of this script block.
+  (function handleDeepLinkView() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('view') === 'checklist') setView('checklist');
+  })();
 </script>
 
 </body>
