@@ -1230,52 +1230,37 @@
   .rl-summary.rl-warn { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: var(--jr-red); }
   .rl-summary.rl-neutral { background: var(--panel); border: 1px solid var(--panel-border); color: var(--muted); }
 
-  /* Pre-Trade Checklist — plain scratch sheet inside the Rules tab: nothing here
-     is saved or sent to the server, it's just an on-screen version of the printed
-     desk checklist, with a Clear button since it has no per-day persistence. */
+  /* Pre-Trade Checklist — saved per calendar day like the Rules tab (same
+     date-nav + autosave + explicit Save pattern), styled as a stack of
+     bordered item cards to match the Autopsy form's look rather than a
+     dense table. */
   .pc-section { }
   .pc-note { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 4px 0 14px; }
-  .pc-table { border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
-  .pc-header-row, .pc-row {
-    display: grid;
-    grid-template-columns: 40px 1fr 220px 70px;
-    align-items: center;
-    gap: 10px;
-  }
-  .pc-header-row {
-    background: var(--panel);
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: 11.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 10px 14px;
-  }
-  .pc-row {
+  .pc-item {
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
     padding: 12px 14px;
-    border-top: 1px solid var(--panel-border);
-    font-size: 13px;
+    margin-bottom: 8px;
   }
-  .pc-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
-  .pc-row.pc-checked { background: rgba(34,197,94,0.06); }
-  .pc-num { color: var(--jr-red); font-weight: 700; font-family: var(--mono); font-size: 12px; }
-  .pc-text { color: var(--text); line-height: 1.4; }
-  .pc-check { display: flex; justify-content: center; }
-  .pc-check input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--jr-green); }
-  .pc-line-cell { display: flex; align-items: flex-end; height: 100%; }
+  .pc-item.pc-checked { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.06); }
+  .pc-item-row { display: flex; align-items: flex-start; gap: 12px; }
+  .pc-item-num { color: var(--jr-red); font-weight: 700; font-family: var(--mono); font-size: 12px; padding-top: 2px; }
+  .pc-item-text { flex: 1; color: var(--text); font-size: 13.5px; line-height: 1.45; padding-top: 1px; }
+  .pc-item-check { display: flex; align-items: center; padding-top: 1px; }
+  .pc-item-check input[type="checkbox"] { width: 19px; height: 19px; cursor: pointer; accent-color: var(--jr-green); }
   .pc-note-line {
     width: 100%;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--panel-border);
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
     color: var(--text);
     font-family: var(--sans);
     font-size: 12.5px;
-    padding: 4px 2px;
+    padding: 7px 10px;
+    margin-top: 8px;
   }
-  .pc-note-line:focus { outline: none; border-bottom-color: var(--accent); }
+  .pc-note-line:focus { outline: none; border-color: var(--accent); }
   .pc-note-line::placeholder { color: var(--muted); }
-  .pc-actions { display: flex; justify-content: flex-end; margin-bottom: 18px; }
   .pc-howto {
     background: var(--panel);
     border: 1px solid var(--panel-border);
@@ -1417,9 +1402,14 @@
   <div class="actions">
     <div class="view-tabs" id="viewTabs">
       <button class="view-tab-btn active" id="tabAlertsBtn" data-view="alerts">Alerts</button>
-      <button class="view-tab-btn" id="tabFaqBtn" data-view="faq">FAQ</button>
-      <button class="view-tab-btn" id="tabFlashBtn" data-view="flashcards">Flashcards</button>
-      <button class="view-tab-btn" id="tabVideosBtn" data-view="videos">Videos</button>
+      <div class="nav-dropdown" id="learnDropdown">
+        <button class="nav-dropdown-btn" id="learnDropdownBtn" type="button">Learn <span class="nav-dropdown-caret">▾</span></button>
+        <div class="nav-dropdown-menu" id="learnDropdownMenu">
+          <button class="nav-dropdown-item" id="tabVideosBtn" data-view="videos">Videos</button>
+          <button class="nav-dropdown-item" id="tabFlashBtn" data-view="flashcards">Flashcards</button>
+          <button class="nav-dropdown-item" id="tabFaqBtn" data-view="faq">FAQ</button>
+        </div>
+      </div>
       <div class="nav-dropdown" id="journalDropdown">
         <button class="nav-dropdown-btn" id="journalDropdownBtn" type="button">Journal <span class="nav-dropdown-caret">▾</span></button>
         <div class="nav-dropdown-menu" id="journalDropdownMenu">
@@ -1706,19 +1696,24 @@
     <div class="pc-section">
       <div class="rl-section-title">Pre-Trade Checklist</div>
       <div class="pc-note">Print this page and keep it at your desk. Every item must be checked before entry. If even one is unchecked, the trade does not qualify. If all are checked, take the trade with full commitment and no second-guessing.</div>
-      <div class="pc-table">
-        <div class="pc-header-row">
-          <div class="pc-num"></div>
-          <div class="pc-text">Criteria</div>
-          <div class="pc-text">Notes</div>
-          <div class="pc-check">Check</div>
+
+      <div class="rl-toolbar">
+        <div class="rl-date-nav">
+          <button id="pcPrevDay" class="jr-arrow" title="Previous day">‹</button>
+          <input type="date" id="pcDate">
+          <button id="pcNextDay" class="jr-arrow" title="Next day">›</button>
+          <button id="pcTodayBtn" class="jr-today-btn">Today</button>
         </div>
-        <div id="pcList"></div>
+        <div class="jr-spacer"></div>
+        <span id="pcSaveStatus" class="jr-save-status">Saved ✓</span>
+        <button id="pcSaveBtn" class="jr-save-btn">Save</button>
+        <button id="pcClearBtn" class="jr-today-btn">Clear day</button>
       </div>
+
+      <div id="pcList"></div>
+
       <div id="pcStatus" class="rl-summary"></div>
-      <div class="pc-actions">
-        <button id="pcClearBtn" class="jr-today-btn">Clear checklist</button>
-      </div>
+
       <div class="pc-howto">
         <div class="rl-rule-title">How to Use This</div>
         <div class="rl-rule-text">Keep a printed copy of this checklist at your desk. Mark each trade's checklist score in your journal. Over time you will see a direct correlation: trades where all 10 boxes were checked outperform trades where shortcuts were made. Let the data convince you, not the theory.</div>
@@ -2221,12 +2216,15 @@
   const autopsyViewEl = document.getElementById('autopsyView');
   const journalDropdown = document.getElementById('journalDropdown');
   const journalDropdownBtn = document.getElementById('journalDropdownBtn');
+  const learnDropdown = document.getElementById('learnDropdown');
+  const learnDropdownBtn = document.getElementById('learnDropdownBtn');
   let videosRendered = false;
   let journalRendered = false;
   let rulesRendered = false;
   let checklistRendered = false;
   let autopsyRendered = false;
   const JOURNAL_DROPDOWN_VIEWS = ['journal', 'rules', 'checklist', 'autopsy'];
+  const LEARN_DROPDOWN_VIEWS = ['videos', 'flashcards', 'faq'];
   function setView(view) {
     const isFaq = view === 'faq';
     const isFlash = view === 'flashcards';
@@ -2246,6 +2244,8 @@
     tabAutopsyBtn.classList.toggle('active', isAutopsy);
     journalDropdownBtn.classList.toggle('active', JOURNAL_DROPDOWN_VIEWS.includes(view));
     journalDropdown.classList.remove('open');
+    learnDropdownBtn.classList.toggle('active', LEARN_DROPDOWN_VIEWS.includes(view));
+    learnDropdown.classList.remove('open');
     faqViewEl.style.display = isFaq ? 'block' : 'none';
     flashViewEl.style.display = isFlash ? 'block' : 'none';
     videosViewEl.style.display = isVideos ? 'block' : 'none';
@@ -2277,17 +2277,25 @@
   tabChecklistBtn.addEventListener('click', () => setView('checklist'));
   tabAutopsyBtn.addEventListener('click', () => setView('autopsy'));
 
-  // Multilevel pulldown: click the "Journal" nav item to toggle its submenu
-  // (Journal / Rules / Checklist / Autopsy) open and closed; clicking anywhere
-  // else on the page closes it; clicking an item inside it both navigates
-  // (via the listeners above, since each item is also a data-view button)
-  // and closes the menu.
+  // Multilevel pulldowns: click a dropdown's nav item to toggle its submenu
+  // open and closed; clicking anywhere else on the page closes it; clicking
+  // an item inside it both navigates (via the listeners above, since each
+  // item is also a data-view button) and closes the menu. "Journal" groups
+  // Journal / Rules / Checklist / Autopsy; "Learn" groups Videos (top) /
+  // Flashcards / FAQ (bottom), in that order.
   journalDropdownBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    learnDropdown.classList.remove('open');
     journalDropdown.classList.toggle('open');
+  });
+  learnDropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    journalDropdown.classList.remove('open');
+    learnDropdown.classList.toggle('open');
   });
   document.addEventListener('click', (e) => {
     if (!journalDropdown.contains(e.target)) journalDropdown.classList.remove('open');
+    if (!learnDropdown.contains(e.target)) learnDropdown.classList.remove('open');
   });
   // ---------------------------------------------------------------------
 
@@ -5497,45 +5505,88 @@
 
   // ---------------------------------------------------------------------
   // PRE-TRADE CHECKLIST TAB
-  // A plain numbered checklist, one checkbox per item — NOT saved anywhere,
-  // just an on-screen version of the printed desk checklist. State lives
-  // only in the checkboxes themselves for as long as the page is open, with
-  // a "Clear checklist" button to reset it. Text reproduced verbatim.
+  // Saved per calendar day, same pattern as the Rules tab: fetched as a list
+  // from GET /checklist, upserted one day at a time via PUT /checklist/<date>,
+  // debounced autosave + explicit Save button, date nav with Prev/Next/Today.
+  // Item text is reproduced verbatim; each item has a stable id (c1..c10) so
+  // saved answers don't shift if the list is ever reordered.
   // ---------------------------------------------------------------------
   const PC_ITEMS = [
-    'This setup is in my written trading plan for today',
-    'I can clearly identify my entry, stop, and target before I click',
-    'My risk on this trade is within my defined per-trade limit',
-    'I have at least 2 confluent reasons for this entry, not just one signal',
-    'I am not entering because of urgency, a recent loss, or FOMO',
-    'The market context supports this trade (trend, structure, and volume align)',
-    'I have not yet hit my daily trade limit or daily loss limit',
-    'My stop is a real structural level, not just a number that feels okay to lose',
-    'I ran the Pause Protocol and I am in a calm, deliberate state',
-    'I am fully prepared to accept the loss if this trade stops out',
+    { id: 'c1', text: 'This setup is in my written trading plan for today' },
+    { id: 'c2', text: 'I can clearly identify my entry, stop, and target before I click' },
+    { id: 'c3', text: 'My risk on this trade is within my defined per-trade limit' },
+    { id: 'c4', text: 'I have at least 2 confluent reasons for this entry, not just one signal' },
+    { id: 'c5', text: 'I am not entering because of urgency, a recent loss, or FOMO' },
+    { id: 'c6', text: 'The market context supports this trade (trend, structure, and volume align)' },
+    { id: 'c7', text: 'I have not yet hit my daily trade limit or daily loss limit' },
+    { id: 'c8', text: 'My stop is a real structural level, not just a number that feels okay to lose' },
+    { id: 'c9', text: 'I ran the Pause Protocol and I am in a calm, deliberate state' },
+    { id: 'c10', text: 'I am fully prepared to accept the loss if this trade stops out' },
   ];
+  const PC_ALL_IDS = PC_ITEMS.map(q => q.id);
+
+  let pcEntries = {};       // date string -> entry object
+  let pcEditingDate = null; // the date currently loaded
+  let pcSaveTimer = null;
 
   function pcInit() {
-    document.getElementById('pcList').innerHTML = PC_ITEMS.map((text, i) => `
-      <div class="pc-row" data-pc="${i}">
-        <div class="pc-num">${i + 1}</div>
-        <div class="pc-text">${escapeHtml(text)}</div>
-        <div class="pc-line-cell"><input type="text" class="pc-note-line" data-pcnote="${i}" maxlength="100" placeholder="Notes…"></div>
-        <div class="pc-check"><input type="checkbox" data-pcbox="${i}"></div>
+    document.getElementById('pcList').innerHTML = PC_ITEMS.map((q, i) => `
+      <div class="pc-item" data-pc="${q.id}">
+        <div class="pc-item-row">
+          <div class="pc-item-num">${i + 1}</div>
+          <div class="pc-item-text">${escapeHtml(q.text)}</div>
+          <div class="pc-item-check"><input type="checkbox" data-pcbox="${q.id}"></div>
+        </div>
+        <input type="text" class="pc-note-line" data-pcnote="${q.id}" maxlength="100" placeholder="Notes…">
       </div>
     `).join('');
-    PC_ITEMS.forEach((_, i) => {
-      document.querySelector(`.pc-row[data-pc="${i}"] input[data-pcbox]`)
-        .addEventListener('change', () => pcUpdateRow(i));
-    });
-    document.getElementById('pcClearBtn').addEventListener('click', pcClear);
-    pcRenderStatus();
+    PC_ALL_IDS.forEach(pcWireItem);
+
+    fetch('/checklist').then(r => r.json()).then(list => {
+      pcEntries = {};
+      (list || []).forEach(e => { pcEntries[e.date] = e; });
+      pcOpenDate(jrTodayKey());
+    }).catch(() => { pcOpenDate(jrTodayKey()); });
+
+    document.getElementById('pcDate').addEventListener('change', (e) => { pcFlushSave(); pcOpenDate(e.target.value || jrTodayKey()); });
+    document.getElementById('pcPrevDay').addEventListener('click', () => pcShiftDay(-1));
+    document.getElementById('pcNextDay').addEventListener('click', () => pcShiftDay(1));
+    document.getElementById('pcTodayBtn').addEventListener('click', () => { pcFlushSave(); pcOpenDate(jrTodayKey()); });
+    document.getElementById('pcSaveBtn').addEventListener('click', pcFlushSave);
+    document.getElementById('pcClearBtn').addEventListener('click', pcClearDay);
   }
 
-  function pcUpdateRow(i) {
-    const row = document.querySelector(`.pc-row[data-pc="${i}"]`);
-    const checked = row.querySelector('input[data-pcbox]').checked;
-    row.classList.toggle('pc-checked', checked);
+  function pcWireItem(id) {
+    const item = document.querySelector(`.pc-item[data-pc="${id}"]`);
+    const box = item.querySelector('input[data-pcbox]');
+    const note = item.querySelector('input[data-pcnote]');
+    box.addEventListener('change', () => { pcUpdateItemVisual(item); pcRenderStatus(); pcScheduleSave(); });
+    note.addEventListener('input', pcScheduleSave);
+  }
+
+  function pcUpdateItemVisual(item) {
+    item.classList.toggle('pc-checked', item.querySelector('input[data-pcbox]').checked);
+  }
+
+  function pcShiftDay(delta) {
+    pcFlushSave();
+    const d = new Date(pcEditingDate || jrTodayKey());
+    d.setDate(d.getDate() + delta);
+    pcOpenDate(jrDateKey(d));
+  }
+
+  function pcOpenDate(dateKey) {
+    pcEditingDate = dateKey;
+    document.getElementById('pcDate').value = dateKey;
+    const entry = pcEntries[dateKey] || { date: dateKey, items: {} };
+    PC_ALL_IDS.forEach(id => {
+      const item = document.querySelector(`.pc-item[data-pc="${id}"]`);
+      const it = (entry.items && entry.items[id]) || {};
+      item.querySelector('input[data-pcbox]').checked = !!it.checked;
+      item.querySelector('input[data-pcnote]').value = it.note || '';
+      pcUpdateItemVisual(item);
+    });
+    document.getElementById('pcSaveStatus').classList.remove('show');
     pcRenderStatus();
   }
 
@@ -5555,11 +5606,44 @@
     }
   }
 
-  function pcClear() {
+  function pcScheduleSave() {
+    clearTimeout(pcSaveTimer);
+    pcSaveTimer = setTimeout(pcFlushSave, 700);
+  }
+
+  function pcFlushSave() {
+    clearTimeout(pcSaveTimer);
+    if (!pcEditingDate) return;
+    const items = {};
+    let hasAny = false;
+    PC_ALL_IDS.forEach(id => {
+      const item = document.querySelector(`.pc-item[data-pc="${id}"]`);
+      const checked = item.querySelector('input[data-pcbox]').checked;
+      const note = item.querySelector('input[data-pcnote]').value;
+      if (checked || (note && note.trim())) hasAny = true;
+      items[id] = { checked, note };
+    });
+    const entry = { date: pcEditingDate, items };
+    // Nothing at all filled in for a brand-new day — don't create an empty record.
+    if (!hasAny && !pcEntries[pcEditingDate]) return;
+    fetch('/checklist/' + encodeURIComponent(pcEditingDate), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
+    }).then(r => r.json()).then(saved => {
+      pcEntries[pcEditingDate] = saved;
+      const statusEl = document.getElementById('pcSaveStatus');
+      statusEl.classList.add('show');
+      setTimeout(() => statusEl.classList.remove('show'), 1200);
+    }).catch(() => {});
+  }
+
+  function pcClearDay() {
+    if (!confirm('Clear the checklist for this day? This cannot be undone.')) return;
     document.querySelectorAll('#pcList input[data-pcbox]').forEach(b => { b.checked = false; });
     document.querySelectorAll('#pcList input[data-pcnote]').forEach(n => { n.value = ''; });
-    document.querySelectorAll('#pcList .pc-row').forEach(r => r.classList.remove('pc-checked'));
+    document.querySelectorAll('#pcList .pc-item').forEach(r => r.classList.remove('pc-checked'));
     pcRenderStatus();
+    delete pcEntries[pcEditingDate];
+    fetch('/checklist/' + encodeURIComponent(pcEditingDate), { method: 'DELETE' }).catch(() => {});
   }
   // ---------------------------------------------------------------------
 
