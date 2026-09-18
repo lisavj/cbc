@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v10 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v11 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -28,7 +28,20 @@
      v10: Item 4's structural-level list ("Stop is at a real structural level") now has
      an "Equal Highs/Lows" option, with its own High/Low pulldown (like Premarket/ORB/
      Session) PLUS a small Price text box next to it. Frontend-only change, no server.js
-     update needed for this one. -->
+     update needed for this one.
+     v11: BIG one -- checklist entries are now keyed by DATE + SYMBOL, not date alone, so
+     more than one symbol can each have their own checklist on the same day instead of the
+     second save overwriting the first. The Symbol text field became a picker: a dropdown
+     of every symbol already saved for the selected date, plus "+ New symbol…" to start
+     another. "Clear day" is now "Clear entry" and only clears the symbol on screen, not
+     the whole date. The Journal tab's day editor now shows a "Checklist entries for this
+     date" row of chips (symbol + N/9 score) under Date/Title/Amount, each with an "Open ↗"
+     that opens that entry in a NEW tab/window (via a ?view=checklist&date=&symbol= deep
+     link the Checklist tab reads on load), plus a "+ Add checklist entry" control to start
+     one right from the Journal. REQUIRES the matching server.js from this same round --
+     the /checklist routes all gained a :symbol segment, and old checklist.json entries
+     (keyed by date only) migrate automatically to date+symbol the first time the new
+     server.js starts. Deploy both files together. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2004,7 +2017,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v10</footer>
+<footer>tv-webhook-dashboard · v11</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5047,6 +5060,16 @@
     setTimeout(() => pulseEl.classList.remove('live'), 1500);
   }
 
+  // Deep-link support: a link opened from the Journal tab's "Open ↗"
+  // checklist chips (or "+ Add checklist entry") includes ?view=checklist&
+  // date=...&symbol=... so it lands directly on that entry when opened in a
+  // new tab/window, instead of the default Alerts view. pcInit() (fired by
+  // setView below) reads the same params to pick the actual date+symbol.
+  (function handleDeepLinkView() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('view') === 'checklist') setView('checklist');
+  })();
+
   // Initial load
   fetch('/alerts').then(r => r.json()).then(data => {
     alerts = data;
@@ -5383,6 +5406,99 @@
     document.getElementById('jrSaveStatus').classList.remove('show');
     document.getElementById('jrOverview').style.display = 'none';
     document.getElementById('jrEditor').style.display = '';
+    jrRenderChecklistLinks(dateKey);
+  }
+
+  // ---- "Checklist entries for this date" -- shares the pcEntries cache
+  // with the Checklist tab (see pcEnsureEntriesLoaded), so opening this
+  // works whether or not the Checklist tab has been visited yet this
+  // session. Each chip opens that date+symbol's checklist in a NEW
+  // tab/window via pcChecklistDeepLink; "+ Add" starts a brand-new entry
+  // for this date without leaving the Journal. ----
+  let jrChecklistLinksDate = null; // which date the block currently shows, so re-saves elsewhere can refresh it in place
+
+  function jrRenderChecklistLinks(dateKey) {
+    jrChecklistLinksDate = dateKey;
+    const wrap = document.getElementById('jrChecklistLinks');
+    wrap.innerHTML = '<span class="jr-checklist-empty">Loading…</span>';
+    pcEnsureEntriesLoaded().then(() => {
+      if (jrChecklistLinksDate !== dateKey) return; // user navigated away before this resolved
+      jrRenderChecklistLinksNow(dateKey);
+    });
+  }
+
+  function jrRenderChecklistLinksIfShowing(dateKey) {
+    if (jrChecklistLinksDate === dateKey) jrRenderChecklistLinksNow(dateKey);
+  }
+
+  function jrRenderChecklistLinksNow(dateKey) {
+    const wrap = document.getElementById('jrChecklistLinks');
+    const entries = pcEntriesForDate(dateKey).slice().sort((a, b) => (a.symbol || '').localeCompare(b.symbol || ''));
+    const chips = entries.map(entry => {
+      const total = PC_ITEMS.length;
+      let complete = 0;
+      PC_ITEMS.forEach(item => { if (jrChecklistItemComplete(item, entry)) complete++; });
+      const label = entry.symbol && entry.symbol.trim() ? entry.symbol : '(no symbol)';
+      const scoreClass = complete === total ? ' jr-cc-complete' : '';
+      const link = pcChecklistDeepLink(dateKey, entry.symbol || '');
+      return `<div class="jr-checklist-chip">
+        <span class="jr-cc-symbol">${escapeHtml(label)}</span>
+        <span class="jr-cc-score${scoreClass}">${complete} / ${total}</span>
+        <a class="jr-cc-open" href="${escapeHtml(link)}" target="_blank" rel="noopener">Open ↗</a>
+      </div>`;
+    }).join('');
+    const emptyMsg = entries.length ? '' : '<span class="jr-checklist-empty">No checklist entries saved for this date yet.</span>';
+    wrap.innerHTML = chips + emptyMsg + `
+      <div class="jr-checklist-add">
+        <input type="text" id="jrChecklistAddInput" placeholder="Symbol" maxlength="20">
+        <button type="button" id="jrChecklistAddBtn">+ Add checklist entry</button>
+      </div>`;
+    document.getElementById('jrChecklistAddBtn').addEventListener('click', () => jrAddChecklistEntry(dateKey));
+    document.getElementById('jrChecklistAddInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') jrAddChecklistEntry(dateKey);
+    });
+  }
+
+  // A standalone completeness check mirroring pcItemComplete, but reading
+  // straight from a SAVED entry object instead of live DOM inputs -- the
+  // Journal tab doesn't have the Checklist's form on screen.
+  function jrChecklistItemComplete(item, entry) {
+    const vals = (entry.items && entry.items[item.id]) || {};
+    if (item.type === 'check') return !!vals.checked;
+    if (item.type === 'boxes') return item.fields.every(f => (vals[f.key] || '').toString().trim() !== '');
+    if (item.type === 'combo') {
+      const riskOk = !!vals[item.check1.key];
+      const anyStruct = item.checks2.some(c => !!vals[c.key]);
+      return riskOk && anyStruct;
+    }
+    if (item.type === 'selectChecks') {
+      const dir = vals[item.selectKey];
+      const anyCheck = item.checks.some(c => !!vals[c.key]);
+      return !!dir && anyCheck;
+    }
+    if (item.type === 'checks') return item.checks.every(c => !!vals[c.key]);
+    return false;
+  }
+
+  function jrAddChecklistEntry(dateKey) {
+    const input = document.getElementById('jrChecklistAddInput');
+    const symbol = input.value.trim();
+    const symbolKey = pcSymbolKey(symbol);
+    const compositeKey = pcCompositeKey(dateKey, symbolKey);
+    if (pcEntries[compositeKey]) {
+      // Already exists -- just open it instead of creating a duplicate.
+      window.open(pcChecklistDeepLink(dateKey, symbol), '_blank');
+      return;
+    }
+    const entry = { date: dateKey, time: '', symbol, items: {} };
+    fetch('/checklist/' + encodeURIComponent(dateKey) + '/' + pcSymbolUrlSegment(symbolKey), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
+    }).then(r => r.json()).then(saved => {
+      pcEntries[pcCompositeKey(dateKey, pcSymbolKey(saved.symbol))] = saved;
+      input.value = '';
+      jrRenderChecklistLinksNow(dateKey);
+      window.open(pcChecklistDeepLink(dateKey, saved.symbol || ''), '_blank');
+    }).catch(() => {});
   }
 
   function jrScheduleSave() {
@@ -5928,21 +6044,93 @@
     document.getElementById('pcList').innerHTML = PC_ITEMS.map((item, i) => pcRenderItem(item, i)).join('');
     PC_ITEMS.forEach(pcWireItem);
 
-    fetch('/checklist').then(r => r.json()).then(list => {
-      pcEntries = {};
-      (list || []).forEach(e => { pcEntries[e.date] = e; });
-      pcOpenDate(jrTodayKey());
-    }).catch(() => { pcOpenDate(jrTodayKey()); });
+    // A deep link from the Journal tab's "Open ↗" (or a link opened in a new
+    // window) can specify exactly which date+symbol to land on; otherwise
+    // default to today.
+    const params = new URLSearchParams(location.search);
+    const deepDate = params.get('view') === 'checklist' ? params.get('date') : null;
+    const deepSymbol = params.get('view') === 'checklist' ? params.get('symbol') : null;
 
-    document.getElementById('pcDate').addEventListener('change', (e) => { pcFlushSave(); pcOpenDate(e.target.value || jrTodayKey()); });
+    pcEnsureEntriesLoaded().then(() => {
+      pcOpenDateSymbol(deepDate || jrTodayKey(), deepSymbol !== null ? pcSymbolKey(deepSymbol) : null);
+    });
+
+    document.getElementById('pcDate').addEventListener('change', (e) => { pcFlushSave(); pcOpenDateSymbol(e.target.value || jrTodayKey()); });
     document.getElementById('pcPrevDay').addEventListener('click', () => pcShiftDay(-1));
     document.getElementById('pcNextDay').addEventListener('click', () => pcShiftDay(1));
-    document.getElementById('pcTodayBtn').addEventListener('click', () => { pcFlushSave(); pcOpenDate(jrTodayKey()); });
+    document.getElementById('pcTodayBtn').addEventListener('click', () => { pcFlushSave(); pcOpenDateSymbol(jrTodayKey()); });
     document.getElementById('pcSaveBtn').addEventListener('click', pcFlushSave);
-    document.getElementById('pcClearBtn').addEventListener('click', pcClearDay);
+    document.getElementById('pcClearBtn').addEventListener('click', pcClearEntry);
     document.getElementById('pcTime').addEventListener('input', pcScheduleSave);
-    document.getElementById('pcSymbol').addEventListener('input', pcScheduleSave);
+    document.getElementById('pcSymbolSelect').addEventListener('change', pcHandleSymbolSelectChange);
+    document.getElementById('pcSymbolNewInput').addEventListener('input', pcScheduleSave);
     document.getElementById('pcImageInput').addEventListener('change', pcHandleImagePick);
+  }
+
+  // ---- Symbol picker: dropdown of every symbol already saved for the
+  // selected date, plus a "+ New symbol…" option that reveals a text box.
+  // See pcOpenDateSymbol/pcLoadEntryForSymbolKey/pcHandleSymbolSelectChange
+  // for how switching it drives what's loaded into the form below. ----
+  function pcPopulateSymbolPicker(date, preferredSymbolKey) {
+    const entries = pcEntriesForDate(date).slice().sort((a, b) => (a.symbol || '').localeCompare(b.symbol || ''));
+    const sel = document.getElementById('pcSymbolSelect');
+    let options = entries.map(e => {
+      const key = pcSymbolKey(e.symbol);
+      const label = e.symbol && e.symbol.trim() ? e.symbol : '(no symbol)';
+      return `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`;
+    }).join('');
+    options += `<option value="__new__">+ New symbol…</option>`;
+    sel.innerHTML = options;
+    const hasPreferred = preferredSymbolKey && entries.some(e => pcSymbolKey(e.symbol) === preferredSymbolKey);
+    const target = hasPreferred ? preferredSymbolKey : (entries[0] ? pcSymbolKey(entries[0].symbol) : '__new__');
+    sel.value = target;
+    return target;
+  }
+
+  function pcSyncSymbolModeUI() {
+    const sel = document.getElementById('pcSymbolSelect');
+    document.getElementById('pcSymbolNewWrap').style.display = sel.value === '__new__' ? '' : 'none';
+  }
+
+  function pcHandleSymbolSelectChange(e) {
+    pcFlushSave(); // flush whatever was being edited under the PREVIOUS symbol first
+    const val = e.target.value;
+    if (val === '__new__') {
+      pcEditingSymbolKey = null;
+      pcEditingSymbolDisplay = '';
+      document.getElementById('pcSymbolNewInput').value = '';
+      pcSyncSymbolModeUI();
+      pcApplyEntryToForm({ date: pcEditingDate, symbol: '', time: jrNowTimeKey(), items: {}, images: [] });
+    } else {
+      pcSyncSymbolModeUI();
+      pcLoadEntryForSymbolKey(pcEditingDate, val);
+    }
+  }
+
+  // While in "+ New symbol" mode (pcEditingSymbolKey === null), the live
+  // text box is the only source of truth for what symbol is being edited --
+  // read from it directly rather than a stale tracked value.
+  function pcActiveSymbolKey() {
+    if (pcEditingSymbolKey !== null) return pcEditingSymbolKey;
+    return pcSymbolKey(document.getElementById('pcSymbolNewInput').value);
+  }
+  function pcActiveSymbolDisplay() {
+    if (pcEditingSymbolKey !== null) return pcEditingSymbolDisplay;
+    return document.getElementById('pcSymbolNewInput').value.trim();
+  }
+
+  // Called after a successful save/image-upload that happened while still in
+  // "+ New symbol" mode -- transitions the picker over to show the
+  // now-real entry instead of the blank "+ New symbol…" text box.
+  function pcAdoptSavedEntry(saved) {
+    const symbolKey = pcSymbolKey(saved.symbol);
+    pcEntries[pcCompositeKey(saved.date, symbolKey)] = saved;
+    if (pcEditingDate === saved.date && pcEditingSymbolKey === null) {
+      pcEditingSymbolKey = symbolKey;
+      pcEditingSymbolDisplay = saved.symbol || '';
+      pcPopulateSymbolPicker(saved.date, symbolKey);
+      pcSyncSymbolModeUI();
+    }
   }
 
   // ---- Checklist attached images: resize/compress client-side via <canvas>
@@ -5986,6 +6174,9 @@
     if (!pcEditingDate) return;
     const statusEl = document.getElementById('pcImageStatus');
     const dateAtPick = pcEditingDate;
+    const symbolKeyAtPick = pcActiveSymbolKey();
+    const symbolDisplayAtPick = pcActiveSymbolDisplay();
+    const urlSeg = pcSymbolUrlSegment(symbolKeyAtPick);
 
     let i = 0;
     function uploadNext() {
@@ -5996,13 +6187,13 @@
       const file = files[i++];
       statusEl.textContent = `Uploading ${i} / ${files.length}…`;
       pcCompressImage(file).then(dataUrl => {
-        return fetch('/checklist/' + encodeURIComponent(dateAtPick) + '/image', {
+        return fetch('/checklist/' + encodeURIComponent(dateAtPick) + '/' + urlSeg + '/image', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dataUrl, originalName: file.name })
+          body: JSON.stringify({ dataUrl, originalName: file.name, symbol: symbolDisplayAtPick })
         });
       }).then(r => r.json()).then(saved => {
-        pcEntries[dateAtPick] = saved;
-        if (pcEditingDate === dateAtPick) pcRenderImageGallery(saved);
+        pcAdoptSavedEntry(saved);
+        if (pcEditingDate === dateAtPick && pcActiveSymbolKey() === symbolKeyAtPick) pcRenderImageGallery(saved);
         uploadNext();
       }).catch(() => {
         statusEl.textContent = `Upload failed (${i} / ${files.length})`;
@@ -6013,13 +6204,15 @@
   }
 
   function pcRemoveImage(filename) {
-    if (!pcEditingDate) return;
+    if (!pcEditingDate || pcEditingSymbolKey === null) return;
     if (!confirm('Remove this attached image?')) return;
     const dateAtRemove = pcEditingDate;
-    fetch('/checklist/' + encodeURIComponent(dateAtRemove) + '/image/' + encodeURIComponent(filename), { method: 'DELETE' })
+    const symbolKeyAtRemove = pcEditingSymbolKey;
+    const urlSeg = pcSymbolUrlSegment(symbolKeyAtRemove);
+    fetch('/checklist/' + encodeURIComponent(dateAtRemove) + '/' + urlSeg + '/image/' + encodeURIComponent(filename), { method: 'DELETE' })
       .then(r => r.json()).then(saved => {
-        pcEntries[dateAtRemove] = saved;
-        if (pcEditingDate === dateAtRemove) pcRenderImageGallery(saved);
+        pcEntries[pcCompositeKey(dateAtRemove, symbolKeyAtRemove)] = saved;
+        if (pcEditingDate === dateAtRemove && pcEditingSymbolKey === symbolKeyAtRemove) pcRenderImageGallery(saved);
       }).catch(() => {});
   }
 
@@ -6059,17 +6252,37 @@
     pcFlushSave();
     const d = new Date(pcEditingDate || jrTodayKey());
     d.setDate(d.getDate() + delta);
-    pcOpenDate(jrDateKey(d));
+    pcOpenDateSymbol(jrDateKey(d));
   }
 
-  function pcOpenDate(dateKey) {
+  // Loads a date, populates the Symbol picker for it, and opens whichever
+  // entry that resolves to: `preferredSymbolKey` if given and it exists for
+  // that date, else the first saved entry for that date, else "+ New symbol"
+  // mode with a blank form.
+  function pcOpenDateSymbol(dateKey, preferredSymbolKey) {
     pcEditingDate = dateKey;
     document.getElementById('pcDate').value = dateKey;
-    const entry = pcEntries[dateKey] || { date: dateKey, items: {} };
-    // Time defaults to "now" only for a brand-new (never-saved) day; an
-    // existing entry's saved time (even blank) is used as-is.
-    document.getElementById('pcTime').value = entry.time || (pcEntries[dateKey] ? '' : jrNowTimeKey());
-    document.getElementById('pcSymbol').value = entry.symbol || '';
+    const target = pcPopulateSymbolPicker(dateKey, preferredSymbolKey || null);
+    pcSyncSymbolModeUI();
+    if (target === '__new__') {
+      pcEditingSymbolKey = null;
+      pcEditingSymbolDisplay = '';
+      document.getElementById('pcSymbolNewInput').value = '';
+      pcApplyEntryToForm({ date: dateKey, symbol: '', time: jrNowTimeKey(), items: {}, images: [] });
+    } else {
+      pcLoadEntryForSymbolKey(dateKey, target);
+    }
+  }
+
+  function pcLoadEntryForSymbolKey(dateKey, symbolKey) {
+    const entry = pcEntries[pcCompositeKey(dateKey, symbolKey)] || { date: dateKey, symbol: '', time: jrNowTimeKey(), items: {}, images: [] };
+    pcEditingSymbolKey = symbolKey;
+    pcEditingSymbolDisplay = entry.symbol || '';
+    pcApplyEntryToForm(entry);
+  }
+
+  function pcApplyEntryToForm(entry) {
+    document.getElementById('pcTime').value = entry.time || '';
     PC_ITEMS.forEach(item => {
       const el = pcItemEl(item);
       const vals = (entry.items && entry.items[item.id]) || {};
@@ -6111,6 +6324,8 @@
   function pcFlushSave() {
     clearTimeout(pcSaveTimer);
     if (!pcEditingDate) return;
+    const symbolKey = pcActiveSymbolKey();
+    const symbolDisplay = pcActiveSymbolDisplay();
     const items = {};
     let hasAny = false;
     PC_ITEMS.forEach(item => {
@@ -6129,44 +6344,72 @@
       items[item.id] = vals;
     });
     const time = document.getElementById('pcTime').value;
-    const symbol = document.getElementById('pcSymbol').value;
     if (time) hasAny = true;
-    if (symbol.trim()) hasAny = true;
-    const entry = { date: pcEditingDate, time, symbol, items };
-    // Nothing at all filled in for a brand-new day — don't create an empty record.
-    if (!hasAny && !pcEntries[pcEditingDate]) return;
-    fetch('/checklist/' + encodeURIComponent(pcEditingDate), {
+    if (symbolDisplay.trim()) hasAny = true;
+    const entry = { date: pcEditingDate, time, symbol: symbolDisplay, items };
+    const compositeKey = pcCompositeKey(pcEditingDate, symbolKey);
+    // Nothing at all filled in for a brand-new entry — don't create an empty record.
+    if (!hasAny && !pcEntries[compositeKey]) return;
+    const dateAtSave = pcEditingDate;
+    fetch('/checklist/' + encodeURIComponent(dateAtSave) + '/' + pcSymbolUrlSegment(symbolKey), {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
     }).then(r => r.json()).then(saved => {
-      pcEntries[pcEditingDate] = saved;
+      pcAdoptSavedEntry(saved);
       const statusEl = document.getElementById('pcSaveStatus');
       statusEl.classList.add('show');
       setTimeout(() => statusEl.classList.remove('show'), 1200);
+      // Keep the Journal tab's chips in sync if it's already been rendered
+      // for this date.
+      if (typeof jrRenderChecklistLinks === 'function') jrRenderChecklistLinksIfShowing(dateAtSave);
     }).catch(() => {});
   }
 
-  function pcClearDay() {
-    if (!confirm('Clear the checklist for this day? This cannot be undone.')) return;
+  function pcClearEntry() {
+    if (pcEditingSymbolKey === null) {
+      // Nothing saved yet for this "+ New symbol" slot -- just wipe the form.
+      PC_ITEMS.forEach(item => {
+        const el = pcItemEl(item);
+        el.querySelectorAll('[data-field]').forEach(inp => { if (inp.type === 'checkbox') inp.checked = false; else inp.value = ''; });
+        pcUpdateItemVisual(item, el);
+      });
+      document.getElementById('pcTime').value = '';
+      document.getElementById('pcSymbolNewInput').value = '';
+      pcRenderStatus();
+      return;
+    }
+    if (!confirm('Clear this checklist entry (this symbol on this date)? This cannot be undone.')) return;
     PC_ITEMS.forEach(item => {
       const el = pcItemEl(item);
       el.querySelectorAll('[data-field]').forEach(inp => { if (inp.type === 'checkbox') inp.checked = false; else inp.value = ''; });
       pcUpdateItemVisual(item, el);
     });
     document.getElementById('pcTime').value = '';
-    document.getElementById('pcSymbol').value = '';
     document.getElementById('pcImageStatus').textContent = '';
     pcRenderStatus();
     const clearedDate = pcEditingDate;
-    const priorImages = (pcEntries[clearedDate] && Array.isArray(pcEntries[clearedDate].images)) ? pcEntries[clearedDate].images.slice() : [];
+    const clearedSymbolKey = pcEditingSymbolKey;
+    const compositeKey = pcCompositeKey(clearedDate, clearedSymbolKey);
+    const priorImages = (pcEntries[compositeKey] && Array.isArray(pcEntries[compositeKey].images)) ? pcEntries[compositeKey].images.slice() : [];
+    const urlSeg = pcSymbolUrlSegment(clearedSymbolKey);
     pcRenderImageGallery({});
-    delete pcEntries[clearedDate];
-    fetch('/checklist/' + encodeURIComponent(clearedDate), { method: 'DELETE' }).catch(() => {});
-    // The day's whole record is gone (checklist.json), but each attached
+    delete pcEntries[compositeKey];
+    fetch('/checklist/' + encodeURIComponent(clearedDate) + '/' + urlSeg, { method: 'DELETE' }).catch(() => {});
+    // The entry's whole record is gone (checklist.json), but each attached
     // image is its own file on disk under CHECKLIST_UPLOADS_DIR -- delete
     // them individually too so nothing lingers as an orphan.
     priorImages.forEach(img => {
-      fetch('/checklist/' + encodeURIComponent(clearedDate) + '/image/' + encodeURIComponent(img.filename), { method: 'DELETE' }).catch(() => {});
+      fetch('/checklist/' + encodeURIComponent(clearedDate) + '/' + urlSeg + '/image/' + encodeURIComponent(img.filename), { method: 'DELETE' }).catch(() => {});
     });
+    // Re-open this date -- picks another saved symbol if one exists, else
+    // drops back into "+ New symbol" mode.
+    pcOpenDateSymbol(clearedDate);
+    if (typeof jrRenderChecklistLinksIfShowing === 'function') jrRenderChecklistLinksIfShowing(clearedDate);
+  }
+
+  // ---- Deep-link helper used by the Journal tab's "Open ↗" links: opens
+  // the Checklist tab, on a specific date+symbol, in a NEW browser tab/window. ----
+  function pcChecklistDeepLink(date, symbol) {
+    return location.origin + location.pathname + '?view=checklist&date=' + encodeURIComponent(date) + '&symbol=' + encodeURIComponent(symbol || '');
   }
   // ---------------------------------------------------------------------
 
