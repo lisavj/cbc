@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v20 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v21 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -100,7 +100,22 @@
      saves any pending edit first, then switches to the Journal tab and lands specifically
      on its calendar/list overview (not wherever the Journal editor last was), so opening a
      checklist (including via a Journal "Open ↗" link) always has a one-click way back to
-     the daily journal. Frontend-only change, no server.js update needed for this one. -->
+     the daily journal. Frontend-only change, no server.js update needed for this one.
+     v21: BUGFIX -- picking "+ New Symbol..." while sitting on a blank "(no symbol)" (or
+     any other) entry that has nothing filled in (no checked boxes, no typed fields, no
+     time, no images) now deletes that empty entry once the new symbol's entry is saved,
+     instead of leaving it behind as a stray duplicate -- effectively renaming it, which is
+     what picking a new symbol from an empty entry actually meant. An entry with any real
+     content in it is never auto-deleted this way; picking "+ New Symbol..." from a
+     filled-in entry still just adds a separate new one alongside it, unchanged from
+     before. Frontend-only change, no server.js update needed for this one.
+     Also this round: removed "Checklist" as its own item from the Journal/Rules/
+     Checklist/Autopsy nav dropdown -- that dropdown is now just Journal, Rules, Autopsy
+     (in that order) and its trigger button is now labeled "Journal" instead of
+     "Checklist". The Checklist page itself is unchanged and still fully reachable --
+     via a date's chips on the Journal tab ("Open ↗" / "+ Add checklist entry") or a
+     deep link -- it's just no longer a standalone nav tab. Frontend-only change, no
+     server.js update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1653,9 +1668,8 @@
         </div>
       </div>
       <div class="nav-dropdown" id="journalDropdown">
-        <button class="nav-dropdown-btn" id="journalDropdownBtn" type="button">Checklist <span class="nav-dropdown-caret">▾</span></button>
+        <button class="nav-dropdown-btn" id="journalDropdownBtn" type="button">Journal <span class="nav-dropdown-caret">▾</span></button>
         <div class="nav-dropdown-menu" id="journalDropdownMenu">
-          <button class="nav-dropdown-item" id="tabChecklistBtn" data-view="checklist">Checklist</button>
           <button class="nav-dropdown-item" id="tabJournalBtn" data-view="journal">Journal</button>
           <button class="nav-dropdown-item" id="tabRulesBtn" data-view="rules">Rules</button>
           <button class="nav-dropdown-item" id="tabAutopsyBtn" data-view="autopsy">Autopsy</button>
@@ -2079,7 +2093,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v20</footer>
+<footer>tv-webhook-dashboard · v21</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -2471,7 +2485,10 @@
   const journalViewEl = document.getElementById('journalView');
   const tabRulesBtn = document.getElementById('tabRulesBtn');
   const rulesViewEl = document.getElementById('rulesView');
-  const tabChecklistBtn = document.getElementById('tabChecklistBtn');
+  // No standalone nav button for Checklist -- it's reached via the Journal
+  // tab's per-date chips (Open / + Add checklist entry) or a deep link, not
+  // a menu item of its own. The view itself (checklistViewEl, setView('checklist'),
+  // pcInit, etc.) all still exist unchanged; only the tab button is gone.
   const checklistViewEl = document.getElementById('checklistView');
   const tabAutopsyBtn = document.getElementById('tabAutopsyBtn');
   const autopsyViewEl = document.getElementById('autopsyView');
@@ -2501,7 +2518,6 @@
     tabVideosBtn.classList.toggle('active', isVideos);
     tabJournalBtn.classList.toggle('active', isJournal);
     tabRulesBtn.classList.toggle('active', isRules);
-    tabChecklistBtn.classList.toggle('active', isChecklist);
     tabAutopsyBtn.classList.toggle('active', isAutopsy);
     journalDropdownBtn.classList.toggle('active', JOURNAL_DROPDOWN_VIEWS.includes(view));
     journalDropdown.classList.remove('open');
@@ -2535,7 +2551,6 @@
   tabVideosBtn.addEventListener('click', () => setView('videos'));
   tabJournalBtn.addEventListener('click', () => setView('journal'));
   tabRulesBtn.addEventListener('click', () => setView('rules'));
-  tabChecklistBtn.addEventListener('click', () => setView('checklist'));
   tabAutopsyBtn.addEventListener('click', () => setView('autopsy'));
 
   // Multilevel pulldowns: click a dropdown's nav item to toggle its submenu
@@ -6227,6 +6242,27 @@
     return opt ? opt.textContent : '';
   }
 
+  // True when the currently-loaded entry (whatever's on screen right now,
+  // before it gets flushed) has nothing filled in at all -- no checked
+  // boxes, no typed text, no time, and no attached images. Used by the
+  // "+ New Symbol..." flow below to tell a genuine "I mislabeled this
+  // entry, fix its symbol" correction apart from "I want a second, separate
+  // entry for a different symbol" -- only the former is safe to
+  // auto-replace, since nothing of value is lost either way.
+  function pcCurrentEntryIsEmpty() {
+    if (!pcEditingDate) return true;
+    const oldCompositeKey = pcCompositeKey(pcEditingDate, pcEditingSymbolKey);
+    const oldImages = (pcEntries[oldCompositeKey] && Array.isArray(pcEntries[oldCompositeKey].images)) ? pcEntries[oldCompositeKey].images : [];
+    if (oldImages.length) return false;
+    if ((document.getElementById('pcTime').value || '').trim()) return false;
+    return PC_ITEMS.every(item => {
+      const el = pcItemEl(item);
+      return Array.from(el.querySelectorAll('[data-field]')).every(inp =>
+        inp.type === 'checkbox' ? !inp.checked : !inp.value.trim()
+      );
+    });
+  }
+
   function pcHandleSymbolSelectChange(e) {
     if (e.target.value === '__new__') {
       const typed = (prompt('Enter symbol (e.g. MES1!):', '') || '').trim();
@@ -6236,12 +6272,27 @@
         pcPopulateSymbolPicker(pcEditingDate, pcEditingSymbolKey);
         return;
       }
+      // If the entry we're switching AWAY from is a real saved record but
+      // has nothing filled in (e.g. a stray "(no symbol)" placeholder),
+      // treat this as renaming it rather than leaving a blank duplicate
+      // behind -- delete the old empty record once the new symbol's entry
+      // has been saved. An entry with any real content is never touched.
+      const dateAtSwitch = pcEditingDate;
+      const oldSymbolKey = pcEditingSymbolKey;
+      const oldCompositeKey = pcCompositeKey(dateAtSwitch, oldSymbolKey);
+      const shouldReplaceOld = oldSymbolKey !== null && !!pcEntries[oldCompositeKey] && pcCurrentEntryIsEmpty();
       pcFlushSave(); // flush whatever was being edited under the PREVIOUS symbol first
       const symbolKey = pcSymbolKey(typed);
       pcEditingSymbolKey = symbolKey;
       pcEditingSymbolDisplay = typed;
-      pcPopulateSymbolPicker(pcEditingDate, symbolKey, { key: symbolKey, display: typed });
-      pcApplyEntryToForm(pcEntries[pcCompositeKey(pcEditingDate, symbolKey)] || { date: pcEditingDate, symbol: typed, time: jrNowTimeKey(), items: {}, images: [] });
+      pcPopulateSymbolPicker(dateAtSwitch, symbolKey, { key: symbolKey, display: typed });
+      pcApplyEntryToForm(pcEntries[pcCompositeKey(dateAtSwitch, symbolKey)] || { date: dateAtSwitch, symbol: typed, time: jrNowTimeKey(), items: {}, images: [] });
+      if (shouldReplaceOld && oldCompositeKey !== pcCompositeKey(dateAtSwitch, symbolKey)) {
+        delete pcEntries[oldCompositeKey];
+        fetch('/checklist/' + encodeURIComponent(dateAtSwitch) + '/' + pcSymbolUrlSegment(oldSymbolKey), { method: 'DELETE' }).then(() => {
+          if (typeof jrRenderChecklistLinksIfShowing === 'function') jrRenderChecklistLinksIfShowing(dateAtSwitch);
+        }).catch(() => {});
+      }
       return;
     }
     pcFlushSave(); // flush whatever was being edited under the PREVIOUS symbol first
