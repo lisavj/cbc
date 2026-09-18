@@ -1,7 +1,17 @@
-<!-- FRONTEND VERSION: v4 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v7 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
-     and the live site kept showing a stale layout with no way to tell at a glance. -->
+     and the live site kept showing a stale layout with no way to tell at a glance.
+     v6: Checklist tab — attach an image per day (client-side compressed via canvas,
+     uploaded to the new /checklist/:date/image route) with a "View image" link that
+     opens it in a new tab/window, plus a Remove button. Requires the matching server.js
+     from this same round (adds the image routes + static /checklist-uploads serving).
+     v7: Checklist images are now MULTIPLE per day, not one slot. Each upload gets its
+     own server-generated filename (date + time + sanitized original name), shown as a
+     row of chips below the toolbar, each with its own "view in new tab" link and remove
+     button. The file picker now accepts multiple files at once. Requires the matching
+     server.js from this same round (images are now an array per day, new DELETE route
+     shape is /checklist/:date/image/:filename). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1295,6 +1305,48 @@
   .pc-sub-check { display: flex; align-items: center; gap: 6px; }
   .pc-sub-check input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--jr-green); }
   .pc-sub-check label { font-size: 12.5px; color: var(--text); cursor: pointer; }
+  .pc-sub-check.with-pulldown { gap: 6px; }
+  .pc-sub-check select.pc-mini {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 4px;
+  }
+  .pc-sub-check select.pc-mini:focus { outline: none; border-color: var(--accent); }
+
+  /* Time / Symbol fields in the checklist toolbar, next to the date nav */
+  .pc-meta-field { display: flex; align-items: center; gap: 6px; }
+  .pc-meta-field label { font-size: 10.5px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; }
+  .pc-meta-field input {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 5px 7px;
+  }
+  .pc-meta-field input:focus { outline: none; border-color: var(--accent); }
+  .pc-meta-field input[type="text"] { width: 90px; }
+
+  .pc-image-field { display: flex; align-items: center; gap: 8px; }
+  .pc-image-field input[type="file"] { display: none; }
+  .pc-attach-btn { background: var(--panel); border: 1px solid var(--panel-border); color: var(--text); font-family: var(--sans); font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; display: inline-block; }
+  .pc-attach-btn:hover { border-color: var(--muted); }
+  .pc-image-status { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* Gallery of attached images for the day -- a chip per image, each with its
+     own "view" link (opens in a new tab/window) and remove button, so more
+     than one screenshot can be kept per day rather than a single slot. */
+  .pc-image-gallery { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 16px; }
+  .pc-image-chip { display: flex; align-items: center; gap: 7px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: 6px; padding: 6px 6px 6px 10px; font-family: var(--mono); font-size: 11.5px; color: var(--text); max-width: 260px; }
+  .pc-image-chip a.pc-image-chip-link { color: var(--accent); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+  .pc-image-chip a.pc-image-chip-link:hover { text-decoration: underline; }
+  .pc-image-chip button.pc-image-chip-remove { background: transparent; border: none; color: var(--jr-red, #ef4444); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 3px; }
+  .pc-image-chip button.pc-image-chip-remove:hover { opacity: 0.75; }
   .pc-howto {
     background: var(--panel);
     border: 1px solid var(--panel-border);
@@ -1738,11 +1790,20 @@
           <button id="pcNextDay" class="jr-arrow" title="Next day">›</button>
           <button id="pcTodayBtn" class="jr-today-btn">Today</button>
         </div>
+        <div class="pc-meta-field"><label for="pcTime">Time</label><input type="time" id="pcTime"></div>
+        <div class="pc-meta-field"><label for="pcSymbol">Symbol</label><input type="text" id="pcSymbol" placeholder="MES1!" maxlength="20"></div>
+        <div class="pc-image-field">
+          <input type="file" id="pcImageInput" accept="image/*" multiple>
+          <label for="pcImageInput" id="pcAttachBtn" class="pc-attach-btn">📎 Attach image(s)</label>
+          <span id="pcImageStatus" class="pc-image-status"></span>
+        </div>
         <div class="jr-spacer"></div>
         <span id="pcSaveStatus" class="jr-save-status">Saved ✓</span>
         <button id="pcSaveBtn" class="jr-save-btn">Save</button>
         <button id="pcClearBtn" class="jr-today-btn">Clear day</button>
       </div>
+
+      <div id="pcImageGallery" class="pc-image-gallery"></div>
 
       <div id="pcList"></div>
 
@@ -1852,7 +1913,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v4</footer>
+<footer>tv-webhook-dashboard · v7</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5032,6 +5093,10 @@
     return `${y}-${m}-${day}`;
   }
   function jrTodayKey() { return jrDateKey(new Date()); }
+  function jrNowTimeKey() {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
   function jrFmtMonth(d) { return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
   function jrFmtAmt(n) {
     if (n === null || n === undefined || isNaN(n)) return '$0';
@@ -5567,8 +5632,15 @@
       checks2: [
         { key: 'priorDay', label: 'Prior Day High/Low' },
         { key: 'swing', label: 'Swing High/Low' },
-        { key: 'pivot', label: 'Pivot Point' },
+        { key: 'pivot', label: 'Pivot Point', select: { key: 'pivotLevel', options: ['S1', 'S2', 'S3', 'R1', 'R2', 'R3'] } },
         { key: 'orderBlock', label: 'Order Block' },
+        { key: 'premarket', label: 'Premarket', select: { key: 'premarketSide', options: ['High', 'Low'] } },
+        { key: 'nyOrb', label: 'NY ORB', select: { key: 'nyOrbSide', options: ['High', 'Low'] } },
+        { key: 'londonOrb', label: 'London ORB', select: { key: 'londonOrbSide', options: ['High', 'Low'] } },
+        { key: 'asiaOrb', label: 'Asia ORB', select: { key: 'asiaOrbSide', options: ['High', 'Low'] } },
+        { key: 'nySession', label: 'NY Session', select: { key: 'nySessionSide', options: ['High', 'Low'] } },
+        { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
+        { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
       ] },
     { id: 'c5', type: 'selectChecks', text: 'Confluences',
       selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
@@ -5619,9 +5691,11 @@
       </div>`;
     }
     if (item.type === 'combo') {
-      const subChecks = item.checks2.map(c => `
-        <div class="pc-sub-check"><input type="checkbox" id="${item.id}-${c.key}" data-field="${c.key}"><label for="${item.id}-${c.key}">${escapeHtml(c.label)}</label></div>
-      `).join('');
+      const subChecks = item.checks2.map(c => {
+        const opts = c.select ? c.select.options.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('') : '';
+        const pulldown = c.select ? `<select class="pc-mini" data-field="${c.select.key}"><option value="">—</option>${opts}</select>` : '';
+        return `<div class="pc-sub-check${c.select ? ' with-pulldown' : ''}"><input type="checkbox" id="${item.id}-${c.key}" data-field="${c.key}"><label for="${item.id}-${c.key}">${escapeHtml(c.label)}</label>${pulldown}</div>`;
+      }).join('');
       return `<div class="pc-item complex" data-pc="${item.id}">
         <div class="pc-item-head"><div class="pc-item-num">${num}</div><div class="pc-item-text">${escapeHtml(item.text)}</div></div>
         <div class="pc-sub-block">
@@ -5704,6 +5778,107 @@
     document.getElementById('pcTodayBtn').addEventListener('click', () => { pcFlushSave(); pcOpenDate(jrTodayKey()); });
     document.getElementById('pcSaveBtn').addEventListener('click', pcFlushSave);
     document.getElementById('pcClearBtn').addEventListener('click', pcClearDay);
+    document.getElementById('pcTime').addEventListener('input', pcScheduleSave);
+    document.getElementById('pcSymbol').addEventListener('input', pcScheduleSave);
+    document.getElementById('pcImageInput').addEventListener('change', pcHandleImagePick);
+  }
+
+  // ---- Checklist attached images: resize/compress client-side via <canvas>
+  // before upload, so a phone photo doesn't blow past the server's 8mb body
+  // limit. Caps the longest side at 1600px and re-encodes as JPEG @ 0.8. ----
+  function pcCompressImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Could not read file'));
+      reader.onload = () => {
+        img.onerror = () => reject(new Error('Could not decode image'));
+        img.onload = () => {
+          const MAX_SIDE = 1600;
+          let { width, height } = img;
+          if (width > MAX_SIDE || height > MAX_SIDE) {
+            if (width >= height) { height = Math.round(height * (MAX_SIDE / width)); width = MAX_SIDE; }
+            else { width = Math.round(width * (MAX_SIDE / height)); height = MAX_SIDE; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Multiple files can be picked at once (input has the `multiple` attribute)
+  // -- upload them one at a time (simpler error handling / progress text than
+  // Promise.all, and avoids hammering the server with a burst of large POSTs)
+  // and re-render the gallery once each one lands.
+  function pcHandleImagePick(e) {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    e.target.value = '';
+    if (!files.length) return;
+    if (!pcEditingDate) return;
+    const statusEl = document.getElementById('pcImageStatus');
+    const dateAtPick = pcEditingDate;
+
+    let i = 0;
+    function uploadNext() {
+      if (i >= files.length) {
+        statusEl.textContent = '';
+        return;
+      }
+      const file = files[i++];
+      statusEl.textContent = `Uploading ${i} / ${files.length}…`;
+      pcCompressImage(file).then(dataUrl => {
+        return fetch('/checklist/' + encodeURIComponent(dateAtPick) + '/image', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUrl, originalName: file.name })
+        });
+      }).then(r => r.json()).then(saved => {
+        pcEntries[dateAtPick] = saved;
+        if (pcEditingDate === dateAtPick) pcRenderImageGallery(saved);
+        uploadNext();
+      }).catch(() => {
+        statusEl.textContent = `Upload failed (${i} / ${files.length})`;
+        setTimeout(uploadNext, 400);
+      });
+    }
+    uploadNext();
+  }
+
+  function pcRemoveImage(filename) {
+    if (!pcEditingDate) return;
+    if (!confirm('Remove this attached image?')) return;
+    const dateAtRemove = pcEditingDate;
+    fetch('/checklist/' + encodeURIComponent(dateAtRemove) + '/image/' + encodeURIComponent(filename), { method: 'DELETE' })
+      .then(r => r.json()).then(saved => {
+        pcEntries[dateAtRemove] = saved;
+        if (pcEditingDate === dateAtRemove) pcRenderImageGallery(saved);
+      }).catch(() => {});
+  }
+
+  function pcEscapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function pcRenderImageGallery(entry) {
+    const gallery = document.getElementById('pcImageGallery');
+    const images = (entry && Array.isArray(entry.images)) ? entry.images : [];
+    if (!images.length) {
+      gallery.innerHTML = '';
+      return;
+    }
+    gallery.innerHTML = images.map(img => {
+      const label = img.name || img.filename;
+      return `<div class="pc-image-chip">
+        <a class="pc-image-chip-link" href="${pcEscapeHtml(img.url)}" target="_blank" rel="noopener" title="${pcEscapeHtml(label)}">🖼 ${pcEscapeHtml(label)}</a>
+        <button type="button" class="pc-image-chip-remove" title="Remove" onclick="pcRemoveImage('${pcEscapeHtml(img.filename).replace(/'/g, "\\'")}')">×</button>
+      </div>`;
+    }).join('');
   }
 
   function pcWireItem(item) {
@@ -5729,6 +5904,10 @@
     pcEditingDate = dateKey;
     document.getElementById('pcDate').value = dateKey;
     const entry = pcEntries[dateKey] || { date: dateKey, items: {} };
+    // Time defaults to "now" only for a brand-new (never-saved) day; an
+    // existing entry's saved time (even blank) is used as-is.
+    document.getElementById('pcTime').value = entry.time || (pcEntries[dateKey] ? '' : jrNowTimeKey());
+    document.getElementById('pcSymbol').value = entry.symbol || '';
     PC_ITEMS.forEach(item => {
       const el = pcItemEl(item);
       const vals = (entry.items && entry.items[item.id]) || {};
@@ -5740,6 +5919,8 @@
       pcUpdateItemVisual(item, el);
     });
     document.getElementById('pcSaveStatus').classList.remove('show');
+    document.getElementById('pcImageStatus').textContent = '';
+    pcRenderImageGallery(entry);
     pcRenderStatus();
   }
 
@@ -5785,7 +5966,11 @@
       });
       items[item.id] = vals;
     });
-    const entry = { date: pcEditingDate, items };
+    const time = document.getElementById('pcTime').value;
+    const symbol = document.getElementById('pcSymbol').value;
+    if (time) hasAny = true;
+    if (symbol.trim()) hasAny = true;
+    const entry = { date: pcEditingDate, time, symbol, items };
     // Nothing at all filled in for a brand-new day — don't create an empty record.
     if (!hasAny && !pcEntries[pcEditingDate]) return;
     fetch('/checklist/' + encodeURIComponent(pcEditingDate), {
@@ -5805,9 +5990,21 @@
       el.querySelectorAll('[data-field]').forEach(inp => { if (inp.type === 'checkbox') inp.checked = false; else inp.value = ''; });
       pcUpdateItemVisual(item, el);
     });
+    document.getElementById('pcTime').value = '';
+    document.getElementById('pcSymbol').value = '';
+    document.getElementById('pcImageStatus').textContent = '';
     pcRenderStatus();
-    delete pcEntries[pcEditingDate];
-    fetch('/checklist/' + encodeURIComponent(pcEditingDate), { method: 'DELETE' }).catch(() => {});
+    const clearedDate = pcEditingDate;
+    const priorImages = (pcEntries[clearedDate] && Array.isArray(pcEntries[clearedDate].images)) ? pcEntries[clearedDate].images.slice() : [];
+    pcRenderImageGallery({});
+    delete pcEntries[clearedDate];
+    fetch('/checklist/' + encodeURIComponent(clearedDate), { method: 'DELETE' }).catch(() => {});
+    // The day's whole record is gone (checklist.json), but each attached
+    // image is its own file on disk under CHECKLIST_UPLOADS_DIR -- delete
+    // them individually too so nothing lingers as an orphan.
+    priorImages.forEach(img => {
+      fetch('/checklist/' + encodeURIComponent(clearedDate) + '/image/' + encodeURIComponent(img.filename), { method: 'DELETE' }).catch(() => {});
+    });
   }
   // ---------------------------------------------------------------------
 
