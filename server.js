@@ -82,6 +82,43 @@ try {
   console.error('Could not read checklist.json, starting fresh:', e.message);
 }
 
+// v11: checklist entries are now keyed by DATE + SYMBOL (composite key
+// "<date>::<SYMBOLKEY>"), not date alone -- so more than one symbol can be
+// saved on the same calendar day instead of the second save overwriting the
+// first. Older checklist.json files have entries keyed by date only;
+// migrate those in place on startup using whatever was already in that
+// entry's own `symbol` field (or a generic "no symbol" bucket if it was
+// blank). Nothing is lost, this just re-keys existing records once.
+function checklistSymbolKey(rawSymbol) {
+  const s = (rawSymbol || '').toString().trim().toUpperCase();
+  return s || '_BLANK_';
+}
+function checklistCompositeKey(date, symbolKey) {
+  return date + '::' + symbolKey;
+}
+function migrateLegacyChecklistEntries() {
+  let migrated = false;
+  const next = {};
+  Object.keys(checklistEntries).forEach((key) => {
+    const entry = checklistEntries[key] || {};
+    if (key.indexOf('::') !== -1) {
+      // Already a composite date+symbol key -- keep as-is.
+      next[key] = entry;
+      return;
+    }
+    const date = entry.date || key;
+    const symbolKey = checklistSymbolKey(entry.symbol);
+    next[checklistCompositeKey(date, symbolKey)] = Object.assign({}, entry, { date });
+    migrated = true;
+  });
+  checklistEntries = next;
+  if (migrated) {
+    console.log('Migrated legacy (date-only) checklist entries to date+symbol keys.');
+    saveChecklist();
+  }
+}
+migrateLegacyChecklistEntries();
+
 function saveJournal() {
   try {
     fs.writeFileSync(JOURNAL_FILE, JSON.stringify(journalEntries, null, 2));
@@ -390,35 +427,68 @@ app.delete('/rules/:date', (req, res) => {
 });
 
 // ============================================================================
-// Checklist routes — same date-keyed upsert pattern as /rules.
-// GET    /checklist        -> array of all entries
-// PUT    /checklist/:date   -> upsert one day, body is { date, time, symbol, items: { <id>: {<field>: bool|string, ...} } }
-// DELETE /checklist/:date   -> remove one day (used by the "Clear day" button)
+// Checklist routes — v11: keyed by DATE + SYMBOL, not date alone, so more
+// than one symbol can have its own checklist entry on the same calendar day.
+// GET    /checklist                    -> array of ALL entries, every date+symbol
+// PUT    /checklist/:date/:symbol       -> upsert one entry, body is { date, time, symbol, items: {...} }
+// DELETE /checklist/:date/:symbol       -> remove one entry (used by "Clear entry")
+//
+// :symbol in the URL is either an encoded, uppercased symbol (e.g. "MES1%21")
+// or the literal "_none_" placeholder for an entry with a blank Symbol field
+// -- URL segments can't be truly empty, so the frontend sends that literal
+// and the server maps it back to the same "_BLANK_" bucket the migration
+// above uses. The `symbol` field actually saved/returned is whatever display
+// text the frontend sent (original casing), independent of the URL key.
 //
 // v4: items are no longer a fixed {checked, note} shape -- the frontend now has
-// 5 different item field layouts (plain checkbox; a 5-box entry/stop/target/
-// size/risk row; a risk-limit + stop-structure-type combo; a direction
-// pulldown + confluence checkboxes; a plain checkbox group), each with its
-// own field keys. Rather than whitelist every field name here (which would
-// need updating every time the checklist's fields change), each item is
-// passed through as-is except every field VALUE is coerced to either a bool
-// or a string -- so a checkbox always saves as true/false and a text/select
-// field always saves as a string, regardless of what field keys exist this
-// round, while still rejecting anything that isn't plain JSON data (no
-// functions, no nested objects/arrays sneaking into the saved file).
+// several different item field layouts (plain checkbox; a boxes row; a
+// risk-limit + stop-structure-type combo; a direction pulldown + confluence
+// checkboxes; a plain checkbox group). Rather than whitelist every field name
+// here (which would need updating every time the checklist's fields change),
+// each item is passed through as-is except every field VALUE is coerced to
+// either a bool or a string -- so a checkbox always saves as true/false and a
+// text/select field always saves as a string, regardless of what field keys
+// exist this round, while still rejecting anything that isn't plain JSON
+// data (no functions, no nested objects/arrays sneaking into the saved file).
 // ============================================================================
+const CHECKLIST_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// A URL symbol segment is either the literal "_none_" (blank symbol) or an
+// encoded token made only of the characters a real symbol could produce
+// once uppercased/trimmed client-side -- blocks anything path-traversal-ish
+// from riding in on this segment before it ever reaches checklistSymbolKey.
+function parseChecklistSymbolParam(raw) {
+  if (raw === '_none_') return '_BLANK_';
+  let decoded;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch (e) {
+    return null;
+  }
+  const key = checklistSymbolKey(decoded);
+  if (!/^[A-Z0-9!._-]{1,20}$/.test(key)) return null;
+  return key;
+}
+
 app.get('/checklist', (req, res) => {
   res.json(Object.values(checklistEntries));
 });
 
-app.put('/checklist/:date', (req, res) => {
+app.put('/checklist/:date/:symbol', (req, res) => {
+  const date = req.params.date;
+  if (!CHECKLIST_DATE_RE.test(date)) {
+    return res.status(400).send('Invalid date, expected YYYY-MM-DD');
+  }
+  const symbolKey = parseChecklistSymbolParam(req.params.symbol);
+  if (!symbolKey) {
+    return res.status(400).send('Invalid symbol');
+  }
   let body;
   try {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
   } catch (e) {
     return res.status(400).send('Body is not valid JSON: ' + e.message);
   }
-  const date = req.params.date;
   const items = (body.items && typeof body.items === 'object') ? body.items : {};
   const cleanItems = {};
   Object.keys(items).forEach((id) => {
@@ -430,38 +500,49 @@ app.put('/checklist/:date', (req, res) => {
     });
     cleanItems[id] = cleanFields;
   });
-  // v4: two day-level fields (Time, Symbol) sit alongside the items, not
-  // inside any one of them -- same string coercion as the item fields above.
   const time = body.time === null || body.time === undefined ? '' : String(body.time);
   const symbol = body.symbol === null || body.symbol === undefined ? '' : String(body.symbol);
-  const entry = { date, time, symbol, items: cleanItems };
-  checklistEntries[date] = entry;
+  // Keep whatever images were already attached to this date+symbol entry --
+  // this route only ever touches time/symbol/items, images are managed by
+  // the routes below.
+  const compositeKey = checklistCompositeKey(date, symbolKey);
+  const priorImages = (checklistEntries[compositeKey] && Array.isArray(checklistEntries[compositeKey].images))
+    ? checklistEntries[compositeKey].images : [];
+  const entry = { date, time, symbol, items: cleanItems, images: priorImages };
+  checklistEntries[compositeKey] = entry;
   saveChecklist();
   res.json(entry);
 });
 
-app.delete('/checklist/:date', (req, res) => {
-  delete checklistEntries[req.params.date];
+app.delete('/checklist/:date/:symbol', (req, res) => {
+  const date = req.params.date;
+  const symbolKey = parseChecklistSymbolParam(req.params.symbol);
+  if (!CHECKLIST_DATE_RE.test(date) || !symbolKey) {
+    return res.status(400).send('Invalid date or symbol');
+  }
+  delete checklistEntries[checklistCompositeKey(date, symbolKey)];
   saveChecklist();
   res.status(200).send('Deleted');
 });
 
 // ============================================================================
-// Checklist attached-image routes — MULTIPLE images per day, each stored as
-// its own file on disk (not inside checklist.json, which just holds an
-// `images` array of {filename, url, name, uploadedAt} references) so the
-// JSON store stays small and fast to read/write.
+// Checklist attached-image routes — MULTIPLE images per date+symbol entry,
+// each stored as its own file on disk (not inside checklist.json, which just
+// holds an `images` array of {filename, url, name, uploadedAt} references)
+// so the JSON store stays small and fast to read/write.
 //
 // v7: filenames are date+time+original-name based, e.g.
 //   2026-09-18_14-32-05-a1b2_entry-screenshot.jpg
+// v11: filenames also fold in the symbol, e.g.
+//   2026-09-18_MES1!_14-32-05-a1b2_entry-screenshot.jpg
 // so every upload gets its own file (nothing overwrites a prior attach) and
-// the filename itself is human-readable in a folder listing. The random
-// 4-char tag guards against two uploads landing in the same second.
+// the filename itself is human-readable in a folder listing, including
+// which symbol it belongs to. The random 4-char tag guards against two
+// uploads landing in the same second.
 //
-// POST   /checklist/:date/image             -> body { dataUrl, originalName? } ; appends one image, returns updated entry
-// DELETE /checklist/:date/image/:filename   -> removes one image by filename, returns updated entry
+// POST   /checklist/:date/:symbol/image             -> body { dataUrl, originalName? } ; appends one image, returns updated entry
+// DELETE /checklist/:date/:symbol/image/:filename   -> removes one image by filename, returns updated entry
 // ============================================================================
-const CHECKLIST_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Only allow a small known set of image mime types through, and map each to
 // a fixed extension.
@@ -484,31 +565,31 @@ function sanitizeImageBaseName(name) {
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
-// Builds a unique, sortable, human-readable filename: date + time + a short
-// random tag (collision guard) + the sanitized original name + extension.
-function buildChecklistImageFilename(date, ext, originalName) {
+// Builds a unique, sortable, human-readable filename: date + symbol key +
+// time + a short random tag (collision guard) + the sanitized original name
+// + extension.
+function buildChecklistImageFilename(date, symbolKey, ext, originalName) {
   const now = new Date();
   const timePart = `${pad2(now.getHours())}-${pad2(now.getMinutes())}-${pad2(now.getSeconds())}`;
   const rand = Math.random().toString(36).slice(2, 6);
   const base = sanitizeImageBaseName(originalName);
-  return `${date}_${timePart}-${rand}_${base}.${ext}`;
+  const safeSymbol = symbolKey.replace(/[^A-Z0-9!._-]/g, '') || 'SYM';
+  return `${date}_${safeSymbol}_${timePart}-${rand}_${base}.${ext}`;
 }
 
 // A filename supplied back to us for deletion must exactly match this shape
 // (same charset buildChecklistImageFilename produces) before it's allowed
 // anywhere near the filesystem -- blocks path traversal / arbitrary unlink.
-const CHECKLIST_IMAGE_FILENAME_RE = /^[a-zA-Z0-9_-]+\.(jpg|png|webp|gif)$/;
+const CHECKLIST_IMAGE_FILENAME_RE = /^[a-zA-Z0-9!._-]+\.(jpg|png|webp|gif)$/;
 
-function checklistImagesArray(date) {
-  const existing = checklistEntries[date];
-  if (existing && Array.isArray(existing.images)) return existing.images;
-  return [];
-}
-
-app.post('/checklist/:date/image', (req, res) => {
+app.post('/checklist/:date/:symbol/image', (req, res) => {
   const date = req.params.date;
   if (!CHECKLIST_DATE_RE.test(date)) {
     return res.status(400).send('Invalid date, expected YYYY-MM-DD');
+  }
+  const symbolKey = parseChecklistSymbolParam(req.params.symbol);
+  if (!symbolKey) {
+    return res.status(400).send('Invalid symbol');
   }
   let body;
   try {
@@ -536,7 +617,7 @@ app.post('/checklist/:date/image', (req, res) => {
     return res.status(400).send('Decoded image is empty');
   }
 
-  const filename = buildChecklistImageFilename(date, ext, body.originalName);
+  const filename = buildChecklistImageFilename(date, symbolKey, ext, body.originalName);
   const filePath = path.join(CHECKLIST_UPLOADS_DIR, filename);
   try {
     fs.writeFileSync(filePath, buffer);
@@ -545,7 +626,9 @@ app.post('/checklist/:date/image', (req, res) => {
     return res.status(500).send('Could not save image: ' + e.message);
   }
 
-  const existing = checklistEntries[date] || { date, time: '', symbol: '', items: {} };
+  const compositeKey = checklistCompositeKey(date, symbolKey);
+  const bodySymbol = body.symbol === null || body.symbol === undefined ? '' : String(body.symbol);
+  const existing = checklistEntries[compositeKey] || { date, time: '', symbol: bodySymbol, items: {} };
   if (!Array.isArray(existing.images)) existing.images = [];
   // Drop the old single-image field from a pre-v7 entry, if present.
   if (existing.image) delete existing.image;
@@ -555,16 +638,17 @@ app.post('/checklist/:date/image', (req, res) => {
     name: (body.originalName ? String(body.originalName) : filename),
     uploadedAt: new Date().toISOString(),
   });
-  checklistEntries[date] = existing;
+  checklistEntries[compositeKey] = existing;
   saveChecklist();
   res.json(existing);
 });
 
-app.delete('/checklist/:date/image/:filename', (req, res) => {
+app.delete('/checklist/:date/:symbol/image/:filename', (req, res) => {
   const date = req.params.date;
   const filename = req.params.filename;
-  if (!CHECKLIST_DATE_RE.test(date)) {
-    return res.status(400).send('Invalid date, expected YYYY-MM-DD');
+  const symbolKey = parseChecklistSymbolParam(req.params.symbol);
+  if (!CHECKLIST_DATE_RE.test(date) || !symbolKey) {
+    return res.status(400).send('Invalid date or symbol');
   }
   if (!CHECKLIST_IMAGE_FILENAME_RE.test(filename)) {
     return res.status(400).send('Invalid image filename');
@@ -575,12 +659,13 @@ app.delete('/checklist/:date/image/:filename', (req, res) => {
   } catch (e) {
     console.error('Could not remove checklist image', filePath, e.message);
   }
-  const existing = checklistEntries[date];
+  const compositeKey = checklistCompositeKey(date, symbolKey);
+  const existing = checklistEntries[compositeKey];
   if (existing && Array.isArray(existing.images)) {
     existing.images = existing.images.filter((img) => img.filename !== filename);
     saveChecklist();
   }
-  res.json(existing || { date, time: '', symbol: '', items: {}, images: [] });
+  res.json(existing || { date, symbol: '', time: '', items: {}, images: [] });
 });
 
 // ============================================================================
