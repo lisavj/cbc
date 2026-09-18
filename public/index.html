@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v2 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v4 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance. -->
@@ -1235,36 +1235,66 @@
   .rl-summary.rl-neutral { background: var(--panel); border: 1px solid var(--panel-border); color: var(--muted); }
 
   /* Pre-Trade Checklist — saved per calendar day like the Rules tab (same
-     date-nav + autosave + explicit Save pattern), styled as a stack of
-     bordered item cards to match the Autopsy form's look rather than a
-     dense table. */
+     date-nav + autosave + explicit Save pattern). v4: mixed field types per
+     item (plain checkbox, a 5-box entry/stop/target/size/risk row, a
+     combined risk-limit + stop-structure block, a direction pulldown +
+     confluence checkboxes, and plain checkbox groups) instead of one
+     uniform row shape. .pc-item.simple is the single-line flex layout for
+     plain checkbox items; .pc-item.complex is a block layout with a header
+     row (.pc-item-head) followed by whatever field markup that item needs. */
   .pc-section { }
   .pc-note { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 4px 0 14px; }
   .pc-item {
     border: 1px solid var(--panel-border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 8px;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
   }
+  .pc-item.simple { display: flex; align-items: center; gap: 10px; }
   .pc-item.pc-checked { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.06); }
-  .pc-item-row { display: flex; align-items: flex-start; gap: 12px; }
-  .pc-item-num { color: var(--jr-red); font-weight: 700; font-family: var(--mono); font-size: 12px; padding-top: 2px; }
-  .pc-item-text { flex: 1; color: var(--text); font-size: 13.5px; line-height: 1.45; padding-top: 1px; }
-  .pc-item-check { display: flex; align-items: center; padding-top: 1px; }
+  .pc-item-num { color: var(--jr-red); font-weight: 700; font-family: var(--mono); font-size: 12px; flex-shrink: 0; }
+  .pc-item-text { flex: 1; color: var(--text); font-size: 13.5px; line-height: 1.4; }
+  .pc-item-check { display: flex; align-items: center; flex-shrink: 0; }
   .pc-item-check input[type="checkbox"] { width: 19px; height: 19px; cursor: pointer; accent-color: var(--jr-green); }
-  .pc-note-line {
+
+  .pc-item.complex .pc-item-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .pc-sub-block { margin: 10px 0 0 22px; }
+  .pc-sub-block-label { color: var(--muted); font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+  .pc-split { border: none; border-top: 1px dashed var(--panel-border); margin: 12px 0 0 22px; }
+
+  .pc-box-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-left: 22px; }
+  .pc-box-field label { display: block; color: var(--muted); font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
+  .pc-box-field input {
     width: 100%;
     background: var(--panel);
     border: 1px solid var(--panel-border);
-    border-radius: 6px;
+    border-radius: 5px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 6px 7px;
+  }
+  .pc-box-field input:focus { outline: none; border-color: var(--accent); }
+  .pc-box-field input::placeholder { color: var(--muted); font-size: 10.5px; }
+
+  .pc-select-row { display: flex; align-items: center; gap: 10px; margin-left: 22px; margin-bottom: 10px; }
+  .pc-select-row label { font-size: 12.5px; color: var(--text); white-space: nowrap; }
+  .pc-select-row select {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 5px;
     color: var(--text);
     font-family: var(--sans);
     font-size: 12.5px;
-    padding: 7px 10px;
-    margin-top: 8px;
+    padding: 6px 8px;
   }
-  .pc-note-line:focus { outline: none; border-color: var(--accent); }
-  .pc-note-line::placeholder { color: var(--muted); }
+  .pc-select-row select:focus { outline: none; border-color: var(--accent); }
+
+  .pc-sub-checks { display: flex; gap: 18px; margin-left: 22px; flex-wrap: wrap; }
+  .pc-sub-checks.grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 18px; }
+  .pc-sub-check { display: flex; align-items: center; gap: 6px; }
+  .pc-sub-check input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--jr-green); }
+  .pc-sub-check label { font-size: 12.5px; color: var(--text); cursor: pointer; }
   .pc-howto {
     background: var(--panel);
     border: 1px solid var(--panel-border);
@@ -1822,7 +1852,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v2</footer>
+<footer>tv-webhook-dashboard · v4</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5512,39 +5542,155 @@
   // Saved per calendar day, same pattern as the Rules tab: fetched as a list
   // from GET /checklist, upserted one day at a time via PUT /checklist/<date>,
   // debounced autosave + explicit Save button, date nav with Prev/Next/Today.
-  // Item text is reproduced verbatim; each item has a stable id (c1..c10) so
-  // saved answers don't shift if the list is ever reordered.
+  // v4: items are no longer all plain checkboxes -- 5 different field shapes
+  // now exist (a plain checkbox; a 5-box entry/stop/target/size/risk row; a
+  // combined risk-limit-checkbox + stop-structure-type-checkboxes block; a
+  // direction pulldown + confluence checkboxes; and a plain checkbox group).
+  // Every input in an item's markup carries a shared data-field="<key>"
+  // attribute, so read/write/completeness all go through one generic path
+  // keyed by item.type instead of 5 sets of near-duplicate functions.
   // ---------------------------------------------------------------------
   const PC_ITEMS = [
-    { id: 'c1', text: 'This setup is in my written trading plan for today' },
-    { id: 'c2', text: 'I can clearly identify my entry, stop, and target before I click' },
-    { id: 'c3', text: 'My risk on this trade is within my defined per-trade limit' },
-    { id: 'c4', text: 'I have at least 2 confluent reasons for this entry, not just one signal' },
-    { id: 'c5', text: 'I am not entering because of urgency, a recent loss, or FOMO' },
-    { id: 'c6', text: 'The market context supports this trade (trend, structure, and volume align)' },
-    { id: 'c7', text: 'I have not yet hit my daily trade limit or daily loss limit' },
-    { id: 'c8', text: 'My stop is a real structural level, not just a number that feels okay to lose' },
-    { id: 'c9', text: 'I ran the Pause Protocol and I am in a calm, deliberate state' },
-    { id: 'c10', text: 'I am fully prepared to accept the loss if this trade stops out' },
+    { id: 'c1', type: 'check', text: 'This setup is in my written trading plan for today' },
+    { id: 'c2', type: 'check', text: 'Have not hit DLL (daily loss limit) on any account today' },
+    { id: 'c3', type: 'boxes', text: 'Entry / Stop / Target / Size / Risk', fields: [
+      { key: 'entry', label: 'Entry' },
+      { key: 'stop', label: 'Stop' },
+      { key: 'target', label: 'Target' },
+      { key: 'size', label: 'Size' },
+      { key: 'risk', label: 'Risk', placeholder: '300 (default)' },
+    ] },
+    { id: 'c4', type: 'combo', text: 'Risk limit + stop structure',
+      subLabel1: 'Risk within limit',
+      check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
+      subLabel2: 'Stop is at a real structural level — which type?',
+      checks2: [
+        { key: 'priorDay', label: 'Prior Day High/Low' },
+        { key: 'swing', label: 'Swing High/Low' },
+        { key: 'pivot', label: 'Pivot Point' },
+        { key: 'orderBlock', label: 'Order Block' },
+      ] },
+    { id: 'c5', type: 'selectChecks', text: 'Confluences',
+      selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
+      checks: [
+        { key: 'emaCloud', label: 'EMA Cloud 3/15' },
+        { key: 'vwap', label: 'VWAP' },
+        { key: 'ema20', label: 'EMA20' },
+        { key: 'structureHtf', label: 'Structure HTF' },
+      ] },
+    { id: 'c6', type: 'checks', text: 'Not entering because of...', checks: [
+      { key: 'urgency', label: 'Urgency' },
+      { key: 'recentLoss', label: 'Recent loss' },
+      { key: 'fomo', label: 'FOMO' },
+    ] },
+    { id: 'c7', type: 'checks', text: 'Market context supports this trade', checks: [
+      { key: 'trend', label: 'Trend aligned' },
+      { key: 'structure', label: 'Structure aligned' },
+      { key: 'volume', label: 'Volume confirming' },
+    ] },
+    { id: 'c8', type: 'checks', text: 'Pause Protocol', checks: [
+      { key: 'ran', label: 'Ran Pause Protocol' },
+      { key: 'calm', label: 'Calm' },
+      { key: 'deliberate', label: 'Deliberate' },
+    ] },
+    { id: 'c9', type: 'check', text: 'I am fully prepared to accept the loss if this trade stops out' },
   ];
-  const PC_ALL_IDS = PC_ITEMS.map(q => q.id);
 
   let pcEntries = {};       // date string -> entry object
   let pcEditingDate = null; // the date currently loaded
   let pcSaveTimer = null;
 
-  function pcInit() {
-    document.getElementById('pcList').innerHTML = PC_ITEMS.map((q, i) => `
-      <div class="pc-item" data-pc="${q.id}">
-        <div class="pc-item-row">
-          <div class="pc-item-num">${i + 1}</div>
-          <div class="pc-item-text">${escapeHtml(q.text)}</div>
-          <div class="pc-item-check"><input type="checkbox" data-pcbox="${q.id}"></div>
+  function pcRenderItem(item, i) {
+    const num = i + 1;
+    if (item.type === 'check') {
+      return `<div class="pc-item simple" data-pc="${item.id}">
+        <div class="pc-item-num">${num}</div>
+        <div class="pc-item-text">${escapeHtml(item.text)}</div>
+        <div class="pc-item-check"><input type="checkbox" data-field="checked"></div>
+      </div>`;
+    }
+    if (item.type === 'boxes') {
+      const fields = item.fields.map(f => `
+        <div class="pc-box-field"><label>${escapeHtml(f.label)}</label><input type="text" data-field="${f.key}" placeholder="${escapeHtml(f.placeholder || '—')}"></div>
+      `).join('');
+      return `<div class="pc-item complex" data-pc="${item.id}">
+        <div class="pc-item-head"><div class="pc-item-num">${num}</div><div class="pc-item-text">${escapeHtml(item.text)}</div></div>
+        <div class="pc-box-grid">${fields}</div>
+      </div>`;
+    }
+    if (item.type === 'combo') {
+      const subChecks = item.checks2.map(c => `
+        <div class="pc-sub-check"><input type="checkbox" id="${item.id}-${c.key}" data-field="${c.key}"><label for="${item.id}-${c.key}">${escapeHtml(c.label)}</label></div>
+      `).join('');
+      return `<div class="pc-item complex" data-pc="${item.id}">
+        <div class="pc-item-head"><div class="pc-item-num">${num}</div><div class="pc-item-text">${escapeHtml(item.text)}</div></div>
+        <div class="pc-sub-block">
+          <div class="pc-sub-block-label">${escapeHtml(item.subLabel1)}</div>
+          <div class="pc-sub-checks"><div class="pc-sub-check"><input type="checkbox" id="${item.id}-${item.check1.key}" data-field="${item.check1.key}"><label for="${item.id}-${item.check1.key}">${escapeHtml(item.check1.label)}</label></div></div>
         </div>
-        <input type="text" class="pc-note-line" data-pcnote="${q.id}" maxlength="100" placeholder="Notes…">
-      </div>
-    `).join('');
-    PC_ALL_IDS.forEach(pcWireItem);
+        <hr class="pc-split">
+        <div class="pc-sub-block">
+          <div class="pc-sub-block-label">${escapeHtml(item.subLabel2)}</div>
+          <div class="pc-sub-checks grid2">${subChecks}</div>
+        </div>
+      </div>`;
+    }
+    if (item.type === 'selectChecks') {
+      const opts = item.selectOptions.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+      const checks = item.checks.map(c => `
+        <div class="pc-sub-check"><input type="checkbox" id="${item.id}-${c.key}" data-field="${c.key}"><label for="${item.id}-${c.key}">${escapeHtml(c.label)}</label></div>
+      `).join('');
+      return `<div class="pc-item complex" data-pc="${item.id}">
+        <div class="pc-item-head"><div class="pc-item-num">${num}</div><div class="pc-item-text">${escapeHtml(item.text)}</div></div>
+        <div class="pc-select-row"><label>${escapeHtml(item.selectLabel)}</label><select data-field="${item.selectKey}"><option value="">—</option>${opts}</select></div>
+        <div class="pc-sub-checks grid2">${checks}</div>
+      </div>`;
+    }
+    if (item.type === 'checks') {
+      const checks = item.checks.map(c => `
+        <div class="pc-sub-check"><input type="checkbox" id="${item.id}-${c.key}" data-field="${c.key}"><label for="${item.id}-${c.key}">${escapeHtml(c.label)}</label></div>
+      `).join('');
+      return `<div class="pc-item complex" data-pc="${item.id}">
+        <div class="pc-item-head"><div class="pc-item-num">${num}</div><div class="pc-item-text">${escapeHtml(item.text)}</div></div>
+        <div class="pc-sub-checks">${checks}</div>
+      </div>`;
+    }
+    return '';
+  }
+
+  function pcItemEl(item) {
+    return document.querySelector(`[data-pc="${item.id}"]`);
+  }
+
+  // Whether an item counts as "done" for the qualify/not-qualify summary —
+  // the rule differs per type (see each branch), all mapped back to the
+  // same "all clear = qualifies" idea the original single-checkbox items had.
+  function pcItemComplete(item, el) {
+    if (item.type === 'check') {
+      return !!el.querySelector('[data-field="checked"]').checked;
+    }
+    if (item.type === 'boxes') {
+      return item.fields.every(f => el.querySelector(`[data-field="${f.key}"]`).value.trim() !== '');
+    }
+    if (item.type === 'combo') {
+      const riskOk = el.querySelector(`[data-field="${item.check1.key}"]`).checked;
+      const anyStruct = item.checks2.some(c => el.querySelector(`[data-field="${c.key}"]`).checked);
+      return riskOk && anyStruct;
+    }
+    if (item.type === 'selectChecks') {
+      const dir = el.querySelector(`[data-field="${item.selectKey}"]`).value;
+      const anyCheck = item.checks.some(c => el.querySelector(`[data-field="${c.key}"]`).checked);
+      return !!dir && anyCheck;
+    }
+    if (item.type === 'checks') {
+      return item.checks.every(c => el.querySelector(`[data-field="${c.key}"]`).checked);
+    }
+    return false;
+  }
+
+  function pcInit() {
+    document.getElementById('pcList').innerHTML = PC_ITEMS.map((item, i) => pcRenderItem(item, i)).join('');
+    PC_ITEMS.forEach(pcWireItem);
 
     fetch('/checklist').then(r => r.json()).then(list => {
       pcEntries = {};
@@ -5560,16 +5706,16 @@
     document.getElementById('pcClearBtn').addEventListener('click', pcClearDay);
   }
 
-  function pcWireItem(id) {
-    const item = document.querySelector(`.pc-item[data-pc="${id}"]`);
-    const box = item.querySelector('input[data-pcbox]');
-    const note = item.querySelector('input[data-pcnote]');
-    box.addEventListener('change', () => { pcUpdateItemVisual(item); pcRenderStatus(); pcScheduleSave(); });
-    note.addEventListener('input', pcScheduleSave);
+  function pcWireItem(item) {
+    const el = pcItemEl(item);
+    el.querySelectorAll('[data-field]').forEach(inp => {
+      const ev = (inp.tagName === 'INPUT' && inp.type === 'text') ? 'input' : 'change';
+      inp.addEventListener(ev, () => { pcUpdateItemVisual(item, el); pcRenderStatus(); pcScheduleSave(); });
+    });
   }
 
-  function pcUpdateItemVisual(item) {
-    item.classList.toggle('pc-checked', item.querySelector('input[data-pcbox]').checked);
+  function pcUpdateItemVisual(item, el) {
+    el.classList.toggle('pc-checked', pcItemComplete(item, el));
   }
 
   function pcShiftDay(delta) {
@@ -5583,30 +5729,34 @@
     pcEditingDate = dateKey;
     document.getElementById('pcDate').value = dateKey;
     const entry = pcEntries[dateKey] || { date: dateKey, items: {} };
-    PC_ALL_IDS.forEach(id => {
-      const item = document.querySelector(`.pc-item[data-pc="${id}"]`);
-      const it = (entry.items && entry.items[id]) || {};
-      item.querySelector('input[data-pcbox]').checked = !!it.checked;
-      item.querySelector('input[data-pcnote]').value = it.note || '';
-      pcUpdateItemVisual(item);
+    PC_ITEMS.forEach(item => {
+      const el = pcItemEl(item);
+      const vals = (entry.items && entry.items[item.id]) || {};
+      el.querySelectorAll('[data-field]').forEach(inp => {
+        const key = inp.getAttribute('data-field');
+        if (inp.type === 'checkbox') inp.checked = !!vals[key];
+        else inp.value = vals[key] || '';
+      });
+      pcUpdateItemVisual(item, el);
     });
     document.getElementById('pcSaveStatus').classList.remove('show');
     pcRenderStatus();
   }
 
   function pcRenderStatus() {
-    const boxes = Array.from(document.querySelectorAll('#pcList input[data-pcbox]'));
-    const checkedCount = boxes.filter(b => b.checked).length;
+    const total = PC_ITEMS.length;
+    let completeCount = 0;
+    PC_ITEMS.forEach(item => { if (pcItemComplete(item, pcItemEl(item))) completeCount++; });
     const box = document.getElementById('pcStatus');
-    if (checkedCount === 0) {
+    if (completeCount === 0) {
       box.className = 'rl-summary rl-neutral';
-      box.textContent = `0 / ${boxes.length} checked.`;
-    } else if (checkedCount === boxes.length) {
+      box.textContent = `0 / ${total} checked.`;
+    } else if (completeCount === total) {
       box.className = 'rl-summary rl-ok';
-      box.textContent = `All ${boxes.length} checked — this trade qualifies.`;
+      box.textContent = `All ${total} checked — this trade qualifies.`;
     } else {
       box.className = 'rl-summary rl-warn';
-      box.textContent = `${checkedCount} / ${boxes.length} checked — this trade does not qualify yet.`;
+      box.textContent = `${completeCount} / ${total} checked — this trade does not qualify yet.`;
     }
   }
 
@@ -5620,12 +5770,20 @@
     if (!pcEditingDate) return;
     const items = {};
     let hasAny = false;
-    PC_ALL_IDS.forEach(id => {
-      const item = document.querySelector(`.pc-item[data-pc="${id}"]`);
-      const checked = item.querySelector('input[data-pcbox]').checked;
-      const note = item.querySelector('input[data-pcnote]').value;
-      if (checked || (note && note.trim())) hasAny = true;
-      items[id] = { checked, note };
+    PC_ITEMS.forEach(item => {
+      const el = pcItemEl(item);
+      const vals = {};
+      el.querySelectorAll('[data-field]').forEach(inp => {
+        const key = inp.getAttribute('data-field');
+        if (inp.type === 'checkbox') {
+          vals[key] = inp.checked;
+          if (inp.checked) hasAny = true;
+        } else {
+          vals[key] = inp.value;
+          if (inp.value.trim()) hasAny = true;
+        }
+      });
+      items[item.id] = vals;
     });
     const entry = { date: pcEditingDate, items };
     // Nothing at all filled in for a brand-new day — don't create an empty record.
@@ -5642,9 +5800,11 @@
 
   function pcClearDay() {
     if (!confirm('Clear the checklist for this day? This cannot be undone.')) return;
-    document.querySelectorAll('#pcList input[data-pcbox]').forEach(b => { b.checked = false; });
-    document.querySelectorAll('#pcList input[data-pcnote]').forEach(n => { n.value = ''; });
-    document.querySelectorAll('#pcList .pc-item').forEach(r => r.classList.remove('pc-checked'));
+    PC_ITEMS.forEach(item => {
+      const el = pcItemEl(item);
+      el.querySelectorAll('[data-field]').forEach(inp => { if (inp.type === 'checkbox') inp.checked = false; else inp.value = ''; });
+      pcUpdateItemVisual(item, el);
+    });
     pcRenderStatus();
     delete pcEntries[pcEditingDate];
     fetch('/checklist/' + encodeURIComponent(pcEditingDate), { method: 'DELETE' }).catch(() => {});
