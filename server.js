@@ -43,6 +43,7 @@ try {
 // ============================================================================
 const JOURNAL_FILE = path.join(DATA_DIR, 'journal.json');
 const RULES_FILE = path.join(DATA_DIR, 'rules.json');
+const CHECKLIST_FILE = path.join(DATA_DIR, 'checklist.json');
 
 let journalEntries = {};
 try {
@@ -62,6 +63,15 @@ try {
   console.error('Could not read rules.json, starting fresh:', e.message);
 }
 
+let checklistEntries = {};
+try {
+  if (fs.existsSync(CHECKLIST_FILE)) {
+    checklistEntries = JSON.parse(fs.readFileSync(CHECKLIST_FILE, 'utf8'));
+  }
+} catch (e) {
+  console.error('Could not read checklist.json, starting fresh:', e.message);
+}
+
 function saveJournal() {
   try {
     fs.writeFileSync(JOURNAL_FILE, JSON.stringify(journalEntries, null, 2));
@@ -75,6 +85,14 @@ function saveRules() {
     fs.writeFileSync(RULES_FILE, JSON.stringify(rulesEntries, null, 2));
   } catch (e) {
     console.error('Could not write rules.json:', e.message);
+  }
+}
+
+function saveChecklist() {
+  try {
+    fs.writeFileSync(CHECKLIST_FILE, JSON.stringify(checklistEntries, null, 2));
+  } catch (e) {
+    console.error('Could not write checklist.json:', e.message);
   }
 }
 
@@ -352,6 +370,42 @@ app.put('/rules/:date', (req, res) => {
 app.delete('/rules/:date', (req, res) => {
   delete rulesEntries[req.params.date];
   saveRules();
+  res.status(200).send('Deleted');
+});
+
+// ============================================================================
+// Checklist routes — same date-keyed upsert pattern as /rules.
+// GET    /checklist        -> array of all entries
+// PUT    /checklist/:date   -> upsert one day, body is { date, items: { <id>: {checked, note} } }
+// DELETE /checklist/:date   -> remove one day (used by the "Clear day" button)
+// ============================================================================
+app.get('/checklist', (req, res) => {
+  res.json(Object.values(checklistEntries));
+});
+
+app.put('/checklist/:date', (req, res) => {
+  let body;
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+  } catch (e) {
+    return res.status(400).send('Body is not valid JSON: ' + e.message);
+  }
+  const date = req.params.date;
+  const items = (body.items && typeof body.items === 'object') ? body.items : {};
+  const cleanItems = {};
+  Object.keys(items).forEach((id) => {
+    const it = items[id] || {};
+    cleanItems[id] = { checked: !!it.checked, note: it.note || '' };
+  });
+  const entry = { date, items: cleanItems };
+  checklistEntries[date] = entry;
+  saveChecklist();
+  res.json(entry);
+});
+
+app.delete('/checklist/:date', (req, res) => {
+  delete checklistEntries[req.params.date];
+  saveChecklist();
   res.status(200).send('Deleted');
 });
 
