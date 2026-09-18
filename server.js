@@ -376,8 +376,20 @@ app.delete('/rules/:date', (req, res) => {
 // ============================================================================
 // Checklist routes — same date-keyed upsert pattern as /rules.
 // GET    /checklist        -> array of all entries
-// PUT    /checklist/:date   -> upsert one day, body is { date, items: { <id>: {checked, note} } }
+// PUT    /checklist/:date   -> upsert one day, body is { date, items: { <id>: {<field>: bool|string, ...} } }
 // DELETE /checklist/:date   -> remove one day (used by the "Clear day" button)
+//
+// v4: items are no longer a fixed {checked, note} shape -- the frontend now has
+// 5 different item field layouts (plain checkbox; a 5-box entry/stop/target/
+// size/risk row; a risk-limit + stop-structure-type combo; a direction
+// pulldown + confluence checkboxes; a plain checkbox group), each with its
+// own field keys. Rather than whitelist every field name here (which would
+// need updating every time the checklist's fields change), each item is
+// passed through as-is except every field VALUE is coerced to either a bool
+// or a string -- so a checkbox always saves as true/false and a text/select
+// field always saves as a string, regardless of what field keys exist this
+// round, while still rejecting anything that isn't plain JSON data (no
+// functions, no nested objects/arrays sneaking into the saved file).
 // ============================================================================
 app.get('/checklist', (req, res) => {
   res.json(Object.values(checklistEntries));
@@ -395,7 +407,12 @@ app.put('/checklist/:date', (req, res) => {
   const cleanItems = {};
   Object.keys(items).forEach((id) => {
     const it = items[id] || {};
-    cleanItems[id] = { checked: !!it.checked, note: it.note || '' };
+    const cleanFields = {};
+    Object.keys(it).forEach((key) => {
+      const val = it[key];
+      cleanFields[key] = typeof val === 'boolean' ? val : (val === null || val === undefined ? '' : String(val));
+    });
+    cleanItems[id] = cleanFields;
   });
   const entry = { date, items: cleanItems };
   checklistEntries[date] = entry;
