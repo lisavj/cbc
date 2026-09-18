@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v7 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v8 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -11,7 +11,14 @@
      row of chips below the toolbar, each with its own "view in new tab" link and remove
      button. The file picker now accepts multiple files at once. Requires the matching
      server.js from this same round (images are now an array per day, new DELETE route
-     shape is /checklist/:date/image/:filename). -->
+     shape is /checklist/:date/image/:filename).
+     v8: Checklist item 5 (Confluences) now has two separate checkboxes -- "CBC LTF" and
+     "CBC HTF" -- alongside the existing EMA Cloud 3/15 / VWAP / EMA20 / Structure HTF
+     checks and the HTF CBC Direction dropdown. Old items 1 and 2 ("in my written trading
+     plan" / "have not hit DLL") are now combined into a single row, item 1, titled "Plan
+     & risk limit check" with both as side-by-side checkboxes -- everything after has
+     shifted up one number accordingly. Frontend-only change, no server.js update needed
+     for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1913,7 +1920,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v7</footer>
+<footer>tv-webhook-dashboard · v8</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5616,8 +5623,10 @@
   // keyed by item.type instead of 5 sets of near-duplicate functions.
   // ---------------------------------------------------------------------
   const PC_ITEMS = [
-    { id: 'c1', type: 'check', text: 'This setup is in my written trading plan for today' },
-    { id: 'c2', type: 'check', text: 'Have not hit DLL (daily loss limit) on any account today' },
+    { id: 'c1', type: 'checks', text: 'Plan & risk limit check', checks: [
+      { key: 'inPlan', label: 'This setup is in my written trading plan for today' },
+      { key: 'noDll', label: 'Have not hit DLL (daily loss limit) on any account today' },
+    ] },
     { id: 'c3', type: 'boxes', text: 'Entry / Stop / Target / Size / Risk', fields: [
       { key: 'entry', label: 'Entry' },
       { key: 'stop', label: 'Stop' },
@@ -5645,6 +5654,8 @@
     { id: 'c5', type: 'selectChecks', text: 'Confluences',
       selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
       checks: [
+        { key: 'cbcLtf', label: 'CBC LTF' },
+        { key: 'cbcHtf', label: 'CBC HTF' },
         { key: 'emaCloud', label: 'EMA Cloud 3/15' },
         { key: 'vwap', label: 'VWAP' },
         { key: 'ema20', label: 'EMA20' },
