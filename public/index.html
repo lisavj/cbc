@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v15 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v17 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -68,7 +68,24 @@
      v15: Swapped items 6 and 8 -- "I am fully prepared to accept the loss if this trade
      stops out" is now item 6, "Not entering because of..." is now item 8. Underlying ids
      unchanged, so previously saved answers still load correctly in their new positions.
-     Frontend-only change, no server.js update needed for this one. -->
+     Frontend-only change, no server.js update needed for this one.
+     v16: Three changes. (1) Item 3 (Entry/Stop/Target/Size/Risk) -- its "Order 2" and
+     "Order 3" optional rows were missing Size and Risk boxes (only had Entry/Stop/Target);
+     both rows now match the main row with all five fields, and the extra-row grid widened
+     from 3 to 5 columns to fit them. (2) Symbol picker simplified -- removed the
+     always-visible "e.g. MES1!" text box next to the Symbol dropdown; picking
+     "+ New Symbol…" now pops a small prompt to type the symbol instead. Default order
+     unchanged (MGC, MES, MNQ, M2K, MCL, then "+ New Symbol…" last). (3) New item inserted
+     between item 3 and item 4 (Confluences) -- a duplicate of the "Risk limit + stop
+     structure" item, titled "Take Profit", so the same stop-type structural checklist can
+     be filled out for the take-profit level too. It's its own item (id c10) with its own
+     saved answers, independent of item 3's. Frontend-only change, no server.js update
+     needed for this one.
+     v17: Reordered items 3-5 -- Confluences is now item 3, "Risk limit + stop structure"
+     is now item 4, Take Profit is now item 5 (previously: Risk limit + stop structure,
+     Take Profit, Confluences in that order). Underlying ids unchanged, so previously saved
+     answers still load correctly in their new positions. Frontend-only change, no server.js
+     update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1334,9 +1351,9 @@
   /* Optional Order 2 / Order 3 rows under item 3 -- own 3-column grid (just
      Entry/Stop/Target, no Size/Risk box) and a dashed top border + label to
      read as clearly-optional extras rather than more of the required row. */
-  .pc-box-extra-row { margin: 12px 0 0 22px; padding-top: 10px; border-top: 1px dashed var(--panel-border); max-width: 420px; }
+  .pc-box-extra-row { margin: 12px 0 0 22px; padding-top: 10px; border-top: 1px dashed var(--panel-border); }
   .pc-box-extra-row .pc-sub-block-label { margin-left: 0; }
-  .pc-box-extra-row .pc-box-grid { grid-template-columns: repeat(3, 1fr); margin-left: 0; }
+  .pc-box-extra-row .pc-box-grid { grid-template-columns: repeat(5, 1fr); margin-left: 0; }
   .pc-box-field label { display: block; color: var(--muted); font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
   .pc-box-field input {
     width: 100%;
@@ -1426,7 +1443,6 @@
   }
   .pc-symbol-picker select:focus, .pc-symbol-picker input:focus { outline: none; border-color: var(--accent); }
   .pc-symbol-picker select { min-width: 130px; }
-  .pc-symbol-picker input#pcSymbolNewInput { width: 100px; }
 
   .pc-image-field { display: flex; align-items: center; gap: 8px; }
   .pc-image-field input[type="file"] { display: none; }
@@ -1919,9 +1935,6 @@
         <div class="pc-symbol-picker">
           <label for="pcSymbolSelect">Symbol</label>
           <select id="pcSymbolSelect"></select>
-          <span id="pcSymbolNewWrap" class="pc-symbol-new-wrap" style="display:none;">
-            <input type="text" id="pcSymbolNewInput" placeholder="e.g. MES1!" maxlength="20">
-          </span>
         </div>
         <div class="pc-image-field">
           <input type="file" id="pcImageInput" accept="image/*" multiple>
@@ -2044,7 +2057,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v15</footer>
+<footer>tv-webhook-dashboard · v17</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5851,22 +5864,38 @@
       { key: 'size', label: 'Size' },
       { key: 'risk', label: 'Risk', placeholder: '300 (default)' },
     ],
-      // Two extra optional rows for scaling into more than one order --
-      // Entry/Stop/Target only (no separate Size/Risk box per row), since
-      // these are additional orders off the same overall trade plan above.
-      // Not required for the item to count as "complete" -- only the main
-      // row above is required, these are blank unless you're using them.
+      // Two extra optional rows for scaling into more than one order, each
+      // with its own full Entry/Stop/Target/Size/Risk set (matching the
+      // main row above) since a second or third order can carry its own
+      // size and risk rather than sharing the first order's. Not required
+      // for the item to count as "complete" -- only the main row above is
+      // required, these are blank unless you're using them.
       extraRows: [
         { label: 'Order 2 (optional)', fields: [
           { key: 'entry2', label: 'Entry' },
           { key: 'stop2', label: 'Stop' },
           { key: 'target2', label: 'Target' },
+          { key: 'size2', label: 'Size' },
+          { key: 'risk2', label: 'Risk', placeholder: '300 (default)' },
         ] },
         { label: 'Order 3 (optional)', fields: [
           { key: 'entry3', label: 'Entry' },
           { key: 'stop3', label: 'Stop' },
           { key: 'target3', label: 'Target' },
+          { key: 'size3', label: 'Size' },
+          { key: 'risk3', label: 'Risk', placeholder: '300 (default)' },
         ] },
+      ] },
+    { id: 'c5', type: 'selectChecks', text: 'Confluences',
+      selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
+      checks: [
+        { key: 'cbcLtf', label: 'CBC LTF' },
+        { key: 'cbcHtf', label: 'CBC HTF' },
+        { key: 'emaCloudLtf', label: 'EMA Cloud LTF' },
+        { key: 'emaCloudHtf', label: 'EMA Cloud HTF' },
+        { key: 'vwap', label: 'VWAP' },
+        { key: 'ema20', label: 'EMA20' },
+        { key: 'structureHtf', label: 'Structure HTF' },
       ] },
     { id: 'c4', type: 'combo', text: 'Risk limit + stop structure',
       subLabel1: 'Risk within limit',
@@ -5886,16 +5915,23 @@
         { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
         { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
       ] },
-    { id: 'c5', type: 'selectChecks', text: 'Confluences',
-      selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
-      checks: [
-        { key: 'cbcLtf', label: 'CBC LTF' },
-        { key: 'cbcHtf', label: 'CBC HTF' },
-        { key: 'emaCloudLtf', label: 'EMA Cloud LTF' },
-        { key: 'emaCloudHtf', label: 'EMA Cloud HTF' },
-        { key: 'vwap', label: 'VWAP' },
-        { key: 'ema20', label: 'EMA20' },
-        { key: 'structureHtf', label: 'Structure HTF' },
+    { id: 'c10', type: 'combo', text: 'Take Profit',
+      subLabel1: 'Risk within limit',
+      check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
+      subLabel2: 'Stop is at a real structural level — which type?',
+      checks2: [
+        { key: 'priorDay', label: 'Prior Day High/Low' },
+        { key: 'swing', label: 'Swing High/Low' },
+        { key: 'equalHighsLows', label: 'Equal Highs/Lows', select: { key: 'equalHighsLowsSide', options: ['High', 'Low'] }, priceField: { key: 'equalHighsLowsPrice', placeholder: 'Price' } },
+        { key: 'pivot', label: 'Pivot Point', select: { key: 'pivotLevel', options: ['S1', 'S2', 'S3', 'R1', 'R2', 'R3'] } },
+        { key: 'orderBlock', label: 'Order Block' },
+        { key: 'premarket', label: 'Premarket', select: { key: 'premarketSide', options: ['High', 'Low'] } },
+        { key: 'nyOrb', label: 'NY ORB', select: { key: 'nyOrbSide', options: ['High', 'Low'] } },
+        { key: 'londonOrb', label: 'London ORB', select: { key: 'londonOrbSide', options: ['High', 'Low'] } },
+        { key: 'asiaOrb', label: 'Asia ORB', select: { key: 'asiaOrbSide', options: ['High', 'Low'] } },
+        { key: 'nySession', label: 'NY Session', select: { key: 'nySessionSide', options: ['High', 'Low'] } },
+        { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
+        { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
       ] },
     { id: 'c7', type: 'checks', text: 'Market context supports this trade', checks: [
       { key: 'trend', label: 'Trend aligned' },
@@ -6081,30 +6117,33 @@
     document.getElementById('pcClearBtn').addEventListener('click', pcClearEntry);
     document.getElementById('pcTime').addEventListener('input', pcScheduleSave);
     document.getElementById('pcSymbolSelect').addEventListener('change', pcHandleSymbolSelectChange);
-    document.getElementById('pcSymbolNewInput').addEventListener('input', pcScheduleSave);
     document.getElementById('pcImageInput').addEventListener('change', pcHandleImagePick);
   }
 
-  // ---- Symbol picker: dropdown of every symbol already saved for the
-  // selected date, plus a "+ New symbol…" option that reveals a text box.
-  // See pcOpenDateSymbol/pcLoadEntryForSymbolKey/pcHandleSymbolSelectChange
-  // for how switching it drives what's loaded into the form below. ----
-  // Always-available quick-pick symbols -- shown in the picker for every
-  // date whether or not a checklist has actually been saved for them yet,
-  // so the common ones are always one click away instead of having to be
-  // typed fresh through "+ Add entry" every time.
+  // ---- Symbol picker: a dropdown of MGC/MES/MNQ/M2K/MCL (always available,
+  // whether or not a checklist has actually been saved under them yet) plus
+  // whatever else has been saved for the selected date, with "+ New
+  // Symbol…" last. Picking "+ New Symbol…" prompts for the symbol right
+  // there instead of showing a separate always-visible text box next to the
+  // dropdown. See pcOpenDateSymbol/pcLoadEntryForSymbolKey/
+  // pcHandleSymbolSelectChange for how switching it drives the form below. ----
   const PC_DEFAULT_SYMBOLS = ['MGC', 'MES', 'MNQ', 'M2K', 'MCL'];
 
-  function pcPopulateSymbolPicker(date, preferredSymbolKey) {
+  // `extra` (optional {key, display}) is a not-yet-saved symbol to include
+  // in the list anyway -- used right after "+ New Symbol…" so the symbol
+  // just typed into the prompt stays selectable/visible even before its
+  // first autosave lands.
+  function pcPopulateSymbolPicker(date, preferredSymbolKey, extra) {
     const entries = pcEntriesForDate(date);
     // Build symbolKey -> display text, defaults first (so they always sort
-    // first and in this order), then whatever's actually been saved for
-    // this date layered on top (a saved entry's own casing/text wins, and
-    // this is also how a saved blank-symbol entry or a non-default symbol
-    // gets included).
+    // first, in this order), then whatever's actually been saved for this
+    // date layered on top (a saved entry's own casing/text wins, and this
+    // is also how a saved blank-symbol entry or a non-default symbol gets
+    // included), then any not-yet-saved `extra` symbol last.
     const bySymbolKey = {};
     PC_DEFAULT_SYMBOLS.forEach(s => { bySymbolKey[pcSymbolKey(s)] = s; });
     entries.forEach(e => { bySymbolKey[pcSymbolKey(e.symbol)] = (e.symbol && e.symbol.trim()) ? e.symbol : '(no symbol)'; });
+    if (extra && extra.key) bySymbolKey[extra.key] = extra.display || extra.key;
     const defaultKeys = PC_DEFAULT_SYMBOLS.map(pcSymbolKey);
     const keys = Object.keys(bySymbolKey).sort((a, b) => {
       const ai = defaultKeys.indexOf(a), bi = defaultKeys.indexOf(b);
@@ -6113,7 +6152,7 @@
     });
     const sel = document.getElementById('pcSymbolSelect');
     let options = keys.map(key => `<option value="${escapeHtml(key)}">${escapeHtml(bySymbolKey[key])}</option>`).join('');
-    options += `<option value="__new__">+ Add entry…</option>`;
+    options += `<option value="__new__">+ New Symbol…</option>`;
     sel.innerHTML = options;
     const hasPreferred = preferredSymbolKey && keys.includes(preferredSymbolKey);
     const target = hasPreferred ? preferredSymbolKey : (keys[0] || '__new__');
@@ -6127,49 +6166,43 @@
     return opt ? opt.textContent : '';
   }
 
-  function pcSyncSymbolModeUI() {
-    const sel = document.getElementById('pcSymbolSelect');
-    document.getElementById('pcSymbolNewWrap').style.display = sel.value === '__new__' ? '' : 'none';
-  }
-
   function pcHandleSymbolSelectChange(e) {
-    pcFlushSave(); // flush whatever was being edited under the PREVIOUS symbol first
-    const val = e.target.value;
-    if (val === '__new__') {
-      pcEditingSymbolKey = null;
-      pcEditingSymbolDisplay = '';
-      document.getElementById('pcSymbolNewInput').value = '';
-      pcSyncSymbolModeUI();
-      pcApplyEntryToForm({ date: pcEditingDate, symbol: '', time: jrNowTimeKey(), items: {}, images: [] });
-    } else {
-      pcSyncSymbolModeUI();
-      pcLoadEntryForSymbolKey(pcEditingDate, val, pcSelectedSymbolDisplayText());
+    if (e.target.value === '__new__') {
+      const typed = (prompt('Enter symbol (e.g. MES1!):', '') || '').trim();
+      if (!typed) {
+        // Cancelled or left blank -- put the dropdown back to whatever
+        // entry was actually loaded, nothing changes.
+        pcPopulateSymbolPicker(pcEditingDate, pcEditingSymbolKey);
+        return;
+      }
+      pcFlushSave(); // flush whatever was being edited under the PREVIOUS symbol first
+      const symbolKey = pcSymbolKey(typed);
+      pcEditingSymbolKey = symbolKey;
+      pcEditingSymbolDisplay = typed;
+      pcPopulateSymbolPicker(pcEditingDate, symbolKey, { key: symbolKey, display: typed });
+      pcApplyEntryToForm(pcEntries[pcCompositeKey(pcEditingDate, symbolKey)] || { date: pcEditingDate, symbol: typed, time: jrNowTimeKey(), items: {}, images: [] });
+      return;
     }
+    pcFlushSave(); // flush whatever was being edited under the PREVIOUS symbol first
+    pcLoadEntryForSymbolKey(pcEditingDate, e.target.value, pcSelectedSymbolDisplayText());
   }
 
-  // While in "+ New symbol" mode (pcEditingSymbolKey === null), the live
-  // text box is the only source of truth for what symbol is being edited --
-  // read from it directly rather than a stale tracked value.
-  function pcActiveSymbolKey() {
-    if (pcEditingSymbolKey !== null) return pcEditingSymbolKey;
-    return pcSymbolKey(document.getElementById('pcSymbolNewInput').value);
-  }
-  function pcActiveSymbolDisplay() {
-    if (pcEditingSymbolKey !== null) return pcEditingSymbolDisplay;
-    return document.getElementById('pcSymbolNewInput').value.trim();
-  }
+  // The symbol currently being edited is always tracked directly -- there's
+  // no separate "still typing, not committed yet" mode now that "+ New
+  // Symbol…" resolves immediately via prompt().
+  function pcActiveSymbolKey() { return pcEditingSymbolKey; }
+  function pcActiveSymbolDisplay() { return pcEditingSymbolDisplay; }
 
-  // Called after a successful save/image-upload that happened while still in
-  // "+ New symbol" mode -- transitions the picker over to show the
-  // now-real entry instead of the blank "+ New symbol…" text box.
+  // Called after a successful save/image-upload -- refreshes the shared
+  // cache and, for a symbol that was typed via "+ New Symbol…" and just
+  // got its first save, makes sure the picker still shows/selects it now
+  // that it's a real saved entry (it was already shown via the `extra`
+  // param before this, so this is mostly just keeping pcEntries current).
   function pcAdoptSavedEntry(saved) {
     const symbolKey = pcSymbolKey(saved.symbol);
     pcEntries[pcCompositeKey(saved.date, symbolKey)] = saved;
-    if (pcEditingDate === saved.date && pcEditingSymbolKey === null) {
-      pcEditingSymbolKey = symbolKey;
-      pcEditingSymbolDisplay = saved.symbol || '';
+    if (pcEditingDate === saved.date && pcEditingSymbolKey === symbolKey) {
       pcPopulateSymbolPicker(saved.date, symbolKey);
-      pcSyncSymbolModeUI();
     }
   }
 
@@ -6304,11 +6337,11 @@
     pcEditingDate = dateKey;
     document.getElementById('pcDate').value = dateKey;
     const target = pcPopulateSymbolPicker(dateKey, preferredSymbolKey || null);
-    pcSyncSymbolModeUI();
     if (target === '__new__') {
+      // Defensive fallback only -- PC_DEFAULT_SYMBOLS always populates the
+      // picker, so this path shouldn't normally be reached.
       pcEditingSymbolKey = null;
       pcEditingSymbolDisplay = '';
-      document.getElementById('pcSymbolNewInput').value = '';
       pcApplyEntryToForm({ date: dateKey, symbol: '', time: jrNowTimeKey(), items: {}, images: [] });
     } else {
       pcLoadEntryForSymbolKey(dateKey, target, pcSelectedSymbolDisplayText());
@@ -6424,7 +6457,6 @@
         pcUpdateItemVisual(item, el);
       });
       document.getElementById('pcTime').value = '';
-      document.getElementById('pcSymbolNewInput').value = '';
       pcRenderStatus();
       return;
     }
