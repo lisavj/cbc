@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v17 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v18 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -85,7 +85,12 @@
      is now item 4, Take Profit is now item 5 (previously: Risk limit + stop structure,
      Take Profit, Confluences in that order). Underlying ids unchanged, so previously saved
      answers still load correctly in their new positions. Frontend-only change, no server.js
-     update needed for this one. -->
+     update needed for this one.
+     v18: Item 2 (Entry/Stop/Target/Size/Risk) now has two new boxes on the main row and
+     both Order 2/Order 3 optional rows -- Time (right after Entry, for logging when each
+     order was actually entered) and Close (right after Target, for logging the actual
+     fill price when the order closed). Grid widened from 5 to 7 columns to fit both.
+     Frontend-only change, no server.js update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1346,14 +1351,15 @@
   .pc-sub-block-label { color: var(--muted); font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
   .pc-split { border: none; border-top: 1px dashed var(--panel-border); margin: 12px 0 0 22px; }
 
-  .pc-box-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-left: 22px; }
+  .pc-box-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-left: 22px; }
 
-  /* Optional Order 2 / Order 3 rows under item 3 -- own 3-column grid (just
-     Entry/Stop/Target, no Size/Risk box) and a dashed top border + label to
-     read as clearly-optional extras rather than more of the required row. */
+  /* Optional Order 2 / Order 3 rows under item 3 -- own 7-column grid
+     (Entry/Time/Stop/Target/Close/Size/Risk, matching the main row) and a
+     dashed top border + label to read as clearly-optional extras rather
+     than more of the required row. */
   .pc-box-extra-row { margin: 12px 0 0 22px; padding-top: 10px; border-top: 1px dashed var(--panel-border); }
   .pc-box-extra-row .pc-sub-block-label { margin-left: 0; }
-  .pc-box-extra-row .pc-box-grid { grid-template-columns: repeat(5, 1fr); margin-left: 0; }
+  .pc-box-extra-row .pc-box-grid { grid-template-columns: repeat(7, 1fr); margin-left: 0; }
   .pc-box-field label { display: block; color: var(--muted); font-size: 10.5px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px; }
   .pc-box-field input {
     width: 100%;
@@ -1474,6 +1480,8 @@
   .jr-checklist-chip .jr-cc-score.jr-cc-complete { color: var(--jr-green); }
   .jr-checklist-chip a.jr-cc-open { color: var(--accent); text-decoration: none; }
   .jr-checklist-chip a.jr-cc-open:hover { text-decoration: underline; }
+  .jr-cc-delete { background: none; border: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; padding: 0 0 0 2px; }
+  .jr-cc-delete:hover { color: #e55; }
   .jr-checklist-add { display: flex; align-items: center; gap: 6px; }
   .jr-checklist-add input {
     background: var(--panel); border: 1px solid var(--panel-border); border-radius: 5px; color: var(--text);
@@ -2057,7 +2065,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v17</footer>
+<footer>tv-webhook-dashboard · v18</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5859,29 +5867,36 @@
     ] },
     { id: 'c3', type: 'boxes', text: 'Entry / Stop / Target / Size / Risk', fields: [
       { key: 'entry', label: 'Entry' },
+      { key: 'entryTime', label: 'Time', placeholder: 'e.g. 9:32' },
       { key: 'stop', label: 'Stop' },
       { key: 'target', label: 'Target' },
+      { key: 'close', label: 'Close' },
       { key: 'size', label: 'Size' },
       { key: 'risk', label: 'Risk', placeholder: '300 (default)' },
     ],
       // Two extra optional rows for scaling into more than one order, each
-      // with its own full Entry/Stop/Target/Size/Risk set (matching the
-      // main row above) since a second or third order can carry its own
-      // size and risk rather than sharing the first order's. Not required
-      // for the item to count as "complete" -- only the main row above is
-      // required, these are blank unless you're using them.
+      // with its own full Entry/Time/Stop/Target/Close/Size/Risk set
+      // (matching the main row above) since a second or third order can
+      // carry its own entry time, close price, size and risk rather than
+      // sharing the first order's. Not required for the item to count as
+      // "complete" -- only the main row above is required, these are blank
+      // unless you're using them.
       extraRows: [
         { label: 'Order 2 (optional)', fields: [
           { key: 'entry2', label: 'Entry' },
+          { key: 'entryTime2', label: 'Time', placeholder: 'e.g. 9:32' },
           { key: 'stop2', label: 'Stop' },
           { key: 'target2', label: 'Target' },
+          { key: 'close2', label: 'Close' },
           { key: 'size2', label: 'Size' },
           { key: 'risk2', label: 'Risk', placeholder: '300 (default)' },
         ] },
         { label: 'Order 3 (optional)', fields: [
           { key: 'entry3', label: 'Entry' },
+          { key: 'entryTime3', label: 'Time', placeholder: 'e.g. 9:32' },
           { key: 'stop3', label: 'Stop' },
           { key: 'target3', label: 'Target' },
+          { key: 'close3', label: 'Close' },
           { key: 'size3', label: 'Size' },
           { key: 'risk3', label: 'Risk', placeholder: '300 (default)' },
         ] },
