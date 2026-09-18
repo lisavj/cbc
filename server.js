@@ -162,7 +162,7 @@ function saveAlerts() {
 let sseClients = [];
 
 function broadcast(alert) {
-  const payload = 'data: ${JSON.stringify(alert)}\n\n`;
+const payload = 'data: ${JSON.stringify(alert)}\n\n`;
   sseClients.forEach((res) => res.write(payload));
 }
 
