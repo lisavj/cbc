@@ -1,3 +1,7 @@
+<!-- FRONTEND VERSION: v2 — bump this comment + the <footer> tag below every time this file changes,
+     so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
+     what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
+     and the live site kept showing a stale layout with no way to tell at a glance. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1411,7 +1415,7 @@
         </div>
       </div>
       <div class="nav-dropdown" id="journalDropdown">
-        <button class="nav-dropdown-btn" id="journalDropdownBtn" type="button">Journal <span class="nav-dropdown-caret">▾</span></button>
+        <button class="nav-dropdown-btn" id="journalDropdownBtn" type="button">Checklist <span class="nav-dropdown-caret">▾</span></button>
         <div class="nav-dropdown-menu" id="journalDropdownMenu">
           <button class="nav-dropdown-item" id="tabChecklistBtn" data-view="checklist">Checklist</button>
           <button class="nav-dropdown-item" id="tabJournalBtn" data-view="journal">Journal</button>
@@ -1818,7 +1822,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard</footer>
+<footer>tv-webhook-dashboard · v2</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
