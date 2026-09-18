@@ -1,3 +1,4 @@
+```javascript
 // TradingView Webhook Dashboard
 // -----------------------------
 // - POST /webhook?token=YOUR_SECRET   <- point your TradingView alert's webhook URL here
@@ -654,3 +655,4 @@ app.listen(PORT, () => {
   console.log(`TradingView webhook dashboard running on port ${PORT}`);
   console.log(`Webhook URL path: /webhook${SECRET ? '?token=' + SECRET : ''}`);
 });
+```
