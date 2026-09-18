@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v18 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v19 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -90,7 +90,12 @@
      both Order 2/Order 3 optional rows -- Time (right after Entry, for logging when each
      order was actually entered) and Close (right after Target, for logging the actual
      fill price when the order closed). Grid widened from 5 to 7 columns to fit both.
-     Frontend-only change, no server.js update needed for this one. -->
+     Frontend-only change, no server.js update needed for this one.
+     v19: Journal tab's "Checklist entries for this date" chips each got a small × delete
+     button so a checklist entry (and any images attached to it) can be deleted straight
+     from the Journal, without opening the Checklist tab. Mirrors the Checklist tab's own
+     "Clear entry" delete logic. Frontend-only change -- the DELETE /checklist/:date/:symbol
+     route it calls already existed from v11, no server.js update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2065,7 +2070,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v18</footer>
+<footer>tv-webhook-dashboard · v19</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5479,10 +5484,12 @@
       const label = entry.symbol && entry.symbol.trim() ? entry.symbol : '(no symbol)';
       const scoreClass = complete === total ? ' jr-cc-complete' : '';
       const link = pcChecklistDeepLink(dateKey, entry.symbol || '');
+      const symbolKey = pcSymbolKey(entry.symbol);
       return `<div class="jr-checklist-chip">
         <span class="jr-cc-symbol">${escapeHtml(label)}</span>
         <span class="jr-cc-score${scoreClass}">${complete} / ${total}</span>
         <a class="jr-cc-open" href="${escapeHtml(link)}" target="_blank" rel="noopener">Open ↗</a>
+        <button type="button" class="jr-cc-delete" title="Delete this checklist entry" data-symbol-key="${escapeHtml(symbolKey)}" data-label="${escapeHtml(label)}">×</button>
       </div>`;
     }).join('');
     const emptyMsg = entries.length ? '' : '<span class="jr-checklist-empty">No checklist entries saved for this date yet.</span>';
@@ -5495,6 +5502,31 @@
     document.getElementById('jrChecklistAddInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') jrAddChecklistEntry(dateKey);
     });
+    wrap.querySelectorAll('.jr-cc-delete').forEach(btn => {
+      btn.addEventListener('click', () => jrDeleteChecklistEntry(dateKey, btn.dataset.symbolKey, btn.dataset.label));
+    });
+  }
+
+  // Deletes a checklist entry (and any images attached to it) straight from
+  // the Journal's chip row, mirroring pcClearEntry's delete logic but
+  // without needing the Checklist tab's form to be on screen.
+  function jrDeleteChecklistEntry(dateKey, symbolKey, label) {
+    if (!confirm('Delete the "' + label + '" checklist entry for ' + dateKey + '? This cannot be undone.')) return;
+    const compositeKey = pcCompositeKey(dateKey, symbolKey);
+    const entry = pcEntries[compositeKey];
+    const priorImages = (entry && Array.isArray(entry.images)) ? entry.images.slice() : [];
+    const urlSeg = pcSymbolUrlSegment(symbolKey);
+    delete pcEntries[compositeKey];
+    fetch('/checklist/' + encodeURIComponent(dateKey) + '/' + urlSeg, { method: 'DELETE' }).catch(() => {});
+    priorImages.forEach(img => {
+      fetch('/checklist/' + encodeURIComponent(dateKey) + '/' + urlSeg + '/image/' + encodeURIComponent(img.filename), { method: 'DELETE' }).catch(() => {});
+    });
+    jrRenderChecklistLinksNow(dateKey);
+    // If the Checklist tab happens to be sitting on this exact date+symbol
+    // right now, refresh it too so it doesn't keep showing a now-deleted entry.
+    if (typeof pcEditingDate !== 'undefined' && pcEditingDate === dateKey && pcEditingSymbolKey === symbolKey && typeof pcOpenDateSymbol === 'function') {
+      pcOpenDateSymbol(dateKey);
+    }
   }
 
   // A standalone completeness check mirroring pcItemComplete, but reading
