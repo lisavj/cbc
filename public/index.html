@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v19 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v20 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -95,7 +95,12 @@
      button so a checklist entry (and any images attached to it) can be deleted straight
      from the Journal, without opening the Checklist tab. Mirrors the Checklist tab's own
      "Clear entry" delete logic. Frontend-only change -- the DELETE /checklist/:date/:symbol
-     route it calls already existed from v11, no server.js update needed for this one. -->
+     route it calls already existed from v11, no server.js update needed for this one.
+     v20: Checklist tab now has a "‹ Back to Journal calendar" button above the toolbar --
+     saves any pending edit first, then switches to the Journal tab and lands specifically
+     on its calendar/list overview (not wherever the Journal editor last was), so opening a
+     checklist (including via a Journal "Open ↗" link) always has a one-click way back to
+     the daily journal. Frontend-only change, no server.js update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1338,6 +1343,8 @@
      row (.pc-item-head) followed by whatever field markup that item needs. */
   .pc-section { }
   .pc-note { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 4px 0 14px; }
+  .pc-back-btn { background: none; border: 1px solid var(--panel-border); color: var(--muted); font-family: var(--sans); font-size: 12px; padding: 6px 10px; border-radius: 6px; cursor: pointer; margin: 0 0 14px; }
+  .pc-back-btn:hover { border-color: var(--accent); color: var(--text); }
   .pc-item {
     border: 1px solid var(--panel-border);
     border-radius: 6px;
@@ -1937,6 +1944,8 @@
       <div class="rl-section-title">Pre-Trade Checklist</div>
       <div class="pc-note">Print this page and keep it at your desk. Every item must be checked before entry. If even one is unchecked, the trade does not qualify. If all are checked, take the trade with full commitment and no second-guessing.</div>
 
+      <button type="button" id="pcBackToJournalBtn" class="pc-back-btn">‹ Back to Journal calendar</button>
+
       <div class="rl-toolbar">
         <div class="rl-date-nav">
           <button id="pcPrevDay" class="jr-arrow" title="Previous day">‹</button>
@@ -2070,7 +2079,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v19</footer>
+<footer>tv-webhook-dashboard · v20</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -6165,6 +6174,11 @@
     document.getElementById('pcTime').addEventListener('input', pcScheduleSave);
     document.getElementById('pcSymbolSelect').addEventListener('change', pcHandleSymbolSelectChange);
     document.getElementById('pcImageInput').addEventListener('change', pcHandleImagePick);
+    document.getElementById('pcBackToJournalBtn').addEventListener('click', () => {
+      pcFlushSave();
+      setView('journal');
+      if (typeof jrShowOverview === 'function') jrShowOverview();
+    });
   }
 
   // ---- Symbol picker: a dropdown of MGC/MES/MNQ/M2K/MCL (always available,
