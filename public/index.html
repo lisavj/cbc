@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v21 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v22 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -115,6 +115,11 @@
      "Checklist". The Checklist page itself is unchanged and still fully reachable --
      via a date's chips on the Journal tab ("Open ↗" / "+ Add checklist entry") or a
      deep link -- it's just no longer a standalone nav tab. Frontend-only change, no
+     server.js update needed for this one.
+     v22: Reordered items 3-5 again -- Take Profit is now item 3, Confluences is now item
+     4, "Risk limit + stop structure" is now item 5 (previously: Confluences, Risk limit +
+     stop structure, Take Profit in that order). Underlying ids unchanged, so previously
+     saved answers still load correctly in their new positions. Frontend-only change, no
      server.js update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
@@ -2093,7 +2098,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v21</footer>
+<footer>tv-webhook-dashboard · v22</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5957,18 +5962,7 @@
           { key: 'risk3', label: 'Risk', placeholder: '300 (default)' },
         ] },
       ] },
-    { id: 'c5', type: 'selectChecks', text: 'Confluences',
-      selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
-      checks: [
-        { key: 'cbcLtf', label: 'CBC LTF' },
-        { key: 'cbcHtf', label: 'CBC HTF' },
-        { key: 'emaCloudLtf', label: 'EMA Cloud LTF' },
-        { key: 'emaCloudHtf', label: 'EMA Cloud HTF' },
-        { key: 'vwap', label: 'VWAP' },
-        { key: 'ema20', label: 'EMA20' },
-        { key: 'structureHtf', label: 'Structure HTF' },
-      ] },
-    { id: 'c4', type: 'combo', text: 'Risk limit + stop structure',
+    { id: 'c10', type: 'combo', text: 'Take Profit',
       subLabel1: 'Risk within limit',
       check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
       subLabel2: 'Stop is at a real structural level — which type?',
@@ -5986,7 +5980,18 @@
         { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
         { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
       ] },
-    { id: 'c10', type: 'combo', text: 'Take Profit',
+    { id: 'c5', type: 'selectChecks', text: 'Confluences',
+      selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
+      checks: [
+        { key: 'cbcLtf', label: 'CBC LTF' },
+        { key: 'cbcHtf', label: 'CBC HTF' },
+        { key: 'emaCloudLtf', label: 'EMA Cloud LTF' },
+        { key: 'emaCloudHtf', label: 'EMA Cloud HTF' },
+        { key: 'vwap', label: 'VWAP' },
+        { key: 'ema20', label: 'EMA20' },
+        { key: 'structureHtf', label: 'Structure HTF' },
+      ] },
+    { id: 'c4', type: 'combo', text: 'Risk limit + stop structure',
       subLabel1: 'Risk within limit',
       check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
       subLabel2: 'Stop is at a real structural level — which type?',
