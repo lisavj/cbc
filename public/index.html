@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v23 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v24 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -124,6 +124,10 @@
      v23: Reordered items 2-5 -- new order is: Confluences (2), Risk limit + stop structure
      (3), Take Profit (4), Entry/Stop/Target/Size/Risk (5). Underlying ids unchanged, so
      previously saved answers still load correctly in their new positions. Frontend-only
+     change, no server.js update needed for this one.
+     v24: Added "EMA 200" (with a High/Low pulldown, same pattern as Premarket/ORB/Session) to the
+     structural-level checklist on both item 3 (Risk limit + stop structure) and item 4 (Take Profit),
+     matching the same addition made to the Pine script's Status table this round. Frontend-only
      change, no server.js update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
@@ -2102,7 +2106,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v23</footer>
+<footer>tv-webhook-dashboard · v24</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5958,6 +5962,7 @@
         { key: 'nySession', label: 'NY Session', select: { key: 'nySessionSide', options: ['High', 'Low'] } },
         { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
         { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
+        { key: 'ema200', label: 'EMA 200', select: { key: 'ema200Side', options: ['High', 'Low'] } },
       ] },
     { id: 'c10', type: 'combo', text: 'Take Profit',
       subLabel1: 'Risk within limit',
@@ -5976,6 +5981,7 @@
         { key: 'nySession', label: 'NY Session', select: { key: 'nySessionSide', options: ['High', 'Low'] } },
         { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
         { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
+        { key: 'ema200', label: 'EMA 200', select: { key: 'ema200Side', options: ['High', 'Low'] } },
       ] },
     { id: 'c3', type: 'boxes', text: 'Entry / Stop / Target / Size / Risk', fields: [
       { key: 'entry', label: 'Entry' },
