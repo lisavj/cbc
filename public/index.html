@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v22 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v23 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -120,7 +120,11 @@
      4, "Risk limit + stop structure" is now item 5 (previously: Confluences, Risk limit +
      stop structure, Take Profit in that order). Underlying ids unchanged, so previously
      saved answers still load correctly in their new positions. Frontend-only change, no
-     server.js update needed for this one. -->
+     server.js update needed for this one.
+     v23: Reordered items 2-5 -- new order is: Confluences (2), Risk limit + stop structure
+     (3), Take Profit (4), Entry/Stop/Target/Size/Risk (5). Underlying ids unchanged, so
+     previously saved answers still load correctly in their new positions. Frontend-only
+     change, no server.js update needed for this one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2098,7 +2102,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v22</footer>
+<footer>tv-webhook-dashboard · v23</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5926,6 +5930,53 @@
       { key: 'inPlan', label: 'This setup is in my written trading plan for today' },
       { key: 'noDll', label: 'Have not hit DLL (daily loss limit) on any account today' },
     ] },
+    { id: 'c5', type: 'selectChecks', text: 'Confluences',
+      selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
+      checks: [
+        { key: 'cbcLtf', label: 'CBC LTF' },
+        { key: 'cbcHtf', label: 'CBC HTF' },
+        { key: 'emaCloudLtf', label: 'EMA Cloud LTF' },
+        { key: 'emaCloudHtf', label: 'EMA Cloud HTF' },
+        { key: 'vwap', label: 'VWAP' },
+        { key: 'ema20', label: 'EMA20' },
+        { key: 'structureHtf', label: 'Structure HTF' },
+      ] },
+    { id: 'c4', type: 'combo', text: 'Risk limit + stop structure',
+      subLabel1: 'Risk within limit',
+      check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
+      subLabel2: 'Stop is at a real structural level — which type?',
+      checks2: [
+        { key: 'priorDay', label: 'Prior Day High/Low' },
+        { key: 'swing', label: 'Swing High/Low' },
+        { key: 'equalHighsLows', label: 'Equal Highs/Lows', select: { key: 'equalHighsLowsSide', options: ['High', 'Low'] }, priceField: { key: 'equalHighsLowsPrice', placeholder: 'Price' } },
+        { key: 'pivot', label: 'Pivot Point', select: { key: 'pivotLevel', options: ['S1', 'S2', 'S3', 'R1', 'R2', 'R3'] } },
+        { key: 'orderBlock', label: 'Order Block' },
+        { key: 'premarket', label: 'Premarket', select: { key: 'premarketSide', options: ['High', 'Low'] } },
+        { key: 'nyOrb', label: 'NY ORB', select: { key: 'nyOrbSide', options: ['High', 'Low'] } },
+        { key: 'londonOrb', label: 'London ORB', select: { key: 'londonOrbSide', options: ['High', 'Low'] } },
+        { key: 'asiaOrb', label: 'Asia ORB', select: { key: 'asiaOrbSide', options: ['High', 'Low'] } },
+        { key: 'nySession', label: 'NY Session', select: { key: 'nySessionSide', options: ['High', 'Low'] } },
+        { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
+        { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
+      ] },
+    { id: 'c10', type: 'combo', text: 'Take Profit',
+      subLabel1: 'Risk within limit',
+      check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
+      subLabel2: 'Stop is at a real structural level — which type?',
+      checks2: [
+        { key: 'priorDay', label: 'Prior Day High/Low' },
+        { key: 'swing', label: 'Swing High/Low' },
+        { key: 'equalHighsLows', label: 'Equal Highs/Lows', select: { key: 'equalHighsLowsSide', options: ['High', 'Low'] }, priceField: { key: 'equalHighsLowsPrice', placeholder: 'Price' } },
+        { key: 'pivot', label: 'Pivot Point', select: { key: 'pivotLevel', options: ['S1', 'S2', 'S3', 'R1', 'R2', 'R3'] } },
+        { key: 'orderBlock', label: 'Order Block' },
+        { key: 'premarket', label: 'Premarket', select: { key: 'premarketSide', options: ['High', 'Low'] } },
+        { key: 'nyOrb', label: 'NY ORB', select: { key: 'nyOrbSide', options: ['High', 'Low'] } },
+        { key: 'londonOrb', label: 'London ORB', select: { key: 'londonOrbSide', options: ['High', 'Low'] } },
+        { key: 'asiaOrb', label: 'Asia ORB', select: { key: 'asiaOrbSide', options: ['High', 'Low'] } },
+        { key: 'nySession', label: 'NY Session', select: { key: 'nySessionSide', options: ['High', 'Low'] } },
+        { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
+        { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
+      ] },
     { id: 'c3', type: 'boxes', text: 'Entry / Stop / Target / Size / Risk', fields: [
       { key: 'entry', label: 'Entry' },
       { key: 'entryTime', label: 'Time', placeholder: 'e.g. 9:32' },
@@ -5961,53 +6012,6 @@
           { key: 'size3', label: 'Size' },
           { key: 'risk3', label: 'Risk', placeholder: '300 (default)' },
         ] },
-      ] },
-    { id: 'c10', type: 'combo', text: 'Take Profit',
-      subLabel1: 'Risk within limit',
-      check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
-      subLabel2: 'Stop is at a real structural level — which type?',
-      checks2: [
-        { key: 'priorDay', label: 'Prior Day High/Low' },
-        { key: 'swing', label: 'Swing High/Low' },
-        { key: 'equalHighsLows', label: 'Equal Highs/Lows', select: { key: 'equalHighsLowsSide', options: ['High', 'Low'] }, priceField: { key: 'equalHighsLowsPrice', placeholder: 'Price' } },
-        { key: 'pivot', label: 'Pivot Point', select: { key: 'pivotLevel', options: ['S1', 'S2', 'S3', 'R1', 'R2', 'R3'] } },
-        { key: 'orderBlock', label: 'Order Block' },
-        { key: 'premarket', label: 'Premarket', select: { key: 'premarketSide', options: ['High', 'Low'] } },
-        { key: 'nyOrb', label: 'NY ORB', select: { key: 'nyOrbSide', options: ['High', 'Low'] } },
-        { key: 'londonOrb', label: 'London ORB', select: { key: 'londonOrbSide', options: ['High', 'Low'] } },
-        { key: 'asiaOrb', label: 'Asia ORB', select: { key: 'asiaOrbSide', options: ['High', 'Low'] } },
-        { key: 'nySession', label: 'NY Session', select: { key: 'nySessionSide', options: ['High', 'Low'] } },
-        { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
-        { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
-      ] },
-    { id: 'c5', type: 'selectChecks', text: 'Confluences',
-      selectKey: 'direction', selectLabel: 'HTF CBC Direction', selectOptions: ['Bull', 'Bear', 'Neutral'],
-      checks: [
-        { key: 'cbcLtf', label: 'CBC LTF' },
-        { key: 'cbcHtf', label: 'CBC HTF' },
-        { key: 'emaCloudLtf', label: 'EMA Cloud LTF' },
-        { key: 'emaCloudHtf', label: 'EMA Cloud HTF' },
-        { key: 'vwap', label: 'VWAP' },
-        { key: 'ema20', label: 'EMA20' },
-        { key: 'structureHtf', label: 'Structure HTF' },
-      ] },
-    { id: 'c4', type: 'combo', text: 'Risk limit + stop structure',
-      subLabel1: 'Risk within limit',
-      check1: { key: 'riskOk', label: 'Within my $300 per-trade limit' },
-      subLabel2: 'Stop is at a real structural level — which type?',
-      checks2: [
-        { key: 'priorDay', label: 'Prior Day High/Low' },
-        { key: 'swing', label: 'Swing High/Low' },
-        { key: 'equalHighsLows', label: 'Equal Highs/Lows', select: { key: 'equalHighsLowsSide', options: ['High', 'Low'] }, priceField: { key: 'equalHighsLowsPrice', placeholder: 'Price' } },
-        { key: 'pivot', label: 'Pivot Point', select: { key: 'pivotLevel', options: ['S1', 'S2', 'S3', 'R1', 'R2', 'R3'] } },
-        { key: 'orderBlock', label: 'Order Block' },
-        { key: 'premarket', label: 'Premarket', select: { key: 'premarketSide', options: ['High', 'Low'] } },
-        { key: 'nyOrb', label: 'NY ORB', select: { key: 'nyOrbSide', options: ['High', 'Low'] } },
-        { key: 'londonOrb', label: 'London ORB', select: { key: 'londonOrbSide', options: ['High', 'Low'] } },
-        { key: 'asiaOrb', label: 'Asia ORB', select: { key: 'asiaOrbSide', options: ['High', 'Low'] } },
-        { key: 'nySession', label: 'NY Session', select: { key: 'nySessionSide', options: ['High', 'Low'] } },
-        { key: 'londonSession', label: 'London Session', select: { key: 'londonSessionSide', options: ['High', 'Low'] } },
-        { key: 'asiaSession', label: 'Asia Session', select: { key: 'asiaSessionSide', options: ['High', 'Low'] } },
       ] },
     { id: 'c7', type: 'checks', text: 'Market context supports this trade', checks: [
       { key: 'trend', label: 'Trend aligned' },
