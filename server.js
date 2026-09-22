@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
+const SERVER_STARTED_AT = new Date().toISOString(); // used by GET /health to show how recently this process (re)started
 const PORT = process.env.PORT || 3000;
 const SECRET = process.env.WEBHOOK_SECRET || ''; // set this in your host's env vars
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || ''; // optional: paste a Discord channel webhook URL here to forward alerts
@@ -63,6 +64,11 @@ try {
 } catch (e) {
   console.error('Could not read journal.json, starting fresh:', e.message);
 }
+// Logged at every startup (including restarts) so the logs make it obvious
+// when a restart happened and how many journal entries it found on disk —
+// e.g. "loaded 0 journal entries" right after you know you had several
+// saved is a strong signal the disk write isn't actually persisting.
+console.log(`journal.json: loaded ${Object.keys(journalEntries).length} entries from ${JOURNAL_FILE}`);
 
 let rulesEntries = {};
 try {
@@ -119,27 +125,49 @@ function migrateLegacyChecklistEntries() {
 }
 migrateLegacyChecklistEntries();
 
+// v6: save* helpers now return true/false instead of silently swallowing a
+// write failure. Root cause of a reported "entry saves fine, then vanishes
+// later" bug: PUT /journal/:date always responded 200 with the entry echoed
+// back (built entirely from the in-memory object, which was always updated
+// correctly) EVEN IF the fs.writeFileSync() to disk underneath it failed —
+// the failure was only ever console.error'd server-side, never surfaced to
+// the client. As long as the same process stays running, that's invisible
+// (the in-memory copy is still correct, so every GET/PUT still looks fine).
+// But if the process restarts for ANY reason afterward (redeploy, crash,
+// host-initiated restart) before a *successful* write ever landed on disk,
+// journal.json is read back on startup without that entry — it looks like
+// data "disappeared later" even though nothing deleted it, because it was
+// never actually durable. Now every route below checks the return value and
+// returns a real error to the client (500, with the reason) instead of a
+// false-positive 200, and GET /health (added below) reports whether each
+// file's on-disk state actually matches what's in memory.
 function saveJournal() {
   try {
     fs.writeFileSync(JOURNAL_FILE, JSON.stringify(journalEntries, null, 2));
+    return true;
   } catch (e) {
     console.error('Could not write journal.json:', e.message);
+    return false;
   }
 }
 
 function saveRules() {
   try {
     fs.writeFileSync(RULES_FILE, JSON.stringify(rulesEntries, null, 2));
+    return true;
   } catch (e) {
     console.error('Could not write rules.json:', e.message);
+    return false;
   }
 }
 
 function saveChecklist() {
   try {
     fs.writeFileSync(CHECKLIST_FILE, JSON.stringify(checklistEntries, null, 2));
+    return true;
   } catch (e) {
     console.error('Could not write checklist.json:', e.message);
+    return false;
   }
 }
 
@@ -160,8 +188,10 @@ try {
 function saveAutopsy() {
   try {
     fs.writeFileSync(AUTOPSY_FILE, JSON.stringify(autopsyEntries, null, 2));
+    return true;
   } catch (e) {
     console.error('Could not write autopsy.json:', e.message);
+    return false;
   }
 }
 
@@ -189,8 +219,10 @@ try {
 function saveAlerts() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(alerts.slice(0, MAX_ALERTS), null, 2));
+    return true;
   } catch (e) {
     console.error('Could not write alerts.json:', e.message);
+    return false;
   }
 }
 
@@ -377,13 +409,17 @@ app.put('/journal/:date', (req, res) => {
     wins: body.wins || '',
   };
   journalEntries[date] = entry;
-  saveJournal();
+  if (!saveJournal()) {
+    return res.status(500).json({ error: 'Saved in memory but failed to write journal.json to disk — this entry will be lost if the server restarts before a write succeeds. Check server logs / DATA_DIR permissions.', entry });
+  }
   res.json(entry);
 });
 
 app.delete('/journal/:date', (req, res) => {
   delete journalEntries[req.params.date];
-  saveJournal();
+  if (!saveJournal()) {
+    return res.status(500).send('Deleted in memory but failed to write journal.json to disk — check server logs / DATA_DIR permissions.');
+  }
   res.status(200).send('Deleted');
 });
 
@@ -735,7 +771,64 @@ app.delete('/autopsy/:id', (req, res) => {
   res.status(200).send('Deleted');
 });
 
+// ============================================================================
+// GET /health — diagnostic endpoint added to track down a reported "journal
+// entry saves fine, then disappears later" bug. Since journal/rules/
+// checklist/autopsy/alerts are all kept in memory and only MIRRORED to disk
+// (see saveJournal() etc. above), an entry can look completely fine for the
+// rest of the current process's life even if its write to disk silently
+// failed — the only way that becomes visible is a restart, at which point
+// whatever never made it to disk is gone. This endpoint surfaces exactly the
+// facts needed to tell the difference between "the process restarted
+// recently" (redeploy / spin-down / crash) and "writes are failing" (bad
+// DATA_DIR permissions, disk full, wrong mount path) without needing to dig
+// through server logs. Hit GET /health any time; nothing here is sensitive
+// (no entry contents, just file metadata and counts).
+// ============================================================================
+function fileStatus(file) {
+  try {
+    const st = fs.statSync(file);
+    return { exists: true, sizeBytes: st.size, modifiedAt: st.mtime.toISOString() };
+  } catch (e) {
+    return { exists: false };
+  }
+}
+app.get('/health', (req, res) => {
+  // Live round-trip write test — separate from the real data files, so this
+  // never risks corrupting anything, but proves whether DATA_DIR is
+  // *actually* writable from this exact process right now (a stale/incorrect
+  // permission or mount can pass at container boot and fail later, or vice
+  // versa on a fresh mount that hasn't caught up yet).
+  const probeFile = path.join(DATA_DIR, '.health-write-test');
+  let dataDirWritable = false;
+  let dataDirWriteError = null;
+  try {
+    fs.writeFileSync(probeFile, String(Date.now()));
+    fs.unlinkSync(probeFile);
+    dataDirWritable = true;
+  } catch (e) {
+    dataDirWriteError = e.message;
+  }
+  res.json({
+    serverStartedAt: SERVER_STARTED_AT,
+    uptimeSeconds: Math.round(process.uptime()),
+    pid: process.pid,
+    dataDir: DATA_DIR,
+    dataDirSource: process.env.DATA_DIR ? 'DATA_DIR env var' : 'default (__dirname — NOT persistent across redeploys unless this IS a mounted Disk path)',
+    dataDirWritable,
+    dataDirWriteError,
+    files: {
+      'journal.json': Object.assign({ inMemoryEntryCount: Object.keys(journalEntries).length }, fileStatus(JOURNAL_FILE)),
+      'rules.json': Object.assign({ inMemoryEntryCount: Object.keys(rulesEntries).length }, fileStatus(RULES_FILE)),
+      'checklist.json': Object.assign({ inMemoryEntryCount: Object.keys(checklistEntries).length }, fileStatus(CHECKLIST_FILE)),
+      'autopsy.json': Object.assign({ inMemoryEntryCount: Object.keys(autopsyEntries).length }, fileStatus(AUTOPSY_FILE)),
+      'alerts.json': Object.assign({ inMemoryEntryCount: alerts.length }, fileStatus(DATA_FILE)),
+    },
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`TradingView webhook dashboard running on port ${PORT}`);
   console.log(`Webhook URL path: /webhook${SECRET ? '?token=' + SECRET : ''}`);
+  console.log(`DATA_DIR: ${DATA_DIR} (${process.env.DATA_DIR ? 'from DATA_DIR env var' : 'default __dirname — set DATA_DIR to a mounted Disk to persist across redeploys'})`);
 });
