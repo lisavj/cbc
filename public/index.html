@@ -1264,6 +1264,7 @@
   .jr-save-btn:hover { opacity: 0.9; }
   .jr-save-status { font-family: var(--mono); font-size: 12px; color: var(--jr-green); opacity: 0; transition: opacity 0.2s; }
   .jr-save-status.show { opacity: 1; }
+  .jr-save-status.error { color: var(--jr-red); }
 
   /* ---------------------------------------------------------------------
      RULES TAB — pre-trade physical/mental warning-sign checklist, one
@@ -5483,7 +5484,9 @@
       jrUpdateEmptyState(el);
     });
     document.getElementById('jrDeleteBtn').style.display = jrEntries[dateKey] ? '' : 'none';
-    document.getElementById('jrSaveStatus').classList.remove('show');
+    const jrStatusEl = document.getElementById('jrSaveStatus');
+    jrStatusEl.classList.remove('show', 'error');
+    jrStatusEl.textContent = 'Saved ✓';
     document.getElementById('jrOverview').style.display = 'none';
     document.getElementById('jrEditor').style.display = '';
     jrRenderChecklistLinks(dateKey);
@@ -5634,17 +5637,37 @@
     if (isBlank && !jrEntries[jrEditingOriginal]) return;
 
     const movedDate = newDate !== jrEditingOriginal;
+    // v25: a PUT that returns non-2xx (e.g. the server's disk write failed —
+    // see server.js's saveJournal() hardening) used to be silently treated
+    // the same as success here, which is exactly how an entry could "save
+    // fine" in the UI and then be gone later even though nothing in the
+    // browser ever deleted it. Now a failed save shows a persistent red
+    // "Save failed" status (does NOT auto-hide) instead of pretending it
+    // worked, so a real write failure is visible immediately instead of
+    // only surfacing after a restart wipes the un-persisted entry.
     const doSave = () => fetch('/journal/' + encodeURIComponent(newDate), {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
-    }).then(r => r.json()).then(saved => {
-      jrEntries[newDate] = saved;
+    }).then(r => r.json().catch(() => ({})).then(data => ({ ok: r.ok, data }))).then(({ ok, data }) => {
+      const statusEl = document.getElementById('jrSaveStatus');
+      if (!ok) {
+        console.error('Journal save failed:', data && data.error);
+        statusEl.textContent = 'Save failed ✗';
+        statusEl.classList.add('show', 'error');
+        return;
+      }
+      jrEntries[newDate] = data;
       jrEditingOriginal = newDate;
       document.getElementById('jrDeleteBtn').style.display = '';
-      const statusEl = document.getElementById('jrSaveStatus');
+      statusEl.textContent = 'Saved ✓';
+      statusEl.classList.remove('error');
       statusEl.classList.add('show');
       setTimeout(() => statusEl.classList.remove('show'), 1200);
       jrRenderOverview();
-    }).catch(() => {});
+    }).catch(() => {
+      const statusEl = document.getElementById('jrSaveStatus');
+      statusEl.textContent = 'Save failed ✗ (network)';
+      statusEl.classList.add('show', 'error');
+    });
 
     if (movedDate && jrEntries[jrEditingOriginal]) {
       fetch('/journal/' + encodeURIComponent(jrEditingOriginal), { method: 'DELETE' })
