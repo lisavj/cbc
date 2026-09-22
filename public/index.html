@@ -5619,6 +5619,34 @@
   function jrFlushSave() {
     clearTimeout(jrSaveTimer);
     if (!jrEditingDate) return;
+    // v26: FOUND THE REAL BUG behind "entry saves, shows correctly, then
+    // vanishes" — confirmed via a clean repro (save day A -> open day B,
+    // which triggers a flush-of-A-before-switching -> edit+save day B ->
+    // day A's entry gets DELETED on the server). Root cause: jrOpenEditor()
+    // calls jrFlushSave() as its first line to save whatever was open
+    // BEFORE switching to the new day. That flush's async PUT .then()
+    // callback used to unconditionally write `jrEditingOriginal = newDate`
+    // (newDate = the OUTGOING day, e.g. A) once the network response
+    // arrived — but by then jrEditingDate/jrEditingOriginal had ALREADY
+    // been reassigned to the NEW day (B) by the rest of jrOpenEditor, which
+    // ran synchronously right after the flush was kicked off. If that stale
+    // response for A arrived AFTER B was already open, it clobbered
+    // jrEditingOriginal back to A — desyncing it from jrEditingDate (still
+    // B). The NEXT real save (of B) then computed newDate ('B') !==
+    // jrEditingOriginal ('A', stale) => movedDate = true, which is the
+    // "user renamed this entry's date" code path — so it issued a REAL
+    // DELETE /journal/A to the server, then saved B, thinking B was a
+    // renamed copy of A. Not a render glitch and not a silent write
+    // failure — an actual delete request, triggered by this race.
+    // Fix: snapshot which editing session (jrEditingDate) this flush
+    // belongs to. jrEntries[newDate] is always safe to update (that part
+    // was never the bug), but jrEditingOriginal / the Delete button / the
+    // "Saved" flash — anything that represents "what's in the editor right
+    // now" — must only be touched if the editor hasn't since moved on to a
+    // different day. A flush kicked off while switching away is a fire-and-
+    // forget save of the day being left; it must never reach back in and
+    // mutate state for whatever day is open by the time it resolves.
+    const flushSessionDate = jrEditingDate;
     const newDate = document.getElementById('jrDate').value || jrEditingOriginal;
     const titleVal = document.getElementById('jrTitle').value;
     const amountRaw = document.getElementById('jrAmount').value.trim();
@@ -5648,25 +5676,31 @@
     const doSave = () => fetch('/journal/' + encodeURIComponent(newDate), {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry)
     }).then(r => r.json().catch(() => ({})).then(data => ({ ok: r.ok, data }))).then(({ ok, data }) => {
+      const isActiveSession = jrEditingDate === flushSessionDate;
       const statusEl = document.getElementById('jrSaveStatus');
       if (!ok) {
         console.error('Journal save failed:', data && data.error);
-        statusEl.textContent = 'Save failed ✗';
-        statusEl.classList.add('show', 'error');
+        if (isActiveSession) { statusEl.textContent = 'Save failed ✗'; statusEl.classList.add('show', 'error'); }
         return;
       }
       jrEntries[newDate] = data;
-      jrEditingOriginal = newDate;
-      document.getElementById('jrDeleteBtn').style.display = '';
-      statusEl.textContent = 'Saved ✓';
-      statusEl.classList.remove('error');
-      statusEl.classList.add('show');
-      setTimeout(() => statusEl.classList.remove('show'), 1200);
+      // Only touch "what's currently in the editor" state if this flush's
+      // session is still the one actually open — see the big comment above.
+      if (isActiveSession) {
+        jrEditingOriginal = newDate;
+        document.getElementById('jrDeleteBtn').style.display = '';
+        statusEl.textContent = 'Saved ✓';
+        statusEl.classList.remove('error');
+        statusEl.classList.add('show');
+        setTimeout(() => statusEl.classList.remove('show'), 1200);
+      }
       jrRenderOverview();
     }).catch(() => {
-      const statusEl = document.getElementById('jrSaveStatus');
-      statusEl.textContent = 'Save failed ✗ (network)';
-      statusEl.classList.add('show', 'error');
+      if (jrEditingDate === flushSessionDate) {
+        const statusEl = document.getElementById('jrSaveStatus');
+        statusEl.textContent = 'Save failed ✗ (network)';
+        statusEl.classList.add('show', 'error');
+      }
     });
 
     if (movedDate && jrEntries[jrEditingOriginal]) {
