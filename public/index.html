@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v24 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v27 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -128,7 +128,12 @@
      v24: Added "EMA 200" (with a High/Low pulldown, same pattern as Premarket/ORB/Session) to the
      structural-level checklist on both item 3 (Risk limit + stop structure) and item 4 (Take Profit),
      matching the same addition made to the Pine script's Status table this round. Frontend-only
-     change, no server.js update needed for this one. -->
+     change, no server.js update needed for this one.
+     v27: Trade Setup box (fixed, top left). Reads the new "• Trade Setup: LONG/SHORT" alert from
+     CBC v8.13 ("Alert: new Trade Setup") and shows the latest setup for the selected symbol (or the
+     most recent one on "All"): TP2/TP1/Entry/SL1/SL2 with pivot names and points from entry, rows
+     flipped for shorts like the chart's Trade Levels box. Collapsible (remembered). New "Trade Setup"
+     alert type + SETUP pill. Frontend-only change, no server.js update needed. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -851,6 +856,26 @@
   .type-pill.pill-agreement-short,
   .type-pill.pill-emazone-short { background: #a32d2d; color: #fcebeb; }
   .type-pill.pill-aplus { background: #185fa5; color: #e6f1fb; }
+  .type-pill.pill-setup-long { background: #15803d; color: #eaf3de; border: 1px solid #86efac; }
+  .type-pill.pill-setup-short { background: #b91c1c; color: #fcebeb; border: 1px solid #fca5a5; }
+  /* v27: Trade Setup box (fixed, top left) */
+  #setupBox { position: fixed; left: 12px; z-index: 900; background: #020617; border: 1px solid #475569;
+    border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.5); font-size: 12px; color: #fff; min-width: 250px;
+    font-variant-numeric: tabular-nums; }
+  #setupBox .sb-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer;
+    background: #0c1222; border-radius: 8px 8px 0 0; font-weight: 600; }
+  #setupBox .sb-head .sb-dir { padding: 1px 8px; border-radius: 9999px; font-size: 11px; }
+  #setupBox .sb-head .sb-dir.long { background: #16a34a; } #setupBox .sb-head .sb-dir.short { background: #dc2626; }
+  #setupBox .sb-head .sb-caret { margin-left: auto; opacity: .7; }
+  #setupBox .sb-sub { padding: 4px 8px; color: #94a3b8; font-size: 11px; border-bottom: 1px solid #1f2530; }
+  #setupBox table { border-collapse: collapse; width: 100%; }
+  #setupBox th { background: #0c1222; font-weight: 600; padding: 3px 8px; text-align: left; }
+  #setupBox td { padding: 3px 8px; border-top: 1px solid #1e293b; }
+  #setupBox td.num, #setupBox th.num { text-align: right; }
+  #setupBox tr.r-tp td { background: #15803d; } #setupBox tr.r-entry td { background: #334155; }
+  #setupBox tr.r-sl td { background: #b91c1c; }
+  #setupBox.collapsed .sb-body { display: none; }
+  #setupBox.collapsed .sb-head { border-radius: 8px; }
   .type-pill.pill-luxalgo-bull { background: #2d6b4f; color: #dff3e8; border: 1px solid #6d4fa3; }
   .type-pill.pill-luxalgo-bear { background: #6b2d3d; color: #f3dfe4; border: 1px solid #6d4fa3; }
   .type-pill.pill-neutral { background: #444441; color: #d3d1c7; }
@@ -1741,6 +1766,8 @@
   </div>
 </header>
 
+<div id="setupBox" style="display:none;"></div>
+
 <main>
   <div class="symbol-tabs" id="symbolTabs"></div>
   <div id="list"></div>
@@ -2107,7 +2134,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v24</footer>
+<footer>tv-webhook-dashboard · v27</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -3750,6 +3777,11 @@
   // ---------------------------------------------------------------------
   const ALERT_TYPE_DEFS = [
     {
+      test: (l) => /Trade Setup:/i.test(l),
+      title: 'Trade Setup',
+      def: 'Fires once each time the CBC Auto Trade Setup draws a new setup (triggers: HTF CBC Flip, LTF EMA20 Pierce, HTF EMA9 Pierce, HTF EMA20 Pierce). Lists TP2/TP1/Entry/SL1/SL2 with the pivot name and points from entry. The latest one also shows in the Trade Setup box at top left.'
+    },
+    {
       test: (l) => /VWAP (Crossing|Approaching)\s*\(/i.test(l),
       title: 'VWAP Proximity',
       def: 'Fires once when price crosses (within the configured Crossing distance) or approaches (within the configured Approaching distance) VWAP. Fires once per "visit" — won\'t repeat every bar while price stays in the same band, and won\'t refire on the same level within the configured cooldown (default 5 bars) even if the visit-latch resets early.'
@@ -4053,6 +4085,8 @@
     // case-insensitively would grab that lowercase word instead of the real direction.
     const lineDirection = (line) => /\bSHORT\b/.test(line) ? 'SHORT' : /\bLONG\b/.test(line) ? 'LONG' : null;
 
+    const setupLine = bulletLines.find(l => /Trade Setup:/i.test(l));
+    if (setupLine) return { label: 'SETUP', cls: /\bSHORT\b/.test(setupLine) ? 'pill-setup-short' : 'pill-setup-long' };
     if (/A\+ Setup/i.test(joined)) return { label: 'A+', cls: 'pill-aplus' };
     if (/VWAP Bounce/i.test(joined)) return { label: 'VWAP BOUNCE', cls: 'pill-aplus' };
     // Covers all 26 LuxAlgo Price Action alert types with one shared regex (BOS/CHOCH formed,
@@ -4698,11 +4732,69 @@
     return groupedRows;
   }
 
+  // ---- v27: Trade Setup box ----
+  // Parses the CBC v8.13 "Trade Setup" alert:
+  //   TICKER —\n• Trade Setup: SHORT\nTrigger: ...\nTP2: 7695.75 | S3 | -54.75\n...Entry: 7750.5\n...Time: ...
+  function parseTradeSetup(raw) {
+    const lines = (raw || '').split('\n').map(l => l.trim());
+    const head = lines.find(l => /^•\s*Trade Setup:/i.test(l));
+    if (!head) return null;
+    const dir = /\bSHORT\b/.test(head) ? 'SHORT' : 'LONG';
+    const get = (key) => lines.find(l => l.toUpperCase().startsWith(key.toUpperCase() + ':'));
+    const lvl = (key) => {
+      const l = get(key);
+      if (!l) return null;
+      const parts = l.slice(key.length + 1).split('|').map(p => p.trim());
+      return { price: parts[0] || '—', pivot: parts[1] || '', pts: parts[2] || '' };
+    };
+    const trig = get('Trigger'); const time = get('Time');
+    return {
+      dir,
+      trigger: trig ? trig.slice(8).trim() : '',
+      time: time ? time.slice(5).trim() : '',
+      TP2: lvl('TP2'), TP1: lvl('TP1'), Entry: lvl('Entry'), SL1: lvl('SL1'), SL2: lvl('SL2')
+    };
+  }
+  let setupBoxCollapsed = false;
+  try { setupBoxCollapsed = localStorage.getItem('setupBoxCollapsed') === 'true'; } catch (e) {}
+  function renderSetupBox() {
+    const box = document.getElementById('setupBox');
+    if (!box) return;
+    // alerts[] is newest-first; on a symbol tab, show that symbol's latest setup, on "All" the latest overall.
+    const found = alerts.find(a => (activeFilter === 'all' || getSymbol(a.raw) === activeFilter) && parseTradeSetup(a.raw));
+    if (!found) { box.style.display = 'none'; return; }
+    const st = parseTradeSetup(found.raw);
+    const sym = getSymbol(found.raw) || '';
+    const keys = st.dir === 'SHORT' ? ['SL2', 'SL1', 'Entry', 'TP1', 'TP2'] : ['TP2', 'TP1', 'Entry', 'SL1', 'SL2'];
+    const rows = keys.map(k => {
+      const v = st[k] || { price: '—', pivot: '', pts: '' };
+      const cls = k === 'Entry' ? 'r-entry' : k.startsWith('TP') ? 'r-tp' : 'r-sl';
+      const piv = k === 'Entry' ? st.dir.charAt(0) + st.dir.slice(1).toLowerCase() : (v.pivot || '-');
+      return `<tr class="${cls}"><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
+    }).join('');
+    const received = found.receivedAt ? new Date(found.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+    box.innerHTML = `<div class="sb-head" id="setupBoxHead"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
+      `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span><span class="sb-caret">${setupBoxCollapsed ? '▸' : '▾'}</span></div>` +
+      `<div class="sb-body"><div class="sb-sub">${escapeHtml(st.trigger || 'Setup')}${st.time ? ' · ' + escapeHtml(st.time) : (received ? ' · ' + received : '')}</div>` +
+      `<table><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}</table></div>`;
+    box.classList.toggle('collapsed', setupBoxCollapsed);
+    const hdr = document.querySelector('header');
+    box.style.top = ((hdr ? hdr.getBoundingClientRect().bottom : 0) + 8) + 'px';
+    box.style.display = '';
+    document.getElementById('setupBoxHead').onclick = () => {
+      setupBoxCollapsed = !setupBoxCollapsed;
+      try { localStorage.setItem('setupBoxCollapsed', String(setupBoxCollapsed)); } catch (e) {}
+      renderSetupBox();
+    };
+  }
+  window.addEventListener('resize', () => renderSetupBox());
+
   function render() {
     // Build the symbol tab bar from whatever tickers have shown up so far, preserving the current
     // selection (and falling back to "all" if the selected symbol has since rolled off).
     const symbols = Array.from(new Set(alerts.map(a => getSymbol(a.raw)).filter(Boolean))).sort();
     activeFilter = symbols.includes(activeFilter) ? activeFilter : 'all';
+    renderSetupBox();
     const countBySymbol = {};
     symbols.forEach(s => { countBySymbol[s] = alerts.filter(a => getSymbol(a.raw) === s).length; });
     symbolTabsEl.innerHTML = `<button class="symbol-tab-btn ${activeFilter === 'all' ? 'active' : ''}" data-symbol="all">All<span class="symbol-tab-count">${alerts.length}</span></button>` +
