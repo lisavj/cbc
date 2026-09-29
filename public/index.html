@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v39 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v40 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -162,7 +162,9 @@
      v38: TP4/SL4 rows (CBC v8.27) in the setup tables and SETUP badges.
      v39: futures quote strip (TradingView embed "Ticker Tape" widget: MGC, MES, MNQ, M2K, MCL) as the
      header's last row, with a "Quotes: On/Off" header button (remembered). Data comes from TradingView's
-     free embed and may be delayed. Frontend-only. -->
+     free embed and may be delayed. Frontend-only.
+     v40: quote strip REMOVED (per request). Trade Setup header's trigger/time line made readable (12px,
+     light text), and ENDED setups only dim the table, not the header. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -905,9 +907,9 @@
   .sb-table tr.r-sl td { background: #b91c1c; }
   #setupBox { max-height: calc(100vh - 160px); overflow-y: auto; width: 270px; }
   #setupBox .sb-item + .sb-item { border-top: 2px solid #475569; }
-  #setupBox .sb-item.ended { opacity: .6; }
+  #setupBox .sb-item.ended .sb-body { opacity: .6; }
   #setupBox .sb-head { flex-wrap: wrap; row-gap: 2px; }
-  #setupBox .sb-head .sb-when { flex-basis: 100%; font-weight: 400; font-size: 11px; color: #94a3b8; }
+  #setupBox .sb-head .sb-when { flex-basis: 100%; font-weight: 500; font-size: 12px; color: #e2e8f0; }
   #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
   #setupBox .sb-item.collapsed .sb-body { display: none; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
@@ -1763,7 +1765,6 @@
       <div class="type-filter-panel" id="viewModePanel"></div>
     </div>
     <button id="simpleModeBtn">Simple: Off</button>
-    <button id="quotesBtn" title="Show/hide the futures quote strip">Quotes: On</button>
     <button id="keepSetupsBtn" title="On: the Trade Setup box keeps a stack of recent setups (newest open, older collapsed, ENDED tag once a setup is over). Off: only the latest setup.">Keep setups: On</button>
     <select id="keepSetupsCount" title="How many setups to keep in the Trade Setup box"><option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="all">All</option></select>
     <div class="type-filter-wrap" id="simpleSymbolWrap" style="display:none;">
@@ -1802,27 +1803,6 @@
       </div>
     </div>
     <button id="clearBtn">Clear all</button>
-  </div>
-  <div id="quotesStrip" style="flex-basis:100%; min-height:46px;">
-    <div class="tradingview-widget-container">
-      <div class="tradingview-widget-container__widget"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
-      {
-        "symbols": [
-          { "proName": "COMEX_MINI:MGC1!", "title": "MGC1!" },
-          { "proName": "CME_MINI:MES1!", "title": "MES1!" },
-          { "proName": "CME_MINI:MNQ1!", "title": "MNQ1!" },
-          { "proName": "CME_MINI:M2K1!", "title": "M2K1!" },
-          { "proName": "NYMEX:MCL1!", "title": "MCL1!" }
-        ],
-        "showSymbolLogo": true,
-        "isTransparent": true,
-        "displayMode": "regular",
-        "colorTheme": "dark",
-        "locale": "en"
-      }
-      </script>
-    </div>
   </div>
 </header>
 
@@ -2194,7 +2174,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v39</footer>
+<footer>tv-webhook-dashboard · v40</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4873,23 +4853,6 @@
     keepSetups = localStorage.getItem('keepSetups') !== 'false';
     keepSetupsCount = localStorage.getItem('keepSetupsCount') || '5';
   } catch (e) {}
-  // v39: futures quote strip show/hide.
-  const quotesBtn = document.getElementById('quotesBtn');
-  const quotesStrip = document.getElementById('quotesStrip');
-  let quotesOn = true;
-  try { quotesOn = localStorage.getItem('quotesOn') !== 'false'; } catch (e) {}
-  function syncQuotes() {
-    quotesBtn.textContent = quotesOn ? 'Quotes: On' : 'Quotes: Off';
-    quotesStrip.style.display = quotesOn ? '' : 'none';
-  }
-  syncQuotes();
-  quotesBtn.addEventListener('click', () => {
-    quotesOn = !quotesOn;
-    try { localStorage.setItem('quotesOn', String(quotesOn)); } catch (e) {}
-    syncQuotes(); renderSetupBox();
-  });
-  // The widget loads asynchronously and changes the header height; re-position the setup box after.
-  setTimeout(() => renderSetupBox(), 2500);
   const keepSetupsBtn = document.getElementById('keepSetupsBtn');
   const keepSetupsCountEl = document.getElementById('keepSetupsCount');
   function syncKeepSetupsUi() {
