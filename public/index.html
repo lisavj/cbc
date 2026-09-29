@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v37 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v39 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -158,7 +158,11 @@
      becomes a stack of recent setups, newest open, older collapsed; each header shows trigger + time, so
      collapsed rows still say what/when. A setup is tagged ENDED once a newer Trade Setup for that symbol
      arrives, or a newer status alert no longer carries its entry. Trade Setup cards in the feed show the
-     same grid table. Frontend-only, no server.js update. -->
+     same grid table. Frontend-only, no server.js update.
+     v38: TP4/SL4 rows (CBC v8.27) in the setup tables and SETUP badges.
+     v39: futures quote strip (TradingView embed "Ticker Tape" widget: MGC, MES, MNQ, M2K, MCL) as the
+     header's last row, with a "Quotes: On/Off" header button (remembered). Data comes from TradingView's
+     free embed and may be delayed. Frontend-only. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1759,6 +1763,7 @@
       <div class="type-filter-panel" id="viewModePanel"></div>
     </div>
     <button id="simpleModeBtn">Simple: Off</button>
+    <button id="quotesBtn" title="Show/hide the futures quote strip">Quotes: On</button>
     <button id="keepSetupsBtn" title="On: the Trade Setup box keeps a stack of recent setups (newest open, older collapsed, ENDED tag once a setup is over). Off: only the latest setup.">Keep setups: On</button>
     <select id="keepSetupsCount" title="How many setups to keep in the Trade Setup box"><option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="all">All</option></select>
     <div class="type-filter-wrap" id="simpleSymbolWrap" style="display:none;">
@@ -1797,6 +1802,27 @@
       </div>
     </div>
     <button id="clearBtn">Clear all</button>
+  </div>
+  <div id="quotesStrip" style="flex-basis:100%; min-height:46px;">
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+      {
+        "symbols": [
+          { "proName": "COMEX_MINI:MGC1!", "title": "MGC1!" },
+          { "proName": "CME_MINI:MES1!", "title": "MES1!" },
+          { "proName": "CME_MINI:MNQ1!", "title": "MNQ1!" },
+          { "proName": "CME_MINI:M2K1!", "title": "M2K1!" },
+          { "proName": "NYMEX:MCL1!", "title": "MCL1!" }
+        ],
+        "showSymbolLogo": true,
+        "isTransparent": true,
+        "displayMode": "regular",
+        "colorTheme": "dark",
+        "locale": "en"
+      }
+      </script>
+    </div>
   </div>
 </header>
 
@@ -2168,7 +2194,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v37</footer>
+<footer>tv-webhook-dashboard · v39</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4395,7 +4421,7 @@
 
     // v28: active trade setup badges (CBC v8.19 "Setup: LONG|SHORT" + "Setup TP2: price | pivot | pts").
     const setupDir = get('Setup');
-    const setupOrder = setupDir === 'SHORT' ? ['SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3'] : ['TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3'];
+    const setupOrder = setupDir === 'SHORT' ? ['SL4', 'SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3', 'TP4'] : ['TP4', 'TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3', 'SL4'];
     const setup = setupDir ? [[`SETUP ${setupDir}`, setupDir === 'SHORT' ? 'badge-bear' : 'badge-bull', null, 'Active Auto Trade Setup at the time of this alert (same as the chart\'s Trade Levels box)']].concat(
       setupOrder.map(k => {
         const v = get('Setup ' + k);
@@ -4837,7 +4863,7 @@
       dir,
       trigger: trig ? trig.slice(8).trim() : '',
       time: time ? time.slice(5).trim() : '',
-      TP3: lvl('TP3'), TP2: lvl('TP2'), TP1: lvl('TP1'), Entry: lvl('Entry'), SL1: lvl('SL1'), SL2: lvl('SL2'), SL3: lvl('SL3'),
+      TP4: lvl('TP4'), TP3: lvl('TP3'), TP2: lvl('TP2'), TP1: lvl('TP1'), Entry: lvl('Entry'), SL1: lvl('SL1'), SL2: lvl('SL2'), SL3: lvl('SL3'), SL4: lvl('SL4'),
       flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : ''
     };
   }
@@ -4847,6 +4873,23 @@
     keepSetups = localStorage.getItem('keepSetups') !== 'false';
     keepSetupsCount = localStorage.getItem('keepSetupsCount') || '5';
   } catch (e) {}
+  // v39: futures quote strip show/hide.
+  const quotesBtn = document.getElementById('quotesBtn');
+  const quotesStrip = document.getElementById('quotesStrip');
+  let quotesOn = true;
+  try { quotesOn = localStorage.getItem('quotesOn') !== 'false'; } catch (e) {}
+  function syncQuotes() {
+    quotesBtn.textContent = quotesOn ? 'Quotes: On' : 'Quotes: Off';
+    quotesStrip.style.display = quotesOn ? '' : 'none';
+  }
+  syncQuotes();
+  quotesBtn.addEventListener('click', () => {
+    quotesOn = !quotesOn;
+    try { localStorage.setItem('quotesOn', String(quotesOn)); } catch (e) {}
+    syncQuotes(); renderSetupBox();
+  });
+  // The widget loads asynchronously and changes the header height; re-position the setup box after.
+  setTimeout(() => renderSetupBox(), 2500);
   const keepSetupsBtn = document.getElementById('keepSetupsBtn');
   const keepSetupsCountEl = document.getElementById('keepSetupsCount');
   function syncKeepSetupsUi() {
@@ -4907,7 +4950,7 @@
     return { text, isShort };
   }
   function setupTableHtml(st, flip) {
-    const keys = (st.dir === 'SHORT' ? ['SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3'] : ['TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3']).filter(k => k !== 'TP3' && k !== 'SL3' || st[k]);
+    const keys = (st.dir === 'SHORT' ? ['SL4', 'SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3', 'TP4'] : ['TP4', 'TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3', 'SL4']).filter(k => !/^(TP|SL)[34]$/.test(k) || st[k]);
     const rows = keys.map(k => {
       const v = st[k] || { price: '—', pivot: '', pts: '' };
       const cls = k === 'Entry' ? 'r-entry' : k.startsWith('TP') ? 'r-tp' : 'r-sl';
