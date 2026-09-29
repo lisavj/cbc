@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v43 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v44 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -170,7 +170,8 @@
      original green/red fills. ENDED setups are no longer dimmed at all (the ENDED tag marks them).
      v43: chart link (📈) in each Trade Setup box header -> TradingView chart of that symbol at the
      timeframe that generated the setup. Timeframe comes from the setup alert's "Chart:" line (CBC v8.28+),
-     else from the nearest same-symbol alert that has one. -->
+     else from the nearest same-symbol alert that has one.
+     v44: the chart link moved to the end of the trigger/time line (keeps the header's first line narrow). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -916,7 +917,7 @@
 
   #setupBox .sb-head { flex-wrap: wrap; row-gap: 2px; }
   #setupBox .sb-head .sb-when { flex-basis: 100%; font-weight: 500; font-size: 12px; color: #e2e8f0; }
-  #setupBox .sb-chart { text-decoration: none; font-size: 13px; margin-left: 2px; }
+  #setupBox .sb-chart { text-decoration: none; font-size: 13px; margin-left: 4px; }
   #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
   #setupBox .sb-item.collapsed .sb-body { display: none; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
@@ -2181,7 +2182,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v43</footer>
+<footer>tv-webhook-dashboard · v44</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4964,8 +4965,8 @@
       return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''}">` +
         `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
         `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${ended ? '<span class="sb-ended">ENDED</span>' : ''}` +
-        (() => { const u = setupChartUrl(i, sym); return u ? `<a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })() +
-        `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}</span></div>` +
+
+        `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span></div>` +
         `<div class="sb-body">${setupTableHtml(st, setupFlip(i, sym, st))}</div></div>`;
     }).join('');
     const hdr = document.querySelector('header');
