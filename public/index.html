@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v33 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v37 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -149,7 +149,16 @@
      alert received since the setup, and falls back to the setup alert's own "HTF (…) flip:" line
      (CBC v8.22+). Frontend-only.
      v32: TP3/SL3 (CBC v8.23) shown in the Trade Setup box and in the SETUP badges, outermost rows.
-     v33: flip row text shortened to match the chart, e.g. "HTF Flip Short 11:15 - 9". -->
+     v33: flip row text shortened to match the chart, e.g. "HTF Flip Short 11:15 - 9".
+     v34: Trade Setup box table drawn as a grid (thin border on every cell).
+     v35: default Alert Types = A+ Setup, LTF EMA20 Pierce, HTF Pullback Entry - Structure Confirmed, HTF
+     CBC Flip (per the user's screenshot). Applied once to existing browsers (enabledTypesVer v35).
+     v36: "Setup markers" group adds HTF Pullback Entry - Structure Confirmed (a setup trigger since CBC v8.26).
+     v37: "Keep setups" header button (default On) + count (3/5/10/All, default 5). The Trade Setup box
+     becomes a stack of recent setups, newest open, older collapsed; each header shows trigger + time, so
+     collapsed rows still say what/when. A setup is tagged ENDED once a newer Trade Setup for that symbol
+     arrives, or a newer status alert no longer carries its entry. Trade Setup cards in the feed show the
+     same grid table. Frontend-only, no server.js update. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -884,14 +893,21 @@
   #setupBox .sb-head .sb-dir.long { background: #16a34a; } #setupBox .sb-head .sb-dir.short { background: #dc2626; }
   #setupBox .sb-head .sb-caret { margin-left: auto; opacity: .7; }
   #setupBox .sb-sub { padding: 4px 8px; color: #94a3b8; font-size: 11px; border-bottom: 1px solid #1f2530; }
-  #setupBox table { border-collapse: collapse; width: 100%; }
-  #setupBox th { background: #0c1222; font-weight: 600; padding: 3px 8px; text-align: left; }
-  #setupBox td { padding: 3px 8px; border-top: 1px solid #1e293b; }
-  #setupBox td.num, #setupBox th.num { text-align: right; }
-  #setupBox tr.r-tp td { background: #15803d; } #setupBox tr.r-entry td { background: #334155; }
-  #setupBox tr.r-sl td { background: #b91c1c; }
-  #setupBox.collapsed .sb-body { display: none; }
-  #setupBox.collapsed .sb-head { border-radius: 8px; }
+  .sb-table { border-collapse: collapse; width: 100%; color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .sb-table th { background: #0c1222; font-weight: 600; padding: 3px 8px; text-align: left; border: 1px solid #475569; }
+  .sb-table td { padding: 3px 8px; border: 1px solid rgba(2, 6, 23, 0.55); }
+  .sb-table td.num, .sb-table th.num { text-align: right; }
+  .sb-table tr.r-tp td { background: #15803d; } .sb-table tr.r-entry td { background: #334155; }
+  .sb-table tr.r-sl td { background: #b91c1c; }
+  #setupBox { max-height: calc(100vh - 160px); overflow-y: auto; width: 270px; }
+  #setupBox .sb-item + .sb-item { border-top: 2px solid #475569; }
+  #setupBox .sb-item.ended { opacity: .6; }
+  #setupBox .sb-head { flex-wrap: wrap; row-gap: 2px; }
+  #setupBox .sb-head .sb-when { flex-basis: 100%; font-weight: 400; font-size: 11px; color: #94a3b8; }
+  #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
+  #setupBox .sb-item.collapsed .sb-body { display: none; }
+  .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
+
   .type-pill.pill-luxalgo-bull { background: #2d6b4f; color: #dff3e8; border: 1px solid #6d4fa3; }
   .type-pill.pill-luxalgo-bear { background: #6b2d3d; color: #f3dfe4; border: 1px solid #6d4fa3; }
   .type-pill.pill-neutral { background: #444441; color: #d3d1c7; }
@@ -1743,6 +1759,8 @@
       <div class="type-filter-panel" id="viewModePanel"></div>
     </div>
     <button id="simpleModeBtn">Simple: Off</button>
+    <button id="keepSetupsBtn" title="On: the Trade Setup box keeps a stack of recent setups (newest open, older collapsed, ENDED tag once a setup is over). Off: only the latest setup.">Keep setups: On</button>
+    <select id="keepSetupsCount" title="How many setups to keep in the Trade Setup box"><option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="all">All</option></select>
     <div class="type-filter-wrap" id="simpleSymbolWrap" style="display:none;">
       <button id="simpleSymbolBtn">Symbols ▾</button>
       <div class="type-filter-panel" id="simpleSymbolPanel"></div>
@@ -2150,7 +2168,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v33</footer>
+<footer>tv-webhook-dashboard · v37</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -3795,7 +3813,7 @@
     {
       test: (l) => /Trade Setup:/i.test(l),
       title: 'Trade Setup',
-      def: 'Fires once each time the CBC Auto Trade Setup draws a new setup (triggers: HTF CBC Flip, LTF EMA20 Pierce, HTF EMA9 Pierce, HTF EMA20 Pierce). Lists TP2/TP1/Entry/SL1/SL2 with the pivot name and points from entry. The latest one also shows in the Trade Setup box at top left.'
+      def: 'Fires once each time the CBC Auto Trade Setup draws a new setup (triggers: HTF CBC Flip, LTF EMA20 Pierce, HTF EMA9 Pierce, HTF EMA20 Pierce, HTF Pullback Structure). Lists TP2/TP1/Entry/SL1/SL2 with the pivot name and points from entry. The latest one also shows in the Trade Setup box at top left.'
     },
     {
       test: (l) => /VWAP (Crossing|Approaching)\s*\(/i.test(l),
@@ -4020,7 +4038,7 @@
     'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)'
   ].filter(t => ALL_TYPE_TITLES.includes(t));
   // v30: the 7 split into two groups for the Alert Types panel's two master checkboxes.
-  const SETUP_MARKER_TITLES = ['Trade Setup', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
+  const SETUP_MARKER_TITLES = ['Trade Setup', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
   const OTHER_MARKER_TITLES = SEVEN_MARKER_TITLES.filter(t => !SETUP_MARKER_TITLES.includes(t));
   const MARKER_GROUPS = { setupMarkerMaster: SETUP_MARKER_TITLES, otherMarkerMaster: OTHER_MARKER_TITLES };
   // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
@@ -4033,14 +4051,14 @@
   // starting set on first visit or if nothing valid was saved yet.
   // v29: defaults are now an explicit ON list (everything else starts off), per direct request.
   const DEFAULT_ON_TYPES = [
-    'Price Enters HTF EMA9/20 Zone - Entry',
     'A+ Setup (Long/Short)',
     'LTF EMA20 Pierce - Entry (Long/Short)',
+    'HTF Pullback Entry - Structure Confirmed (Long/Short)',
     'HTF CBC Flip (Long/Short)'
   ];
   const defaultEnabledTypes = ALL_TYPE_TITLES.filter(t => DEFAULT_ON_TYPES.includes(t));
   // One-time switch to the v29 defaults in browsers that already had a saved selection.
-  const ENABLED_TYPES_VER = 'v29';
+  const ENABLED_TYPES_VER = 'v35';
   try {
     if (localStorage.getItem('enabledTypesVer') !== ENABLED_TYPES_VER) {
       localStorage.removeItem('enabledTypes');
@@ -4823,16 +4841,72 @@
       flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : ''
     };
   }
-  let setupBoxCollapsed = false;
-  try { setupBoxCollapsed = localStorage.getItem('setupBoxCollapsed') === 'true'; } catch (e) {}
-  function renderSetupBox() {
-    const box = document.getElementById('setupBox');
-    if (!box) return;
-    // alerts[] is newest-first; on a symbol tab, show that symbol's latest setup, on "All" the latest overall.
-    const found = alerts.find(a => (activeFilter === 'all' || getSymbol(a.raw) === activeFilter) && parseTradeSetup(a.raw));
-    if (!found) { box.style.display = 'none'; return; }
-    const st = parseTradeSetup(found.raw);
-    const sym = getSymbol(found.raw) || '';
+  // v37: Keep setups (header button + count), stack rendering, ENDED tagging, in-card tables.
+  let keepSetups = true, keepSetupsCount = '5';
+  try {
+    keepSetups = localStorage.getItem('keepSetups') !== 'false';
+    keepSetupsCount = localStorage.getItem('keepSetupsCount') || '5';
+  } catch (e) {}
+  const keepSetupsBtn = document.getElementById('keepSetupsBtn');
+  const keepSetupsCountEl = document.getElementById('keepSetupsCount');
+  function syncKeepSetupsUi() {
+    keepSetupsBtn.textContent = keepSetups ? 'Keep setups: On' : 'Keep setups: Off';
+    keepSetupsCountEl.value = keepSetupsCount;
+    keepSetupsCountEl.style.display = keepSetups ? '' : 'none';
+  }
+  syncKeepSetupsUi();
+  keepSetupsBtn.addEventListener('click', () => {
+    keepSetups = !keepSetups;
+    try { localStorage.setItem('keepSetups', String(keepSetups)); } catch (e) {}
+    syncKeepSetupsUi(); renderSetupBox();
+  });
+  keepSetupsCountEl.addEventListener('change', () => {
+    keepSetupsCount = keepSetupsCountEl.value;
+    try { localStorage.setItem('keepSetupsCount', keepSetupsCount); } catch (e) {}
+    renderSetupBox();
+  });
+  const sbOpenState = new Map(); // key -> open/closed chosen by the user (overrides the default)
+  const setupKey = (a) => String(a.id ?? a.receivedAt);
+
+  function setupSymbolOk(sym) {
+    if (chronoView) return chronoSymbolFilter.size === 0 || chronoSymbolFilter.has(sym);
+    if (simpleMode) return !simpleSymbolExcluded.has(sym);
+    return activeFilter === 'all' || sym === activeFilter;
+  }
+  // The setup at alerts[idx] is ENDED once a newer alert for the same symbol is either another Trade
+  // Setup, or a status snapshot ("Market:" line) that no longer carries this setup's entry.
+  function setupEnded(idx, sym, st) {
+    const entry = st.Entry ? st.Entry.price : null;
+    for (let i = 0; i < idx; i++) {
+      const a = alerts[i];
+      if (getSymbol(a.raw) !== sym) continue;
+      const raw = a.raw || '';
+      if (parseTradeSetup(raw)) return true;
+      const ls = raw.split('\n').map(x => x.trim());
+      if (!ls.some(l => l.startsWith('Market:'))) continue;
+      const se = ls.find(l => l.startsWith('Setup Entry:'));
+      if (!se) return true;
+      if (entry && se.slice(12).split('|')[0].trim() !== entry) return true;
+    }
+    return false;
+  }
+  function setupFlip(idx, sym, st) {
+    const fm0 = st.flipText.match(/flip:\s*(LONG|SHORT)\s+(\d{1,2}:\d{2})\s*·\s*(\d+)/i);
+    let text = fm0 ? `HTF Flip ${fm0[1][0].toUpperCase()}${fm0[1].slice(1).toLowerCase()} ${fm0[2]} - ${fm0[3]}` : st.flipText;
+    let isShort = /\bSHORT\b/.test(st.flipText);
+    if (st.flipTf) {
+      const key = `CBC (${st.flipTf}) last flip:`;
+      for (let i = 0; i <= idx; i++) {
+        const a = alerts[i];
+        if (getSymbol(a.raw) !== sym) continue;
+        const l = (a.raw || '').split('\n').map(x => x.trim()).find(x => x.startsWith(key));
+        const m = l ? l.slice(key.length).trim().match(/^(LONG|SHORT)\s+\d{1,2}\/\d{1,2}\s+(\d{1,2}:\d{2})\s+ET\s+#(\d+)/i) : null;
+        if (m) { text = `HTF Flip ${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()} ${m[2]} - ${m[3]}`; isShort = m[1].toUpperCase() === 'SHORT'; break; }
+      }
+    }
+    return { text, isShort };
+  }
+  function setupTableHtml(st, flip) {
     const keys = (st.dir === 'SHORT' ? ['SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3'] : ['TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3']).filter(k => k !== 'TP3' && k !== 'SL3' || st[k]);
     const rows = keys.map(k => {
       const v = st[k] || { price: '—', pivot: '', pts: '' };
@@ -4840,36 +4914,45 @@
       const piv = k === 'Entry' ? st.dir.charAt(0) + st.dir.slice(1).toLowerCase() : (v.pivot || '-');
       return `<tr class="${cls}"><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
     }).join('');
-    // v31: HTF last-flip row. Prefer the freshest "CBC (<tf>) last flip" row from any alert for this
-    // symbol received since the setup (bars-ago count stays current); else the setup's own line.
-    const fm0 = st.flipText.match(/flip:\s*(LONG|SHORT)\s+(\d{1,2}:\d{2})\s*·\s*(\d+)/i);
-    let flipText = fm0 ? `HTF Flip ${fm0[1][0].toUpperCase()}${fm0[1].slice(1).toLowerCase()} ${fm0[2]} - ${fm0[3]}` : st.flipText, flipShort = /\bSHORT\b/.test(st.flipText);
-    if (st.flipTf) {
-      const setupIdx = alerts.indexOf(found);
-      const key = `CBC (${st.flipTf}) last flip:`;
-      for (let i = 0; i <= setupIdx; i++) {
-        const a = alerts[i];
-        if (getSymbol(a.raw) !== sym) continue;
-        const l = (a.raw || '').split('\n').map(x => x.trim()).find(x => x.startsWith(key));
-        const m = l ? l.slice(key.length).trim().match(/^(LONG|SHORT)\s+\d{1,2}\/\d{1,2}\s+(\d{1,2}:\d{2})\s+ET\s+#(\d+)/i) : null;
-        if (m) { flipText = `HTF Flip ${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()} ${m[2]} - ${m[3]}`; flipShort = m[1].toUpperCase() === 'SHORT'; break; }
-      }
+    const flipRow = flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '';
+    return `<table class="sb-table"><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}${flipRow}</table>`;
+  }
+  function renderSetupBox() {
+    const box = document.getElementById('setupBox');
+    if (!box) return;
+    const limit = !keepSetups ? 1 : keepSetupsCount === 'all' ? Infinity : parseInt(keepSetupsCount, 10) || 5;
+    const items = [];
+    for (let i = 0; i < alerts.length && items.length < limit; i++) {
+      const a = alerts[i];
+      const sym = getSymbol(a.raw) || '';
+      if (!setupSymbolOk(sym)) continue;
+      const st = parseTradeSetup(a.raw);
+      if (st) items.push({ a, i, sym, st });
     }
-    const flipRow = flipText ? `<tr class="${flipShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flipText)}</td></tr>` : '';
-    const received = found.receivedAt ? new Date(found.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-    box.innerHTML = `<div class="sb-head" id="setupBoxHead"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
-      `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span><span class="sb-caret">${setupBoxCollapsed ? '▸' : '▾'}</span></div>` +
-      `<div class="sb-body"><div class="sb-sub">${escapeHtml(st.trigger || 'Setup')}${st.time ? ' · ' + escapeHtml(st.time) : (received ? ' · ' + received : '')}</div>` +
-      `<table><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}${flipRow}</table></div>`;
-    box.classList.toggle('collapsed', setupBoxCollapsed);
+    if (!items.length) { box.style.display = 'none'; return; }
+    box.innerHTML = items.map(({ a, i, sym, st }, n) => {
+      const ended = setupEnded(i, sym, st);
+      const key = setupKey(a);
+      const open = sbOpenState.has(key) ? sbOpenState.get(key) : n === 0;
+      const received = a.receivedAt ? new Date(a.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+      const when = `${escapeHtml(st.trigger || 'Setup')}${st.time ? ' · ' + escapeHtml(st.time) : (received ? ' · ' + received : '')}`;
+      return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''}">` +
+        `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
+        `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${ended ? '<span class="sb-ended">ENDED</span>' : ''}` +
+        `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}</span></div>` +
+        `<div class="sb-body">${setupTableHtml(st, setupFlip(i, sym, st))}</div></div>`;
+    }).join('');
     const hdr = document.querySelector('header');
     box.style.top = ((hdr ? hdr.getBoundingClientRect().bottom : 0) + 8) + 'px';
     box.style.display = '';
-    document.getElementById('setupBoxHead').onclick = () => {
-      setupBoxCollapsed = !setupBoxCollapsed;
-      try { localStorage.setItem('setupBoxCollapsed', String(setupBoxCollapsed)); } catch (e) {}
-      renderSetupBox();
-    };
+    box.querySelectorAll('.sb-head').forEach(h => {
+      h.onclick = () => {
+        const k = h.dataset.sbkey;
+        const item = h.parentElement;
+        sbOpenState.set(k, item.classList.contains('collapsed'));
+        renderSetupBox();
+      };
+    });
   }
   window.addEventListener('resize', () => renderSetupBox());
 
@@ -5111,6 +5194,7 @@
         </div>
         ${badgeRowHtml}
         ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
+        ${(() => { const st = parseTradeSetup(a.raw); if (!st) return ''; const idx = alerts.indexOf(a); return `<div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, getSymbol(a.raw) || '', st))}</div>`; })()}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }
