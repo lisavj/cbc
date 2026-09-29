@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v40 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v43 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -164,7 +164,13 @@
      header's last row, with a "Quotes: On/Off" header button (remembered). Data comes from TradingView's
      free embed and may be delayed. Frontend-only.
      v40: quote strip REMOVED (per request). Trade Setup header's trigger/time line made readable (12px,
-     light text), and ENDED setups only dim the table, not the header. -->
+     light text), and ENDED setups only dim the table, not the header.
+     v41 (withdrawn): colored text on dark grid -- misread of the request.
+     v42: setup table text is bright white + bold, like the "MNQ1!" label in the quote strip, on the
+     original green/red fills. ENDED setups are no longer dimmed at all (the ENDED tag marks them).
+     v43: chart link (📈) in each Trade Setup box header -> TradingView chart of that symbol at the
+     timeframe that generated the setup. Timeframe comes from the setup alert's "Chart:" line (CBC v8.28+),
+     else from the nearest same-symbol alert that has one. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -901,15 +907,16 @@
   #setupBox .sb-sub { padding: 4px 8px; color: #94a3b8; font-size: 11px; border-bottom: 1px solid #1f2530; }
   .sb-table { border-collapse: collapse; width: 100%; color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
   .sb-table th { background: #0c1222; font-weight: 600; padding: 3px 8px; text-align: left; border: 1px solid #475569; }
-  .sb-table td { padding: 3px 8px; border: 1px solid rgba(2, 6, 23, 0.55); }
+  .sb-table td { padding: 3px 8px; border: 1px solid rgba(2, 6, 23, 0.55); color: #ffffff; font-weight: 700; }
   .sb-table td.num, .sb-table th.num { text-align: right; }
   .sb-table tr.r-tp td { background: #15803d; } .sb-table tr.r-entry td { background: #334155; }
   .sb-table tr.r-sl td { background: #b91c1c; }
   #setupBox { max-height: calc(100vh - 160px); overflow-y: auto; width: 270px; }
   #setupBox .sb-item + .sb-item { border-top: 2px solid #475569; }
-  #setupBox .sb-item.ended .sb-body { opacity: .6; }
+
   #setupBox .sb-head { flex-wrap: wrap; row-gap: 2px; }
   #setupBox .sb-head .sb-when { flex-basis: 100%; font-weight: 500; font-size: 12px; color: #e2e8f0; }
+  #setupBox .sb-chart { text-decoration: none; font-size: 13px; margin-left: 2px; }
   #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
   #setupBox .sb-item.collapsed .sb-body { display: none; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
@@ -2174,7 +2181,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v40</footer>
+<footer>tv-webhook-dashboard · v43</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4912,6 +4919,18 @@
     }
     return { text, isShort };
   }
+  // v43: chart link for a setup -- its own "Chart:" line, else the closest same-symbol alert's.
+  function setupChartUrl(idx, sym) {
+    const chartRow = (raw) => { const l = (raw || '').split('\n').map(x => x.trim()).find(x => x.startsWith('Chart:')); return l ? l.slice(6).trim() : null; };
+    let c = chartRow(alerts[idx] && alerts[idx].raw);
+    for (let d = 1; !c && d < alerts.length; d++) {
+      for (const j of [idx + d, idx - d]) {
+        const a = alerts[j];
+        if (a && getSymbol(a.raw) === sym) { c = chartRow(a.raw); if (c) break; }
+      }
+    }
+    return buildChartUrl(sym, c ? [['Chart', c]] : []);
+  }
   function setupTableHtml(st, flip) {
     const keys = (st.dir === 'SHORT' ? ['SL4', 'SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3', 'TP4'] : ['TP4', 'TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3', 'SL4']).filter(k => !/^(TP|SL)[34]$/.test(k) || st[k]);
     const rows = keys.map(k => {
@@ -4945,6 +4964,7 @@
       return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''}">` +
         `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
         `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${ended ? '<span class="sb-ended">ENDED</span>' : ''}` +
+        (() => { const u = setupChartUrl(i, sym); return u ? `<a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })() +
         `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}</span></div>` +
         `<div class="sb-body">${setupTableHtml(st, setupFlip(i, sym, st))}</div></div>`;
     }).join('');
