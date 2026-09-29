@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v27 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v33 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -133,7 +133,23 @@
      CBC v8.13 ("Alert: new Trade Setup") and shows the latest setup for the selected symbol (or the
      most recent one on "All"): TP2/TP1/Entry/SL1/SL2 with pivot names and points from entry, rows
      flipped for shorts like the chart's Trade Levels box. Collapsible (remembered). New "Trade Setup"
-     alert type + SETUP pill. Frontend-only change, no server.js update needed. -->
+     alert type + SETUP pill. Frontend-only change, no server.js update needed.
+     v28: badge row gains the ACTIVE trade setup (CBC v8.19 "Setup ..." lines) right after the
+     R1/PP/S1 pivot badges: SETUP LONG/SHORT, then each level as "TP1 4151 LTF Piv-H -5.2" in the same
+     order/colors as the chart's Trade Levels box. Frontend-only, no server.js update needed.
+     v29: default Alert Types = only Price Enters HTF EMA9/20 Zone, A+ Setup, LTF EMA20 Pierce and
+     HTF CBC Flip (per the user's screenshot). Applied once to existing browsers too (enabledTypesVer),
+     after that the user's own choices persist as before. Frontend-only.
+     v30: Alert Types panel — the single "7 Markers Only" master row is split into two master
+     checkboxes: "Setup markers" (Trade Setup + HTF CBC Flip + LTF EMA20 Pierce, the alert types that
+     draw Auto Trade Setups) and "Other markers" (A+ Setup, HTF EMA9/20 Zone, VWAP Bounce, High
+     Confluence, Key Level). Each one adds/removes its own group without touching anything else.
+     v31: Trade Setup box gets a last row with the HTF CBC last flip ("HTF (15m) flip: SHORT 11:15 ·
+     5 bars ago"), green/red by direction. It uses the freshest "CBC (15m) last flip" value from any
+     alert received since the setup, and falls back to the setup alert's own "HTF (…) flip:" line
+     (CBC v8.22+). Frontend-only.
+     v32: TP3/SL3 (CBC v8.23) shown in the Trade Setup box and in the SETUP badges, outermost rows.
+     v33: flip row text shortened to match the chart, e.g. "HTF Flip Short 11:15 - 9". -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2134,7 +2150,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v27</footer>
+<footer>tv-webhook-dashboard · v33</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4003,6 +4019,10 @@
     'LTF EMA20 Pierce - Entry (Long/Short)',
     'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)'
   ].filter(t => ALL_TYPE_TITLES.includes(t));
+  // v30: the 7 split into two groups for the Alert Types panel's two master checkboxes.
+  const SETUP_MARKER_TITLES = ['Trade Setup', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
+  const OTHER_MARKER_TITLES = SEVEN_MARKER_TITLES.filter(t => !SETUP_MARKER_TITLES.includes(t));
+  const MARKER_GROUPS = { setupMarkerMaster: SETUP_MARKER_TITLES, otherMarkerMaster: OTHER_MARKER_TITLES };
   // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
   // Proximity types (VWAP/EMA20/EMA200/Bill Breakers are common levels price crosses constantly),
   // unlike Pivot/YDH/YDL/ORB proximity which fires far less often and stays on by default.
@@ -4011,7 +4031,22 @@
   // Alert Types display filter — persisted the same way voiceEnabledTypes is just below (JSON array in
   // localStorage, a Set can't be stored directly). Falls back to the hardcoded DEFAULT_OFF_TYPES-based
   // starting set on first visit or if nothing valid was saved yet.
-  const defaultEnabledTypes = ALL_TYPE_TITLES.filter(t => !DEFAULT_OFF_TYPES.includes(t));
+  // v29: defaults are now an explicit ON list (everything else starts off), per direct request.
+  const DEFAULT_ON_TYPES = [
+    'Price Enters HTF EMA9/20 Zone - Entry',
+    'A+ Setup (Long/Short)',
+    'LTF EMA20 Pierce - Entry (Long/Short)',
+    'HTF CBC Flip (Long/Short)'
+  ];
+  const defaultEnabledTypes = ALL_TYPE_TITLES.filter(t => DEFAULT_ON_TYPES.includes(t));
+  // One-time switch to the v29 defaults in browsers that already had a saved selection.
+  const ENABLED_TYPES_VER = 'v29';
+  try {
+    if (localStorage.getItem('enabledTypesVer') !== ENABLED_TYPES_VER) {
+      localStorage.removeItem('enabledTypes');
+      localStorage.setItem('enabledTypesVer', ENABLED_TYPES_VER);
+    }
+  } catch (e) {}
   let enabledTypes;
   try {
     const savedEnabled = JSON.parse(localStorage.getItem('enabledTypes') || 'null');
@@ -4340,6 +4375,19 @@
       pivS1 ? [`S1 ${pivS1}`, 'badge-bull', null, 'Daily Pivot S1 (first support level)'] : null,
     ].filter(Boolean);
 
+    // v28: active trade setup badges (CBC v8.19 "Setup: LONG|SHORT" + "Setup TP2: price | pivot | pts").
+    const setupDir = get('Setup');
+    const setupOrder = setupDir === 'SHORT' ? ['SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3'] : ['TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3'];
+    const setup = setupDir ? [[`SETUP ${setupDir}`, setupDir === 'SHORT' ? 'badge-bear' : 'badge-bull', null, 'Active Auto Trade Setup at the time of this alert (same as the chart\'s Trade Levels box)']].concat(
+      setupOrder.map(k => {
+        const v = get('Setup ' + k);
+        if (!v) return null;
+        const [p, piv, pts] = v.split('|').map(x => x.trim());
+        const label = k === 'Entry' ? `ENTRY ${p}${pts ? ' ' + pts : ''}` : `${k} ${p}${piv && piv !== '-' ? ' ' + piv : ''}${pts ? ' ' + pts : ''}`;
+        const cls = k === 'Entry' ? 'badge-neutral' : k.startsWith('TP') ? 'badge-bull' : 'badge-bear';
+        return [escapeHtml(label), cls, null, `Setup ${k}: price, pivot, points from the alert's price`];
+      }).filter(Boolean)) : [];
+
     // Price badge — the current bar's close, always shown first (orange) so it's visible at a
     // glance without expanding the card, same value as the "Price" row in the field-body table.
     const priceVal = get('Price');
@@ -4367,7 +4415,7 @@
       (lastFlipBadge('60', 'CBC (1H) last flip') || lastFlipBadge('60', 'CBC (60) last flip')),
     ].filter(Boolean);
 
-    const groups = [price, time, cbc, st, ema, ema920Cross, emazone, zoneEntries, entry, or, vwap, ema200, lastFlip, htfSl, pivot].filter(g => g.length);
+    const groups = [price, time, cbc, st, ema, ema920Cross, emazone, zoneEntries, entry, or, vwap, ema200, lastFlip, htfSl, pivot, setup].filter(g => g.length);
     const groupsHtml = groups.map(g => g.map(([label, cls, ring, title]) => `<span class="badge ${cls}${ring ? ' ' + ring : ''}"${title ? ` title="${escapeHtml(title)}"` : ''}>${label}</span>`).join('')).join('<span class="badge-divider">|</span>');
 
     if (!statusBadge && !groupsHtml) return '';
@@ -4398,7 +4446,12 @@
     // Zone Entry, VWAP Bounce, High Confluence Setup, HTF CBC Flip, LTF EMA20 Pierce, Key Level) —
     // indeterminate when some but not all are individually enabled, same pattern as the Price
     // Action master row below.
-    const markerMasterHtml = `<label class="type-filter-row type-filter-master" title="Checking this turns OFF every other alert type and turns ON just these 7 — an override, not an add-on-top. Unchecking just turns the 7 back off."><input type="checkbox" id="markerMasterCheckbox" ${markerCheckedCount === SEVEN_MARKER_TITLES.length ? 'checked' : ''}> 7 Markers Only (${markerCheckedCount}/${SEVEN_MARKER_TITLES.length})</label>`;
+    const groupRow = (id, label, titles, tip) => {
+      const n = titles.filter(t => enabledTypes.has(t)).length;
+      return `<label class="type-filter-row type-filter-master" title="${escapeHtml(tip)}"><input type="checkbox" id="${id}" ${n === titles.length ? 'checked' : ''}> ${label} (${n}/${titles.length})</label>`;
+    };
+    const markerMasterHtml = groupRow('setupMarkerMaster', 'Setup markers', SETUP_MARKER_TITLES, 'Alert types that draw Auto Trade Setups: ' + SETUP_MARKER_TITLES.join(', ') + '. Checks/unchecks just these; nothing else changes.')
+      + groupRow('otherMarkerMaster', 'Other markers', OTHER_MARKER_TITLES, 'The other on-chart marker types: ' + OTHER_MARKER_TITLES.join(', ') + '. Checks/unchecks just these; nothing else changes.');
     const rowsHtml = markerMasterHtml + nonPaTitles.map((title) => {
       const checked = enabledTypes.has(title) ? 'checked' : '';
       const tip = ALERT_TYPE_DEF_BY_TITLE.get(title) || (title === OTHER_TYPE ? 'Any alert whose text doesn\'t match a known type — still shown, just as plain text.' : '');
@@ -4418,8 +4471,11 @@
     </div>`;
     const masterEl = document.getElementById('paMasterCheckbox');
     if (masterEl) masterEl.indeterminate = paCheckedCount > 0 && paCheckedCount < paTitles.length;
-    const markerMasterEl = document.getElementById('markerMasterCheckbox');
-    if (markerMasterEl) markerMasterEl.indeterminate = markerCheckedCount > 0 && markerCheckedCount < SEVEN_MARKER_TITLES.length;
+    Object.entries(MARKER_GROUPS).forEach(([id, titles]) => {
+      const el = document.getElementById(id);
+      const n = titles.filter(t => enabledTypes.has(t)).length;
+      if (el) el.indeterminate = n > 0 && n < titles.length;
+    });
   }
   renderTypeFilterPanel();
 
@@ -4579,6 +4635,15 @@
       render();
       return;
     }
+    if (MARKER_GROUPS[e.target.id]) {
+      // v30: each marker group adds/removes only its own types.
+      if (e.target.checked) MARKER_GROUPS[e.target.id].forEach(t => enabledTypes.add(t));
+      else MARKER_GROUPS[e.target.id].forEach(t => enabledTypes.delete(t));
+      saveEnabledTypes();
+      renderTypeFilterPanel();
+      render();
+      return;
+    }
     if (e.target.id === 'markerMasterCheckbox') {
       // Checking this ON overrides the whole Alert Types filter down to just these 7 — every other
       // type gets switched off automatically, rather than only adding the 7 on top of whatever else
@@ -4601,7 +4666,7 @@
       else enabledTypes.delete(title);
       saveEnabledTypes();
       // keep the relevant master row's count/indeterminate state in sync
-      if (title.startsWith(PRICE_ACTION_PREFIX) || SEVEN_MARKER_TITLES.includes(title)) renderTypeFilterPanel();
+      if (title.startsWith(PRICE_ACTION_PREFIX) || SEVEN_MARKER_TITLES.includes(title) || SETUP_MARKER_TITLES.includes(title)) renderTypeFilterPanel();
       render();
     }
   });
@@ -4748,11 +4813,14 @@
       return { price: parts[0] || '—', pivot: parts[1] || '', pts: parts[2] || '' };
     };
     const trig = get('Trigger'); const time = get('Time');
+    const flipLine = lines.find(l => /^HTF \(([^)]+)\) flip:/.test(l));
+    const flipM = flipLine ? flipLine.match(/^HTF \(([^)]+)\) flip:\s*(.*)$/) : null;
     return {
       dir,
       trigger: trig ? trig.slice(8).trim() : '',
       time: time ? time.slice(5).trim() : '',
-      TP2: lvl('TP2'), TP1: lvl('TP1'), Entry: lvl('Entry'), SL1: lvl('SL1'), SL2: lvl('SL2')
+      TP3: lvl('TP3'), TP2: lvl('TP2'), TP1: lvl('TP1'), Entry: lvl('Entry'), SL1: lvl('SL1'), SL2: lvl('SL2'), SL3: lvl('SL3'),
+      flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : ''
     };
   }
   let setupBoxCollapsed = false;
@@ -4765,18 +4833,34 @@
     if (!found) { box.style.display = 'none'; return; }
     const st = parseTradeSetup(found.raw);
     const sym = getSymbol(found.raw) || '';
-    const keys = st.dir === 'SHORT' ? ['SL2', 'SL1', 'Entry', 'TP1', 'TP2'] : ['TP2', 'TP1', 'Entry', 'SL1', 'SL2'];
+    const keys = (st.dir === 'SHORT' ? ['SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3'] : ['TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3']).filter(k => k !== 'TP3' && k !== 'SL3' || st[k]);
     const rows = keys.map(k => {
       const v = st[k] || { price: '—', pivot: '', pts: '' };
       const cls = k === 'Entry' ? 'r-entry' : k.startsWith('TP') ? 'r-tp' : 'r-sl';
       const piv = k === 'Entry' ? st.dir.charAt(0) + st.dir.slice(1).toLowerCase() : (v.pivot || '-');
       return `<tr class="${cls}"><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
     }).join('');
+    // v31: HTF last-flip row. Prefer the freshest "CBC (<tf>) last flip" row from any alert for this
+    // symbol received since the setup (bars-ago count stays current); else the setup's own line.
+    const fm0 = st.flipText.match(/flip:\s*(LONG|SHORT)\s+(\d{1,2}:\d{2})\s*·\s*(\d+)/i);
+    let flipText = fm0 ? `HTF Flip ${fm0[1][0].toUpperCase()}${fm0[1].slice(1).toLowerCase()} ${fm0[2]} - ${fm0[3]}` : st.flipText, flipShort = /\bSHORT\b/.test(st.flipText);
+    if (st.flipTf) {
+      const setupIdx = alerts.indexOf(found);
+      const key = `CBC (${st.flipTf}) last flip:`;
+      for (let i = 0; i <= setupIdx; i++) {
+        const a = alerts[i];
+        if (getSymbol(a.raw) !== sym) continue;
+        const l = (a.raw || '').split('\n').map(x => x.trim()).find(x => x.startsWith(key));
+        const m = l ? l.slice(key.length).trim().match(/^(LONG|SHORT)\s+\d{1,2}\/\d{1,2}\s+(\d{1,2}:\d{2})\s+ET\s+#(\d+)/i) : null;
+        if (m) { flipText = `HTF Flip ${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()} ${m[2]} - ${m[3]}`; flipShort = m[1].toUpperCase() === 'SHORT'; break; }
+      }
+    }
+    const flipRow = flipText ? `<tr class="${flipShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flipText)}</td></tr>` : '';
     const received = found.receivedAt ? new Date(found.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
     box.innerHTML = `<div class="sb-head" id="setupBoxHead"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
       `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span><span class="sb-caret">${setupBoxCollapsed ? '▸' : '▾'}</span></div>` +
       `<div class="sb-body"><div class="sb-sub">${escapeHtml(st.trigger || 'Setup')}${st.time ? ' · ' + escapeHtml(st.time) : (received ? ' · ' + received : '')}</div>` +
-      `<table><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}</table></div>`;
+      `<table><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}${flipRow}</table></div>`;
     box.classList.toggle('collapsed', setupBoxCollapsed);
     const hdr = document.querySelector('header');
     box.style.top = ((hdr ? hdr.getBoundingClientRect().bottom : 0) + 8) + 'px';
