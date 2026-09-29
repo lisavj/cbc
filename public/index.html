@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v45 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v47 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -172,7 +172,15 @@
      timeframe that generated the setup. Timeframe comes from the setup alert's "Chart:" line (CBC v8.28+),
      else from the nearest same-symbol alert that has one.
      v44: the chart link moved to the end of the trigger/time line (keeps the header's first line narrow).
-     v45: setup tables use the same font as the CBC3/CBC15 badges (var(--mono), weight 600, #F1F5F9). -->
+     v45: setup tables use the same font as the CBC3/CBC15 badges (var(--mono), weight 600, #F1F5F9).
+     v46: (1) header dropdowns now open ABOVE the Trade Setup box (header z-index 950, modals 1000).
+     (2) "7 Markers View" button replaced by a "Markers" pulldown with two checkboxes, Setup markers and
+     Other markers. Any checked = the feed shows only those groups; both unchecked = off, and the Alert
+     Types selection from before is restored. A fresh browser starts with Setup markers only. The Setup/
+     Other master rows inside Alert Types are kept.
+     v47: phone/narrow screens (<= 760px): the Trade Setup box is no longer a floating overlay. It sits in
+     the page flow between the header and the feed, full width, so it can't cover the buttons or alerts.
+     Desktop: the box re-positions itself whenever the header's height changes (ResizeObserver). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -204,7 +212,7 @@
   header {
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 950;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -922,6 +930,9 @@
   #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
   #setupBox .sb-item.collapsed .sb-body { display: none; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
+  @media (max-width: 760px) {
+    #setupBox { position: static; width: auto; max-height: none; overflow: visible; margin: 10px 12px 0; box-shadow: none; }
+  }
 
   .type-pill.pill-luxalgo-bull { background: #2d6b4f; color: #dff3e8; border: 1px solid #6d4fa3; }
   .type-pill.pill-luxalgo-bear { background: #6b2d3d; color: #f3dfe4; border: 1px solid #6d4fa3; }
@@ -1009,7 +1020,7 @@
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.6);
-    z-index: 100;
+    z-index: 1000;
     align-items: center;
     justify-content: center;
     padding: 20px;
@@ -1766,7 +1777,10 @@
       <button id="typeFilterBtn">Alert Types ▾</button>
       <div class="type-filter-panel" id="typeFilterPanel"></div>
     </div>
-    <button id="sevenMarkersToggleBtn" title="Shows only the 7 on-chart marker alert types (A+/Zone/VWAP/Confluence/HTF Flip/Pierce/Key Level). Use the symbol tabs above the list for one symbol at a time, or switch View to Chronological and check multiple symbols there for a single merged, time-ordered feed. Turning this off restores whatever Alert Types you had selected before.">7 Markers View: Off</button>
+    <div class="type-filter-wrap">
+      <button id="markersViewBtn" title="Show only marker alert types: Setup markers (the alerts that draw setups) and/or Other markers. Both unchecked = off, and your previous Alert Types selection is restored.">Markers: Setup ▾</button>
+      <div class="type-filter-panel" id="markersViewPanel"></div>
+    </div>
     <button id="colorToggleBtn">Colors: On</button>
     <button id="entryZoneToggleBtn">Entry Zone: Off</button>
     <div class="type-filter-wrap">
@@ -2183,7 +2197,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v45</footer>
+<footer>tv-webhook-dashboard · v47</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -2226,35 +2240,6 @@
     render();
   });
 
-  // ---- "7 Markers View" one-click toggle ----
-  // A shortcut on top of the existing Alert Types filter + View dropdown, not a new display mode:
-  // ON temporarily replaces whatever Alert Types you had checked with exactly the 7 on-chart-marker
-  // types (same set as the "7 Markers: All" master row inside Alert Types ▾), remembering your prior
-  // selection so OFF restores it exactly. The "tab for each symbol" and "merged" views this enables
-  // are the page's existing controls: the symbol tabs above the list already give one-symbol-at-a-time
-  // (Tiered view), and switching View ▾ to Chronological with multiple symbols checked there already
-  // gives one merged, time-ordered feed across symbols — both untouched, just now filtered to the 7.
-  const sevenMarkersToggleBtn = document.getElementById('sevenMarkersToggleBtn');
-  let sevenMarkersViewOn = localStorage.getItem('sevenMarkersViewOn') === 'true'; // default false
-  let enabledTypesBeforeSevenView = null; // snapshot to restore on OFF; null when not currently ON
-  sevenMarkersToggleBtn.textContent = sevenMarkersViewOn ? '7 Markers View: On' : '7 Markers View: Off';
-  sevenMarkersToggleBtn.addEventListener('click', () => {
-    sevenMarkersViewOn = !sevenMarkersViewOn;
-    localStorage.setItem('sevenMarkersViewOn', String(sevenMarkersViewOn));
-    sevenMarkersToggleBtn.textContent = sevenMarkersViewOn ? '7 Markers View: On' : '7 Markers View: Off';
-    if (sevenMarkersViewOn) {
-      enabledTypesBeforeSevenView = new Set(enabledTypes);
-      enabledTypes.clear();
-      SEVEN_MARKER_TITLES.forEach(t => enabledTypes.add(t));
-    } else if (enabledTypesBeforeSevenView) {
-      enabledTypes.clear();
-      enabledTypesBeforeSevenView.forEach(t => enabledTypes.add(t));
-      enabledTypesBeforeSevenView = null;
-    }
-    saveEnabledTypes();
-    renderTypeFilterPanel();
-    render();
-  });
   // Chronological view: per symbol, show every filtered alert as one flat time-ordered list instead
   // of grouping into the Actionable/Forming/Context accordion. Skips tier classification entirely —
   // including the Forming-window hide logic, which only applies within that classification — so
@@ -4090,13 +4075,51 @@
   function saveEnabledTypes() {
     localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
   }
-  // If the page loads with "7 Markers View" already ON from a previous visit, force Alert Types to
-  // the 7 right now (there's no prior selection to snapshot/restore in that case — turning it OFF
-  // will just leave Alert Types as the 7, same as unchecking the master row manually would).
-  if (sevenMarkersViewOn) {
+  // ---- v46: "Markers" pulldown (Setup markers / Other markers) ----
+  // Any group checked: Alert Types is replaced by exactly the checked groups (snapshot of the previous
+  // selection kept in localStorage). Both unchecked: the snapshot is restored. Fresh browser: Setup only.
+  let markersView = { setup: true, other: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem('markersView') || 'null');
+    if (saved && typeof saved === 'object') markersView = { setup: !!saved.setup, other: !!saved.other };
+    else if (localStorage.getItem('sevenMarkersViewOn') === 'false') markersView = { setup: false, other: false };
+  } catch (e) {}
+  let typesBeforeMarkers = null;
+  try {
+    const snap = JSON.parse(localStorage.getItem('enabledTypesBeforeMarkers') || 'null');
+    if (Array.isArray(snap)) typesBeforeMarkers = new Set(snap);
+  } catch (e) {}
+  const markersOn = (mv) => mv.setup || mv.other;
+  function saveMarkersState() {
+    try {
+      localStorage.setItem('markersView', JSON.stringify(markersView));
+      if (typesBeforeMarkers) localStorage.setItem('enabledTypesBeforeMarkers', JSON.stringify(Array.from(typesBeforeMarkers)));
+      else localStorage.removeItem('enabledTypesBeforeMarkers');
+    } catch (e) {}
+  }
+  function applyMarkersTypes() {
     enabledTypes.clear();
-    SEVEN_MARKER_TITLES.forEach(t => enabledTypes.add(t));
+    if (markersView.setup) SETUP_MARKER_TITLES.forEach(t => enabledTypes.add(t));
+    if (markersView.other) OTHER_MARKER_TITLES.forEach(t => enabledTypes.add(t));
     saveEnabledTypes();
+  }
+  function setMarkersView(next) {
+    const wasOn = markersOn(markersView), isOn = markersOn(next);
+    if (!wasOn && isOn) typesBeforeMarkers = new Set(enabledTypes);
+    markersView = next;
+    if (isOn) applyMarkersTypes();
+    else if (wasOn) {
+      enabledTypes.clear();
+      (typesBeforeMarkers || new Set(defaultEnabledTypes)).forEach(t => enabledTypes.add(t));
+      typesBeforeMarkers = null;
+      saveEnabledTypes();
+    }
+    saveMarkersState();
+  }
+  if (markersOn(markersView)) {
+    if (!typesBeforeMarkers) typesBeforeMarkers = new Set(enabledTypes);
+    applyMarkersTypes();
+    saveMarkersState();
   }
 
   // Which categories trigger a VOICE callout — separate selection from the Alert Types display
@@ -4633,6 +4656,46 @@
     if (typeFilterPanel.classList.contains('open')) positionTypeFilterPanel();
   });
 
+  // v46: Markers pulldown UI.
+  const markersViewBtn = document.getElementById('markersViewBtn');
+  const markersViewPanel = document.getElementById('markersViewPanel');
+  function syncMarkersBtn() {
+    const parts = [markersView.setup ? 'Setup' : null, markersView.other ? 'Other' : null].filter(Boolean);
+    markersViewBtn.textContent = 'Markers: ' + (parts.length ? parts.join(' + ') : 'Off') + ' ▾';
+  }
+  function renderMarkersPanel() {
+    const row = (key, label, titles) => `<label class="type-filter-row type-filter-master" title="${escapeHtml(titles.join(', '))}"><input type="checkbox" data-mv="${key}" ${markersView[key] ? 'checked' : ''}> ${label} (${titles.length})</label>` +
+      titles.map(t => `<div class="type-filter-row type-filter-indent" style="opacity:.75;cursor:default;">${escapeHtml(t)}</div>`).join('');
+    markersViewPanel.innerHTML = row('setup', 'Setup markers', SETUP_MARKER_TITLES) + row('other', 'Other markers', OTHER_MARKER_TITLES);
+  }
+  function positionMarkersPanel() {
+    const margin = 8;
+    const rect = markersViewBtn.getBoundingClientRect();
+    const w = markersViewPanel.offsetWidth || 260;
+    let left = Math.max(margin, Math.min(rect.left, window.innerWidth - margin - w));
+    markersViewPanel.style.left = left + 'px';
+    markersViewPanel.style.top = Math.min(rect.bottom + 6, window.innerHeight - margin - 40) + 'px';
+  }
+  syncMarkersBtn();
+  renderMarkersPanel();
+  markersViewBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !markersViewPanel.classList.contains('open');
+    markersViewPanel.classList.toggle('open');
+    if (opening) positionMarkersPanel();
+  });
+  document.addEventListener('click', (e) => {
+    if (!markersViewPanel.contains(e.target) && e.target !== markersViewBtn) markersViewPanel.classList.remove('open');
+  });
+  markersViewPanel.addEventListener('change', (e) => {
+    const key = e.target.dataset && e.target.dataset.mv;
+    if (!key) return;
+    setMarkersView({ ...markersView, [key]: e.target.checked });
+    syncMarkersBtn();
+    renderTypeFilterPanel();
+    render();
+  });
+
   typeFilterBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const opening = !typeFilterPanel.classList.contains('open');
@@ -4944,6 +5007,18 @@
     const flipRow = flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '';
     return `<table class="sb-table"><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}${flipRow}</table>`;
   }
+  // v47: floating (desktop) -> sit just under the header; static (phone) -> leave it in the page flow.
+  function positionSetupBox() {
+    const box = document.getElementById('setupBox');
+    if (!box) return;
+    if (getComputedStyle(box).position !== 'fixed') { box.style.top = ''; return; }
+    const hdr = document.querySelector('header');
+    box.style.top = ((hdr ? hdr.getBoundingClientRect().bottom : 0) + 8) + 'px';
+  }
+  try {
+    const hdrEl = document.querySelector('header');
+    if (hdrEl && window.ResizeObserver) new ResizeObserver(() => positionSetupBox()).observe(hdrEl);
+  } catch (e) {}
   function renderSetupBox() {
     const box = document.getElementById('setupBox');
     if (!box) return;
@@ -4970,9 +5045,8 @@
         `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span></div>` +
         `<div class="sb-body">${setupTableHtml(st, setupFlip(i, sym, st))}</div></div>`;
     }).join('');
-    const hdr = document.querySelector('header');
-    box.style.top = ((hdr ? hdr.getBoundingClientRect().bottom : 0) + 8) + 'px';
     box.style.display = '';
+    positionSetupBox();
     box.querySelectorAll('.sb-head').forEach(h => {
       h.onclick = () => {
         const k = h.dataset.sbkey;
