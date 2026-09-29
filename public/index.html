@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v44 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v45 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -171,7 +171,8 @@
      v43: chart link (📈) in each Trade Setup box header -> TradingView chart of that symbol at the
      timeframe that generated the setup. Timeframe comes from the setup alert's "Chart:" line (CBC v8.28+),
      else from the nearest same-symbol alert that has one.
-     v44: the chart link moved to the end of the trigger/time line (keeps the header's first line narrow). -->
+     v44: the chart link moved to the end of the trigger/time line (keeps the header's first line narrow).
+     v45: setup tables use the same font as the CBC3/CBC15 badges (var(--mono), weight 600, #F1F5F9). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -906,9 +907,9 @@
   #setupBox .sb-head .sb-dir.long { background: #16a34a; } #setupBox .sb-head .sb-dir.short { background: #dc2626; }
   #setupBox .sb-head .sb-caret { margin-left: auto; opacity: .7; }
   #setupBox .sb-sub { padding: 4px 8px; color: #94a3b8; font-size: 11px; border-bottom: 1px solid #1f2530; }
-  .sb-table { border-collapse: collapse; width: 100%; color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .sb-table { border-collapse: collapse; width: 100%; color: #F1F5F9; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
   .sb-table th { background: #0c1222; font-weight: 600; padding: 3px 8px; text-align: left; border: 1px solid #475569; }
-  .sb-table td { padding: 3px 8px; border: 1px solid rgba(2, 6, 23, 0.55); color: #ffffff; font-weight: 700; }
+  .sb-table td { padding: 3px 8px; border: 1px solid rgba(2, 6, 23, 0.55); color: #F1F5F9; font-weight: 600; }
   .sb-table td.num, .sb-table th.num { text-align: right; }
   .sb-table tr.r-tp td { background: #15803d; } .sb-table tr.r-entry td { background: #334155; }
   .sb-table tr.r-sl td { background: #b91c1c; }
@@ -2182,7 +2183,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v44</footer>
+<footer>tv-webhook-dashboard · v45</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
