@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v47 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v48 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -180,7 +180,10 @@
      Other master rows inside Alert Types are kept.
      v47: phone/narrow screens (<= 760px): the Trade Setup box is no longer a floating overlay. It sits in
      the page flow between the header and the feed, full width, so it can't cover the buttons or alerts.
-     Desktop: the box re-positions itself whenever the header's height changes (ResizeObserver). -->
+     Desktop: the box re-positions itself whenever the header's height changes (ResizeObserver).
+     v48: Trade Setup box + cards show the chart's Status table (Market, Price, CBC, EMA clouds, VWAP, EMA 200,
+     Structure, Opening range, Fib Zone) next to the setup table. Read from the setup alert itself (CBC
+     v8.31+); for older setups, from the closest same-symbol alert within 10 minutes (noted under it). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -929,9 +932,23 @@
   #setupBox .sb-chart { text-decoration: none; font-size: 13px; margin-left: 4px; }
   #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
   #setupBox .sb-item.collapsed .sb-body { display: none; }
+  #setupBox { width: auto; max-width: calc(100vw - 24px); }
+  #setupBox .sb-body { display: flex; align-items: flex-start; gap: 6px; }
+  #setupBox .sb-main { width: 268px; flex: 0 0 268px; }
+  #setupBox .sb-body .st-table { margin-top: 0; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
+  .setup-card-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; padding: 6px 12px 10px; }
+  .setup-card-row .setup-card-table { padding: 0; flex: 1 1 360px; }
+  .st-table { border-collapse: collapse; font-family: var(--sans); font-size: 12px; color: #F1F5F9; flex: 0 1 280px; }
+  .st-table td { padding: 3px 8px; border: 1px solid #1f2937; white-space: nowrap; }
+  .st-table td.k { background: #1e293b; color: #cbd5e1; }
+  .st-table td.v { text-align: right; font-weight: 600; }
+  .st-table td.v.bull { background: #15803d; } .st-table td.v.bear { background: #b91c1c; }
+  .st-table td.v.neu { background: #334155; } .st-table td.v.mkt { background: #7e22ce; }
+  .st-note { font-size: 10px; color: #94a3b8; margin-top: 3px; }
   @media (max-width: 760px) {
     #setupBox { position: static; width: auto; max-height: none; overflow: visible; margin: 10px 12px 0; box-shadow: none; }
+    #setupBox .sb-body { flex-wrap: wrap; } #setupBox .sb-main { flex: 1 1 100%; width: auto; }
   }
 
   .type-pill.pill-luxalgo-bull { background: #2d6b4f; color: #dff3e8; border: 1px solid #6d4fa3; }
@@ -2197,7 +2214,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v47</footer>
+<footer>tv-webhook-dashboard · v48</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4996,6 +5013,45 @@
     }
     return buildChartUrl(sym, c ? [['Chart', c]] : []);
   }
+  // v48: Status table (same rows as the chart's) for a Trade Setup card.
+  function statusRowsFrom(raw) {
+    const rows = [];
+    (raw || '').split('\n').forEach(l => {
+      const m = l.trim().match(/^([^:]+):\s*(.+)$/);
+      if (m) rows.push([m[1].trim(), m[2].trim()]);
+    });
+    return rows;
+  }
+  function setupStatusHtml(a, idx, sym) {
+    let rows = statusRowsFrom(a.raw), note = '';
+    if (!rows.some(([k]) => k === 'Market')) {
+      const t0 = a.receivedAt || 0; let best = null, bestDt = Infinity;
+      alerts.forEach(b => {
+        if (b === a || getSymbol(b.raw) !== sym || !/\nMarket:/.test(b.raw || '')) return;
+        const dt = Math.abs((b.receivedAt || 0) - t0);
+        if (dt < bestDt) { bestDt = dt; best = b; }
+      });
+      if (!best || bestDt > 10 * 60 * 1000) return '';
+      rows = statusRowsFrom(best.raw);
+      note = `snapshot from the ${new Date(best.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} alert`;
+    }
+    const pick = [];
+    const add = (re) => rows.filter(([k]) => re.test(k)).forEach(r => { if (!pick.includes(r)) pick.push(r); });
+    add(/^Market$/); add(/^Price$/); add(/^CBC \([^,)]+\)$/); add(/^EMA cloud \(/); add(/^VWAP$/); add(/^EMA 200$/);
+    add(/^Structure \(/); add(/^Opening range$/); add(/^Fib Zone \(/);
+    if (!pick.length) return '';
+    const cls = (k, v) => {
+      if (k === 'Market') return 'mkt';
+      if (/HH\s*\/\s*HL/.test(v)) return 'bull';
+      if (/LH\s*\/\s*LL/.test(v)) return 'bear';
+      if (/^(Bullish|Favorable|Above)/i.test(v)) return 'bull';
+      if (/^(Bearish|Against|Below)/i.test(v)) return 'bear';
+      if (k === 'Opening range') return /\+\d/.test(v) ? 'bull' : /-\d/.test(v) ? 'bear' : 'neu';
+      if (/^Fib Zone/.test(k)) return /IN/.test(v) ? 'bull' : 'neu';
+      return 'neu';
+    };
+    return `<div><table class="st-table">${pick.map(([k, v]) => `<tr><td class="k">${escapeHtml(k)}</td><td class="v ${cls(k, v)}">${escapeHtml(v)}</td></tr>`).join('')}</table>${note ? `<div class="st-note">${escapeHtml(note)}</div>` : ''}</div>`;
+  }
   function setupTableHtml(st, flip) {
     const keys = (st.dir === 'SHORT' ? ['SL4', 'SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3', 'TP4'] : ['TP4', 'TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3', 'SL4']).filter(k => !/^(TP|SL)[34]$/.test(k) || st[k]);
     const rows = keys.map(k => {
@@ -5043,7 +5099,7 @@
         `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${ended ? '<span class="sb-ended">ENDED</span>' : ''}` +
 
         `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span></div>` +
-        `<div class="sb-body">${setupTableHtml(st, setupFlip(i, sym, st))}</div></div>`;
+        `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
     }).join('');
     box.style.display = '';
     positionSetupBox();
@@ -5296,7 +5352,7 @@
         </div>
         ${badgeRowHtml}
         ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
-        ${(() => { const st = parseTradeSetup(a.raw); if (!st) return ''; const idx = alerts.indexOf(a); return `<div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, getSymbol(a.raw) || '', st))}</div>`; })()}
+        ${(() => { const st = parseTradeSetup(a.raw); if (!st) return ''; const idx = alerts.indexOf(a); const sym = getSymbol(a.raw) || ''; return `<div class="setup-card-row"><div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, sym, st))}</div>${setupStatusHtml(a, idx, sym)}</div>`; })()}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }
