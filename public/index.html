@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v51 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v53 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -189,7 +189,11 @@
      v50: new alert types HTF EMA9 Pierce - Entry and HTF EMA20 Pierce - Entry (Pine v8.33), both in Setup
      markers and on by default; existing browsers that show setup markers get them added once.
      v51: every alert card that carries the status lines (Market, Price, CBC, ...) shows the same colored
-     Status table as the Trade Setup cards, not just Trade Setup alerts. -->
+     Status table as the Trade Setup cards, not just Trade Setup alerts.
+     v52: Status table gets a last row "HTF flip candle (15m): high / low (range pts)", read from the
+     alert's existing "HTF Candle (.., the one that flipped)" line.
+     v53: "toward" setups (alerts with "Flip side: TOWARD", Pine v8.37+) -- Trade Setup and High Confluence cards
+     and Trade Setup box entries get a yellow outline + TOWARD tag; header button "Toward: Show/Hide" hides them. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -943,6 +947,9 @@
   #setupBox .sb-main { width: 268px; flex: 0 0 268px; }
   #setupBox .sb-body .st-table { margin-top: 0; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
+  .card.toward-card { border: 2px solid #eab308 !important; }
+  #setupBox .sb-item.toward { outline: 2px solid #eab308; outline-offset: -2px; }
+  #setupBox .sb-toward { background: #eab308; color: #111827; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
   .setup-card-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; padding: 6px 12px 10px; }
   .setup-card-row .setup-card-table { padding: 0; flex: 1 1 360px; }
   .st-table { border-collapse: collapse; font-family: var(--sans); font-size: 12px; color: #F1F5F9; flex: 0 1 280px; }
@@ -1811,6 +1818,7 @@
       <div class="type-filter-panel" id="viewModePanel"></div>
     </div>
     <button id="simpleModeBtn">Simple: Off</button>
+    <button id="towardBtn" title="Toward setups: Trade Setup and High Confluence alerts that came after a 'toward' HTF flip (long flip below / short flip above the HTF EMA20). They are outlined in yellow. Click to hide or show them.">Toward: Show</button>
     <button id="keepSetupsBtn" title="On: the Trade Setup box keeps a stack of recent setups (newest open, older collapsed, ENDED tag once a setup is over). Off: only the latest setup.">Keep setups: On</button>
     <select id="keepSetupsCount" title="How many setups to keep in the Trade Setup box"><option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="all">All</option></select>
     <div class="type-filter-wrap" id="simpleSymbolWrap" style="display:none;">
@@ -2220,7 +2228,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v51</footer>
+<footer>tv-webhook-dashboard · v53</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4994,6 +5002,13 @@
       flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : ''
     };
   }
+  // v53: "toward" setups -- Trade Setup / High Confluence alerts carrying "Flip side: TOWARD" (Pine v8.37+).
+  function isTowardAlert(a) {
+    const r = a && a.raw || '';
+    return /\nFlip side: TOWARD/.test(r) && /•\s*(Trade Setup:|High Confluence Setup)/.test(r);
+  }
+  let showToward = true;
+  try { showToward = localStorage.getItem('showToward') !== 'false'; } catch (e) {}
   // v37: Keep setups (header button + count), stack rendering, ENDED tagging, in-card tables.
   let keepSetups = true, keepSetupsCount = '5';
   try {
@@ -5008,6 +5023,14 @@
     keepSetupsCountEl.style.display = keepSetups ? '' : 'none';
   }
   syncKeepSetupsUi();
+  const towardBtn = document.getElementById('towardBtn');
+  const syncTowardBtn = () => { towardBtn.textContent = showToward ? 'Toward: Show' : 'Toward: Hide'; };
+  syncTowardBtn();
+  towardBtn.addEventListener('click', () => {
+    showToward = !showToward;
+    try { localStorage.setItem('showToward', String(showToward)); } catch (e) {}
+    syncTowardBtn(); render();
+  });
   keepSetupsBtn.addEventListener('click', () => {
     keepSetups = !keepSetups;
     try { localStorage.setItem('keepSetups', String(keepSetups)); } catch (e) {}
@@ -5097,6 +5120,14 @@
     const add = (re) => rows.filter(([k]) => re.test(k)).forEach(r => { if (!pick.includes(r)) pick.push(r); });
     add(/^Market$/); add(/^Price$/); add(/^CBC \([^,)]+\)$/); add(/^EMA cloud \(/); add(/^VWAP$/); add(/^EMA 200$/);
     add(/^Structure \(/); add(/^Opening range$/); add(/^Fib Zone \(/);
+    // v52: last row = the HTF candle that flipped (its high-low range), from "HTF Candle (15m, the one that flipped): H=.. L=.. C=.. Height=..".
+    rows.filter(([k]) => /^HTF Candle \(/.test(k)).slice(0, 1).forEach(([k, v]) => {
+      const hi = (v.match(/H=([-\d.]+)/) || [])[1], lo = (v.match(/L=([-\d.]+)/) || [])[1];
+      if (!hi || !lo) return;
+      const tf = (k.match(/^HTF Candle \(([^,)]+)/) || [])[1] || 'HTF';
+      const rng = Math.abs(parseFloat(hi) - parseFloat(lo));
+      pick.push([`HTF flip candle (${tf})`, `${hi} / ${lo}  (${+rng.toFixed(2)} pts)`]);
+    });
     if (!pick.length) return '';
     const cls = (k, v) => {
       if (k === 'Market') return 'mkt';
@@ -5142,6 +5173,7 @@
       const a = alerts[i];
       const sym = getSymbol(a.raw) || '';
       if (!setupSymbolOk(sym)) continue;
+      if (!showToward && isTowardAlert(a)) continue;
       const st = parseTradeSetup(a.raw);
       if (st) items.push({ a, i, sym, st });
     }
@@ -5152,9 +5184,10 @@
       const open = sbOpenState.has(key) ? sbOpenState.get(key) : n === 0;
       const received = a.receivedAt ? new Date(a.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
       const when = `${escapeHtml(st.trigger || 'Setup')}${st.time ? ' · ' + escapeHtml(st.time) : (received ? ' · ' + received : '')}`;
-      return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''}">` +
+      const tw = isTowardAlert(a);
+      return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''} ${tw ? 'toward' : ''}">` +
         `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
-        `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${ended ? '<span class="sb-ended">ENDED</span>' : ''}` +
+        `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? '<span class="sb-toward">TOWARD</span>' : ''}` +
 
         `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span></div>` +
         `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
@@ -5190,6 +5223,7 @@
         ? alerts.filter(a => chronoSymbolFilter.has(getSymbol(a.raw)))
         : (activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter));
     const filtered = bySymbol.filter(a => {
+      if (!showToward && isTowardAlert(a)) return false;
       const lines = (a.raw || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const headlineLines = lines.filter((l, i) => i === 0 || l.startsWith('•') || /[✓✗]/.test(l));
       const types = getAlertTypeTitles(headlineLines);
@@ -5265,7 +5299,7 @@
         const isExpandedWire = expandedIds.has(a.id);
         const statusCls = cbcWire.isBull === true ? 'status-confirmed' : cbcWire.isBull === false ? 'status-fail' : '';
         const pillCls = cbcWire.isBull === true ? 'pill-flip-long' : cbcWire.isBull === false ? 'pill-flip-short' : 'pill-neutral';
-        return `<div class="card ${statusCls} ${isExpandedWire ? 'expanded' : ''}" data-id="${a.id}">
+        return `<div class="card ${statusCls} ${isExpandedWire ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''}" data-id="${a.id}">
           <div class="card-top" data-toggle="${a.id}">
             <div class="card-top-left">
               <span class="chevron">&#9656;</span>
@@ -5303,7 +5337,7 @@
       if (rows.length === 0) {
         const plainSummary = lines[0] || '(empty alert)';
         const isExpandedPlain = expandedIds.has(a.id);
-        return `<div class="card ${isExpandedPlain ? 'expanded' : ''}" data-id="${a.id}">
+        return `<div class="card ${isExpandedPlain ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''}" data-id="${a.id}">
           <div class="card-top" data-toggle="${a.id}">
             <div class="card-top-left">
               <span class="chevron">&#9656;</span>
@@ -5394,7 +5428,7 @@
         ? `<span class="type-pill ${typePill.confirmed ? 'pill-confirmed' : 'pill-unconfirmed'}">${typePill.confirmed ? 'CONFIRMED' : 'UNCONFIRMED'}</span>`
         : '';
 
-      return `<div class="card ${statusClass} ${isExpanded ? 'expanded' : ''}" data-id="${a.id}">
+      return `<div class="card ${statusClass} ${isExpanded ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''}" data-id="${a.id}">
         <div class="card-top" data-toggle="${a.id}">
           <div class="card-top-left">
             <span class="chevron">&#9656;</span>
