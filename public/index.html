@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v48 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v49 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -183,7 +183,9 @@
      Desktop: the box re-positions itself whenever the header's height changes (ResizeObserver).
      v48: Trade Setup box + cards show the chart's Status table (Market, Price, CBC, EMA clouds, VWAP, EMA 200,
      Structure, Opening range, Fib Zone) next to the setup table. Read from the setup alert itself (CBC
-     v8.31+); for older setups, from the closest same-symbol alert within 10 minutes (noted under it). -->
+     v8.31+); for older setups, from the closest same-symbol alert within 10 minutes (noted under it).
+     v49: "Other markers" (and Setup markers) checked in Alert Types now survive a page reload; the
+     Markers pulldown flags follow the Alert Types selection. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2214,7 +2216,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v48</footer>
+<footer>tv-webhook-dashboard · v49</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4091,14 +4093,17 @@
   }
   function saveEnabledTypes() {
     localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
+    if (typeof syncMarkersFromTypes === 'function' && !markersSyncPaused) syncMarkersFromTypes();
   }
   // ---- v46: "Markers" pulldown (Setup markers / Other markers) ----
   // Any group checked: Alert Types is replaced by exactly the checked groups (snapshot of the previous
   // selection kept in localStorage). Both unchecked: the snapshot is restored. Fresh browser: Setup only.
   let markersView = { setup: true, other: false };
+  let markersViewSaved = false;
+  var markersSyncPaused = false;
   try {
     const saved = JSON.parse(localStorage.getItem('markersView') || 'null');
-    if (saved && typeof saved === 'object') markersView = { setup: !!saved.setup, other: !!saved.other };
+    if (saved && typeof saved === 'object') { markersView = { setup: !!saved.setup, other: !!saved.other }; markersViewSaved = true; }
     else if (localStorage.getItem('sevenMarkersViewOn') === 'false') markersView = { setup: false, other: false };
   } catch (e) {}
   let typesBeforeMarkers = null;
@@ -4121,6 +4126,10 @@
     saveEnabledTypes();
   }
   function setMarkersView(next) {
+    markersSyncPaused = true;
+    try { setMarkersViewInner(next); } finally { markersSyncPaused = false; }
+  }
+  function setMarkersViewInner(next) {
     const wasOn = markersOn(markersView), isOn = markersOn(next);
     if (!wasOn && isOn) typesBeforeMarkers = new Set(enabledTypes);
     markersView = next;
@@ -4133,10 +4142,31 @@
     }
     saveMarkersState();
   }
-  if (markersOn(markersView)) {
-    if (!typesBeforeMarkers) typesBeforeMarkers = new Set(enabledTypes);
-    applyMarkersTypes();
+  // v49: the Markers flags follow Alert Types. Checking "Other markers" (or all its types) in Alert
+  // Types turns the Other flag on, so a reload no longer re-applies a stale Setup-only view and wipes it.
+  function syncMarkersFromTypes() {
+    const all = (ts) => ts.every(t => enabledTypes.has(t));
+    const next = { setup: all(SETUP_MARKER_TITLES), other: all(OTHER_MARKER_TITLES) };
+    if (next.setup === markersView.setup && next.other === markersView.other) return;
+    markersView = next;
+    if (!markersOn(markersView)) typesBeforeMarkers = null;
     saveMarkersState();
+    const btn = document.getElementById('markersViewBtn');
+    if (btn) {
+      const parts = [markersView.setup ? 'Setup' : null, markersView.other ? 'Other' : null].filter(Boolean);
+      btn.textContent = 'Markers: ' + (parts.length ? parts.join(' + ') : 'Off') + ' \u25be';
+    }
+    const panel = document.getElementById('markersViewPanel');
+    if (panel) panel.querySelectorAll('input[data-mv]').forEach(x => { x.checked = !!markersView[x.dataset.mv]; });
+  }
+  // Only a fresh browser (no saved Markers state) gets Setup-only applied; otherwise the saved Alert
+  // Types selection is kept exactly as the user left it.
+  if (!markersViewSaved && markersOn(markersView)) {
+    if (!typesBeforeMarkers) typesBeforeMarkers = new Set(enabledTypes);
+    markersSyncPaused = true; applyMarkersTypes(); markersSyncPaused = false;
+    saveMarkersState();
+  } else {
+    syncMarkersFromTypes();
   }
 
   // Which categories trigger a VOICE callout — separate selection from the Alert Types display
