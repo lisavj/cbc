@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v49 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v50 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -185,7 +185,9 @@
      Structure, Opening range, Fib Zone) next to the setup table. Read from the setup alert itself (CBC
      v8.31+); for older setups, from the closest same-symbol alert within 10 minutes (noted under it).
      v49: "Other markers" (and Setup markers) checked in Alert Types now survive a page reload; the
-     Markers pulldown flags follow the Alert Types selection. -->
+     Markers pulldown flags follow the Alert Types selection.
+     v50: new alert types HTF EMA9 Pierce - Entry and HTF EMA20 Pierce - Entry (Pine v8.33), both in Setup
+     markers and on by default; existing browsers that show setup markers get them added once. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2216,7 +2218,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v49</footer>
+<footer>tv-webhook-dashboard · v50</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -3880,6 +3882,16 @@
       def: 'Fires once when the HTF direction is already confirmed and price pierces the chart\'s own (LTF) EMA20 — the first bar back inside after being outside it. A single-line pierce, distinct from the EMA9/20 Zone Entry above and from EMA20 Touch\'s regressive-candle requirement below. One of the 7 on-chart marker types (letter "L").'
     },
     {
+      test: (l) => /HTF EMA9 Pierce - Entry/i.test(l),
+      title: 'HTF EMA9 Pierce - Entry (Long/Short)',
+      def: 'v50: fires when price pierces the HTF EMA9 line (first bar touching it after a bar that did not) with the HTF CBC direction confirmed and the flip-away gate passed. Once every 3 bars. A Trade Setup is also drawn when the bar closes on the favorable side. Setup marker.'
+    },
+    {
+      test: (l) => /HTF EMA20 Pierce - Entry/i.test(l),
+      title: 'HTF EMA20 Pierce - Entry (Long/Short)',
+      def: 'v50: same as HTF EMA9 Pierce, on the HTF EMA20 line. Setup marker.'
+    },
+    {
       test: (l) => /LTF EMA20 Touch/i.test(l),
       title: 'EMA20 Touch - Pullback Entry (LTF)',
       def: 'Fires when price touches the chart\'s own (LTF) EMA20 on a REGRESSIVE candle — moving down into the touch during a confirmed uptrend, or up into it during a confirmed downtrend — i.e. CBC confirms the trend continuing, not the regression itself.'
@@ -4057,7 +4069,7 @@
     'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)'
   ].filter(t => ALL_TYPE_TITLES.includes(t));
   // v30: the 7 split into two groups for the Alert Types panel's two master checkboxes.
-  const SETUP_MARKER_TITLES = ['Trade Setup', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
+  const SETUP_MARKER_TITLES = ['Trade Setup', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
   const OTHER_MARKER_TITLES = SEVEN_MARKER_TITLES.filter(t => !SETUP_MARKER_TITLES.includes(t));
   const MARKER_GROUPS = { setupMarkerMaster: SETUP_MARKER_TITLES, otherMarkerMaster: OTHER_MARKER_TITLES };
   // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
@@ -4073,7 +4085,9 @@
     'A+ Setup (Long/Short)',
     'LTF EMA20 Pierce - Entry (Long/Short)',
     'HTF Pullback Entry - Structure Confirmed (Long/Short)',
-    'HTF CBC Flip (Long/Short)'
+    'HTF CBC Flip (Long/Short)',
+    'HTF EMA9 Pierce - Entry (Long/Short)',
+    'HTF EMA20 Pierce - Entry (Long/Short)'
   ];
   const defaultEnabledTypes = ALL_TYPE_TITLES.filter(t => DEFAULT_ON_TYPES.includes(t));
   // One-time switch to the v29 defaults in browsers that already had a saved selection.
@@ -4091,6 +4105,18 @@
   } catch (e) {
     enabledTypes = new Set(defaultEnabledTypes);
   }
+  // v50: one-time add of the two new HTF EMA Pierce types for browsers that already show the other setup
+  // markers (so the Setup markers view stays "on" instead of reading as partially unchecked).
+  try {
+    if (!localStorage.getItem('htfPierceTypesAdded')) {
+      const oldSetup = ['Trade Setup', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
+      if (oldSetup.every(t => enabledTypes.has(t)) || enabledTypes.has('LTF EMA20 Pierce - Entry (Long/Short)')) {
+        ['HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)'].forEach(t => enabledTypes.add(t));
+        localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
+      }
+      localStorage.setItem('htfPierceTypesAdded', '1');
+    }
+  } catch (e) {}
   function saveEnabledTypes() {
     localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
     if (typeof syncMarkersFromTypes === 'function' && !markersSyncPaused) syncMarkersFromTypes();
