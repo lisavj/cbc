@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v50 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v51 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -187,7 +187,9 @@
      v49: "Other markers" (and Setup markers) checked in Alert Types now survive a page reload; the
      Markers pulldown flags follow the Alert Types selection.
      v50: new alert types HTF EMA9 Pierce - Entry and HTF EMA20 Pierce - Entry (Pine v8.33), both in Setup
-     markers and on by default; existing browsers that show setup markers get them added once. -->
+     markers and on by default; existing browsers that show setup markers get them added once.
+     v51: every alert card that carries the status lines (Market, Price, CBC, ...) shows the same colored
+     Status table as the Trade Setup cards, not just Trade Setup alerts. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2218,7 +2220,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v50</footer>
+<footer>tv-webhook-dashboard · v51</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5408,7 +5410,7 @@
         </div>
         ${badgeRowHtml}
         ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
-        ${(() => { const st = parseTradeSetup(a.raw); if (!st) return ''; const idx = alerts.indexOf(a); const sym = getSymbol(a.raw) || ''; return `<div class="setup-card-row"><div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, sym, st))}</div>${setupStatusHtml(a, idx, sym)}</div>`; })()}
+        ${(() => { const st = parseTradeSetup(a.raw); if (!st) { if (!/\nMarket:/.test(a.raw || '')) return ''; const idx0 = alerts.indexOf(a); const stHtml = setupStatusHtml(a, idx0, getSymbol(a.raw) || ''); return stHtml ? `<div class="setup-card-row status-only">${stHtml}</div>` : ''; } const idx = alerts.indexOf(a); const sym = getSymbol(a.raw) || ''; return `<div class="setup-card-row"><div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, sym, st))}</div>${setupStatusHtml(a, idx, sym)}</div>`; })()}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }
