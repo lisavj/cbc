@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v63 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v66 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -209,7 +209,10 @@
      v61: setup tables get TP1/SL1 and TP2/SL2 reward:risk columns (Entry row = from entry; new orange Price row =
      from the latest alert price, live setups only).
      v62: reward:risk shown with one decimal.
-     v63: R:R moved out of the setup table into a small separate table (Entry / Now x TP1/SL1, TP2/SL2). -->
+     v63: R:R moved out of the setup table into a small separate table (Entry / Now x TP1/SL1, TP2/SL2).
+     v64: R:R table vertical -- TP1/SL1, TP1/SL2, TP2/SL1, TP2/SL2 rows x Entry / Now.
+     v65: R:R table 2 columns, no header, no Now; rows TP2/SL1, TP1/SL1, TP1/SL2, TP2/SL2.
+     v66: desktop Trade Setup box shrinks to its content width (no dead space to the right). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -958,7 +961,8 @@
   #setupBox .sb-chart { text-decoration: none; font-size: 13px; margin-left: 4px; }
   #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
   #setupBox .sb-item.collapsed .sb-body { display: none; }
-  #setupBox { width: auto; max-width: calc(100vw - 24px); }
+  /* v66: shrink-wrap to the expanded setup (levels + status tables) instead of stretching across the page */
+  #setupBox { width: min-content; min-width: 300px; max-width: calc(100vw - 24px); }
   #setupBox .sb-body { display: flex; align-items: flex-start; gap: 6px; }
   #setupBox .sb-main { width: 300px; flex: 0 0 300px; }
   .sb-table td { white-space: nowrap; }
@@ -978,6 +982,8 @@
   #setupBox .sb-tab.active { background: #f59e0b; border-color: #f59e0b; color: #111827; }
   #setupBox .sb-empty { padding: 8px; color: #94a3b8; font-size: 12px; }
   .sb-table.sb-rr { width: auto; margin-top: 4px; }
+  .sb-table.sb-rr td { background: #1e293b; } .sb-table.sb-rr td.rr-k { background: #15803d; }
+  .sb-table.sb-rr th.rr-e { background: #334155; } .sb-table.sb-rr th.rr-n { background: #b45309; }
   .sb-table tr.r-price td { background: #b45309; color: #fff; }
   .sb-table tr.r-flop td { background: #f59e0b; color: #111827; font-weight: 700; }
   .card.toward-card { border: 2px solid #eab308 !important; }
@@ -2262,7 +2268,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v63</footer>
+<footer>tv-webhook-dashboard · v66</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5294,8 +5300,11 @@
     const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '') +
       (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
     // v63: reward:risk in its own small table under the levels (Entry row always; Now row while live).
-    const rrRow = (label, ref, cls) => `<tr class="${cls}"><td>${label}</td><td class="num">${escapeHtml(setupRR(ref, lv('TP1'), lv('SL1'), isLong))}</td><td class="num">${escapeHtml(setupRR(ref, lv('TP2'), lv('SL2'), isLong))}</td></tr>`;
-    const rrTbl = lv('Entry') ? `<table class="sb-table sb-rr"><tr><th title="Reward : risk = distance to the TP / distance to the SL, in the trade direction">R:R</th><th class="num">TP1/SL1</th><th class="num">TP2/SL2</th></tr>${rrRow('Entry', lv('Entry'), 'r-entry')}${now ? rrRow('Now', now, 'r-price') : ''}</table>` : '';
+    // v64: vertical R:R table -- 4 TP/SL combos x Entry / Now (Now only while the setup is live).
+    // v65: R:R from Entry, 2 columns, no header: TP2/SL1, TP1/SL1, TP1/SL2, TP2/SL2.
+    const combos = [['TP2', 'SL1'], ['TP1', 'SL1'], ['TP1', 'SL2'], ['TP2', 'SL2']];
+    const rrTbl = lv('Entry') ? '<table class="sb-table sb-rr" title="Reward : risk from Entry = distance to the TP / distance to the SL, in the trade direction">' +
+      combos.map(([t, l]) => `<tr><td class="rr-k">${t}/${l}</td><td class="num">${escapeHtml(setupRR(lv('Entry'), lv(t), lv(l), isLong))}</td></tr>`).join('') + '</table>' : '';
     return `<table class="sb-table"><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}${flipRow}</table>${rrTbl}`;
   }
   // v47: floating (desktop) -> sit just under the header; static (phone) -> leave it in the page flow.
