@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v53 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v59 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -193,7 +193,18 @@
      v52: Status table gets a last row "HTF flip candle (15m): high / low (range pts)", read from the
      alert's existing "HTF Candle (.., the one that flipped)" line.
      v53: "toward" setups (alerts with "Flip side: TOWARD", Pine v8.37+) -- Trade Setup and High Confluence cards
-     and Trade Setup box entries get a yellow outline + TOWARD tag; header button "Toward: Show/Hide" hides them. -->
+     and Trade Setup box entries get a yellow outline + TOWARD tag; header button "Toward: Show/Hide" hides them.
+     v54: symbol tabs (All / MES1! / MGC1! ...) now also show in Chronological view; picking a tab filters
+     the feed and the Trade Setup box to that symbol.
+     v55: (1) Trade Setup box gets its own symbol tab row (All / MES1! / MGC1! with setup counts), linked to the
+     feed tabs. (2) A+ Setup moved from Other markers into Setup markers (added once for existing browsers).
+     v56: ENDED setups in the Trade Setup box get a third header line from the Pine "Setup Ended" alert
+     (v8.40+): reason, result pts (green/red), furthest TP, end time (duration), best/worst move.
+     v57: "potential flop" flips (Pine v8.41 "Flip flop: crossed ..." line) -- amber row in the Status table and an
+     amber row under the HTF Flip row of the Trade Setup table.
+     v58: opening-range badge next to LONG/SHORT in the Trade Setup box: OR ✓ BELOW/ABOVE (green, beyond the range
+     in the trade direction), IN OR (amber), OR ✗ ABOVE/BELOW (red, range edge between price and targets).
+     v59: opening-range badge tooltip shows the full legend (OR ✓ / IN OR / OR ✗) plus what this setup's badge means. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -947,6 +958,20 @@
   #setupBox .sb-main { width: 268px; flex: 0 0 268px; }
   #setupBox .sb-body .st-table { margin-top: 0; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
+  #setupBox .sb-head .sb-out { flex-basis: 100%; font-weight: 500; font-size: 11px; color: #cbd5e1; }
+  #setupBox .sb-out b { color: #f1f5f9; }
+  #setupBox .sb-res { font-family: var(--mono); font-weight: 700; padding: 0 4px; border-radius: 4px; }
+  #setupBox .sb-res.win { background: #15803d; color: #fff; } #setupBox .sb-res.loss { background: #b91c1c; color: #fff; }
+  #setupBox .sb-or { padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 700; }
+  #setupBox .sb-or.with { background: #15803d; color: #fff; }
+  #setupBox .sb-or.in { background: #f59e0b; color: #111827; }
+  #setupBox .sb-or.against { background: #b91c1c; color: #fff; border: 1px solid #fecaca; }
+  #setupBox .sb-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; border-bottom: 1px solid #334155; position: sticky; top: 0; background: #020617; z-index: 1; }
+  #setupBox .sb-tab { background: #0f172a; border: 1px solid #334155; color: #94a3b8; font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 6px; cursor: pointer; }
+  #setupBox .sb-tab span { opacity: .7; font-weight: 500; }
+  #setupBox .sb-tab.active { background: #f59e0b; border-color: #f59e0b; color: #111827; }
+  #setupBox .sb-empty { padding: 8px; color: #94a3b8; font-size: 12px; }
+  .sb-table tr.r-flop td { background: #f59e0b; color: #111827; font-weight: 700; }
   .card.toward-card { border: 2px solid #eab308 !important; }
   #setupBox .sb-item.toward { outline: 2px solid #eab308; outline-offset: -2px; }
   #setupBox .sb-toward { background: #eab308; color: #111827; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
@@ -957,6 +982,7 @@
   .st-table td.k { background: #1e293b; color: #cbd5e1; }
   .st-table td.v { text-align: right; font-weight: 600; }
   .st-table td.v.bull { background: #15803d; } .st-table td.v.bear { background: #b91c1c; }
+  .st-table td.v.warn { background: #f59e0b; color: #111827; }
   .st-table td.v.neu { background: #334155; } .st-table td.v.mkt { background: #7e22ce; }
   .st-note { font-size: 10px; color: #94a3b8; margin-top: 3px; }
   @media (max-width: 760px) {
@@ -2228,7 +2254,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v53</footer>
+<footer>tv-webhook-dashboard · v59</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -3892,6 +3918,11 @@
       def: 'Fires once when the HTF direction is already confirmed and price pierces the chart\'s own (LTF) EMA20 — the first bar back inside after being outside it. A single-line pierce, distinct from the EMA9/20 Zone Entry above and from EMA20 Touch\'s regressive-candle requirement below. One of the 7 on-chart marker types (letter "L").'
     },
     {
+      test: (l) => /Setup Ended:/i.test(l),
+      title: 'Setup Ended',
+      def: 'v56: sent by Pine v8.40+ when a Trade Setup stops being valid (SL1 hit, HTF CBC flip against it, 17:00 ET, or a new setup). Carries the reason, result in points, furthest TP reached, best/worst move and duration; the Trade Setup box shows it under ENDED. Off by default in the feed.'
+    },
+    {
       test: (l) => /HTF EMA9 Pierce - Entry/i.test(l),
       title: 'HTF EMA9 Pierce - Entry (Long/Short)',
       def: 'v50: fires when price pierces the HTF EMA9 line (first bar touching it after a bar that did not) with the HTF CBC direction confirmed and the flip-away gate passed. Once every 3 bars. A Trade Setup is also drawn when the bar closes on the favorable side. Setup marker.'
@@ -4079,7 +4110,7 @@
     'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)'
   ].filter(t => ALL_TYPE_TITLES.includes(t));
   // v30: the 7 split into two groups for the Alert Types panel's two master checkboxes.
-  const SETUP_MARKER_TITLES = ['Trade Setup', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
+  const SETUP_MARKER_TITLES = ['Trade Setup', 'A+ Setup (Long/Short)', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
   const OTHER_MARKER_TITLES = SEVEN_MARKER_TITLES.filter(t => !SETUP_MARKER_TITLES.includes(t));
   const MARKER_GROUPS = { setupMarkerMaster: SETUP_MARKER_TITLES, otherMarkerMaster: OTHER_MARKER_TITLES };
   // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
@@ -4125,6 +4156,16 @@
         localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
       }
       localStorage.setItem('htfPierceTypesAdded', '1');
+    }
+  } catch (e) {}
+  // v55: A+ Setup moved into Setup markers -- one-time add for browsers already showing the setup markers.
+  try {
+    if (!localStorage.getItem('aplusSetupAdded')) {
+      if (enabledTypes.has('Trade Setup') && enabledTypes.has('HTF CBC Flip (Long/Short)')) {
+        enabledTypes.add('A+ Setup (Long/Short)');
+        localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
+      }
+      localStorage.setItem('aplusSetupAdded', '1');
     }
   } catch (e) {}
   function saveEnabledTypes() {
@@ -4999,7 +5040,8 @@
       trigger: trig ? trig.slice(8).trim() : '',
       time: time ? time.slice(5).trim() : '',
       TP4: lvl('TP4'), TP3: lvl('TP3'), TP2: lvl('TP2'), TP1: lvl('TP1'), Entry: lvl('Entry'), SL1: lvl('SL1'), SL2: lvl('SL2'), SL3: lvl('SL3'), SL4: lvl('SL4'),
-      flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : ''
+      flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : '',
+      flop: ((lines.find(l => /^Flip flop:/.test(l)) || '').replace(/^Flip flop:\s*/, ''))
     };
   }
   // v53: "toward" setups -- Trade Setup / High Confluence alerts carrying "Flip side: TOWARD" (Pine v8.37+).
@@ -5045,13 +5087,72 @@
   const setupKey = (a) => String(a.id ?? a.receivedAt);
 
   function setupSymbolOk(sym) {
-    if (chronoView) return chronoSymbolFilter.size === 0 || chronoSymbolFilter.has(sym);
-    if (simpleMode) return !simpleSymbolExcluded.has(sym);
+    if (chronoView) return (chronoSymbolFilter.size === 0 || chronoSymbolFilter.has(sym)) && (activeFilter === 'all' || sym === activeFilter);
+    if (simpleMode) return !simpleSymbolExcluded.has(sym) && (activeFilter === 'all' || sym === activeFilter);
     return activeFilter === 'all' || sym === activeFilter;
   }
   // The setup at alerts[idx] is ENDED once a newer alert for the same symbol is either another Trade
   // Setup, or a status snapshot ("Market:" line) that no longer carries this setup's entry.
+  // v56: outcome from the Pine "Setup Ended" alert (v8.40+): the first (oldest) one after this setup, same
+  // symbol and same Entry. Returns {why, res, max, best, worst, mins, at} or null.
+  function setupOutcome(idx, sym, st) {
+    const entry = st.Entry ? st.Entry.price : null;
+    for (let i = idx - 1; i >= 0; i--) {
+      const r = alerts[i] && alerts[i].raw || '';
+      if (getSymbol(r) !== sym || !/•\s*Setup Ended:/.test(r)) continue;
+      const se = (r.match(/\nSetup Entry:\s*([-\d.]+)/) || [])[1];
+      if (entry && se && parseFloat(se) !== parseFloat(entry)) continue;
+      const line = (r.split('\n').find(l => l.trim().startsWith('Ended:')) || '').trim().slice(6);
+      const f = {};
+      line.split('|').forEach(part => { const m = part.trim().match(/^(Result|Max|Best|Worst|Lasted|At):\s*(.*)$/); if (m) f[m[1]] = m[2].trim(); else if (!f.why) f.why = part.trim(); });
+      return { why: f.why || 'Ended', res: f.Result || '', max: f.Max || '', best: f.Best || '', worst: f.Worst || '', mins: f.Lasted || '', at: f.At || '' };
+    }
+    return null;
+  }
+  // v58: where the setup sits vs the opening range, read from its status snapshot ("Opening range: Above/
+  // Below/Inside range"), or the nearest same-symbol status alert within 10 min. WITH = beyond the range in
+  // the trade direction (short below / long above); IN = inside the range; AGAINST = on the far side
+  // (short above / long below), so the range edge sits between price and the targets.
+  function setupOrBadge(a, idx, sym, st) {
+    let rows = statusRowsFrom(a.raw);
+    let orv = (rows.find(([k]) => k === 'Opening range') || [])[1];
+    if (!orv) {
+      const t0 = a.receivedAt || 0; let best = null, bestDt = Infinity;
+      alerts.forEach(b => {
+        if (b === a || getSymbol(b.raw) !== sym || !/\nOpening range:/.test(b.raw || '')) return;
+        const dt = Math.abs((b.receivedAt || 0) - t0);
+        if (dt < bestDt) { bestDt = dt; best = b; }
+      });
+      if (best && bestDt <= 10 * 60 * 1000) orv = (statusRowsFrom(best.raw).find(([k]) => k === 'Opening range') || [])[1];
+    }
+    if (!orv) return '';
+    const above = /^Above/i.test(orv), below = /^Below/i.test(orv), inside = /^Inside/i.test(orv);
+    if (!above && !below && !inside) return '';
+    const shortSide = st.dir === 'SHORT';
+    // v59: tooltip = the full legend + what this setup's badge means.
+    const legend = 'Opening range vs the trade\n' +
+      'OR ✓ (green): beyond the range in the trade direction (short below / long above). Broken out, good setup.\n' +
+      'IN OR (amber): inside the range. Range high and low on both sides, chop risk.\n' +
+      'OR ✗ (red): on the far side (short above / long below). The range high (short) or low (long) sits between price and the targets and can stop the move.\n\n';
+    const tip = (t) => escapeHtml(legend + 'This setup: ' + t);
+    if (inside) return `<span class="sb-or in" title="${tip(st.dir + ' inside the opening range.')}">IN OR</span>`;
+    const withTrend = shortSide ? below : above;
+    return withTrend
+      ? `<span class="sb-or with" title="${tip((shortSide ? 'SHORT below' : 'LONG above') + ' the opening range.')}">OR ✓ ${shortSide ? 'BELOW' : 'ABOVE'}</span>`
+      : `<span class="sb-or against" title="${tip((shortSide ? 'SHORT above' : 'LONG below') + ' the opening range: the range ' + (shortSide ? 'high is support below price.' : 'low is resistance above price.'))}">OR ✗ ${shortSide ? 'ABOVE' : 'BELOW'}</span>`;
+  }
+  function setupOutcomeHtml(o) {
+    if (!o) return '';
+    const r = parseFloat(o.res);
+    const cls = isNaN(r) ? '' : r > 0 ? 'win' : r < 0 ? 'loss' : '';
+    const parts = [`<b>${escapeHtml(o.why)}</b> <span class="sb-res ${cls}">${escapeHtml(o.res)}</span>`];
+    if (o.max && o.max !== 'none') parts.push(`Max ${escapeHtml(o.max)}`);
+    if (o.at || o.mins) parts.push(`${escapeHtml(o.at)}${o.mins ? ' (' + escapeHtml(o.mins) + ')' : ''}`);
+    if (o.best || o.worst) parts.push(`best ${escapeHtml(o.best)} / worst ${escapeHtml(o.worst)}`);
+    return `<span class="sb-out">${parts.join(' · ')}</span>`;
+  }
   function setupEnded(idx, sym, st) {
+    if (setupOutcome(idx, sym, st)) return true;
     const entry = st.Entry ? st.Entry.price : null;
     for (let i = 0; i < idx; i++) {
       const a = alerts[i];
@@ -5128,9 +5229,12 @@
       const rng = Math.abs(parseFloat(hi) - parseFloat(lo));
       pick.push([`HTF flip candle (${tf})`, `${hi} / ${lo}  (${+rng.toFixed(2)} pts)`]);
     });
+    // v57: potential-flop flag (Pine v8.41+): "Flip flop: crossed EMA200, VWAP".
+    rows.filter(([k]) => k === 'Flip flop').slice(0, 1).forEach(([k, v]) => pick.push(['⚠ Potential flop', v]));
     if (!pick.length) return '';
     const cls = (k, v) => {
       if (k === 'Market') return 'mkt';
+      if (k === '⚠ Potential flop') return 'warn';
       if (/HH\s*\/\s*HL/.test(v)) return 'bull';
       if (/LH\s*\/\s*LL/.test(v)) return 'bear';
       if (/^(Bullish|Favorable|Above)/i.test(v)) return 'bull';
@@ -5149,7 +5253,8 @@
       const piv = k === 'Entry' ? st.dir.charAt(0) + st.dir.slice(1).toLowerCase() : (v.pivot || '-');
       return `<tr class="${cls}"><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
     }).join('');
-    const flipRow = flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '';
+    const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '') +
+      (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
     return `<table class="sb-table"><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}${flipRow}</table>`;
   }
   // v47: floating (desktop) -> sit just under the header; static (phone) -> leave it in the page flow.
@@ -5177,8 +5282,20 @@
       const st = parseTradeSetup(a.raw);
       if (st) items.push({ a, i, sym, st });
     }
-    if (!items.length) { box.style.display = 'none'; return; }
-    box.innerHTML = items.map(({ a, i, sym, st }, n) => {
+    // v55: symbol tabs at the top of the box, linked to the feed's tabs (same activeFilter).
+    const setupCounts = new Map();
+    alerts.forEach(a => {
+      if (!/•\s*Trade Setup:/.test(a.raw || '')) return;
+      if (!showToward && isTowardAlert(a)) return;
+      const s0 = getSymbol(a.raw) || '';
+      setupCounts.set(s0, (setupCounts.get(s0) || 0) + 1);
+    });
+    if (!setupCounts.size) { box.style.display = 'none'; return; }
+    const tabSyms = Array.from(setupCounts.keys()).sort();
+    const totalSetups = tabSyms.reduce((n, k) => n + setupCounts.get(k), 0);
+    const tabsHtml = `<div class="sb-tabs"><button class="sb-tab ${activeFilter === 'all' ? 'active' : ''}" data-sbsym="all">All <span>${totalSetups}</span></button>` +
+      tabSyms.map(k => `<button class="sb-tab ${activeFilter === k ? 'active' : ''}" data-sbsym="${escapeHtml(k)}">${escapeHtml(k)} <span>${setupCounts.get(k)}</span></button>`).join('') + '</div>';
+    box.innerHTML = tabsHtml + (items.length ? '' : `<div class="sb-empty">No setups for ${escapeHtml(activeFilter)}</div>`) + items.map(({ a, i, sym, st }, n) => {
       const ended = setupEnded(i, sym, st);
       const key = setupKey(a);
       const open = sbOpenState.has(key) ? sbOpenState.get(key) : n === 0;
@@ -5187,13 +5304,16 @@
       const tw = isTowardAlert(a);
       return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''} ${tw ? 'toward' : ''}">` +
         `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
-        `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? '<span class="sb-toward">TOWARD</span>' : ''}` +
+        `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? '<span class="sb-toward">TOWARD</span>' : ''}` +
 
-        `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span></div>` +
+        `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st)) : ''}</div>` +
         `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
     }).join('');
     box.style.display = '';
     positionSetupBox();
+    box.querySelectorAll('.sb-tab').forEach(b => {
+      b.onclick = (e) => { e.stopPropagation(); activeFilter = b.dataset.sbsym; render(); };
+    });
     box.querySelectorAll('.sb-head').forEach(h => {
       h.onclick = () => {
         const k = h.dataset.sbkey;
@@ -5215,12 +5335,12 @@
     symbols.forEach(s => { countBySymbol[s] = alerts.filter(a => getSymbol(a.raw) === s).length; });
     symbolTabsEl.innerHTML = `<button class="symbol-tab-btn ${activeFilter === 'all' ? 'active' : ''}" data-symbol="all">All<span class="symbol-tab-count">${alerts.length}</span></button>` +
       symbols.map(s => `<button class="symbol-tab-btn ${activeFilter === s ? 'active' : ''}" data-symbol="${escapeHtml(s)}">${escapeHtml(s)}<span class="symbol-tab-count">${countBySymbol[s]}</span></button>`).join('');
-    symbolTabsEl.style.display = chronoView ? 'none' : '';
+    symbolTabsEl.style.display = ''; // v54: symbol tabs also shown in Chronological view
 
     const bySymbol = simpleMode
       ? alerts.filter(a => !simpleSymbolExcluded.has(getSymbol(a.raw)) && (activeFilter === 'all' || getSymbol(a.raw) === activeFilter))
       : chronoView
-        ? alerts.filter(a => chronoSymbolFilter.has(getSymbol(a.raw)))
+        ? alerts.filter(a => chronoSymbolFilter.has(getSymbol(a.raw)) && (activeFilter === 'all' || getSymbol(a.raw) === activeFilter))
         : (activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter));
     const filtered = bySymbol.filter(a => {
       if (!showToward && isTowardAlert(a)) return false;
