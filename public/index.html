@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v59 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v60 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -204,7 +204,8 @@
      amber row under the HTF Flip row of the Trade Setup table.
      v58: opening-range badge next to LONG/SHORT in the Trade Setup box: OR ✓ BELOW/ABOVE (green, beyond the range
      in the trade direction), IN OR (amber), OR ✗ ABOVE/BELOW (red, range edge between price and targets).
-     v59: opening-range badge tooltip shows the full legend (OR ✓ / IN OR / OR ✗) plus what this setup's badge means. -->
+     v59: opening-range badge tooltip shows the full legend (OR ✓ / IN OR / OR ✗) plus what this setup's badge means.
+     v60: TOWARD badge tooltip explains toward vs away and names the setup's last 15m flip. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2254,7 +2255,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v59</footer>
+<footer>tv-webhook-dashboard · v60</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5045,6 +5046,13 @@
     };
   }
   // v53: "toward" setups -- Trade Setup / High Confluence alerts carrying "Flip side: TOWARD" (Pine v8.37+).
+  // v60: tooltip for the TOWARD badge.
+  const TOWARD_TIP = 'TOWARD = the most recent HTF (15m) CBC flip closed on the "wrong" side of the HTF EMA20:\n' +
+    '- a LONG flip that closed BELOW the HTF EMA20 (price still has to climb up through the EMA zone), or\n' +
+    '- a SHORT flip that closed ABOVE the HTF EMA20 (price still has to fall down through it).\n' +
+    'The opposite, AWAY (long flip above / short flip below the EMA20), is the stronger signal.\n\n' +
+    'The tag describes the last HTF flip, not the setup itself; every setup until the next HTF flip carries it. ' +
+    'Toward setups are allowed by the Pine input "Include \'toward\' HTF flips" and can be hidden with the Toward: Show/Hide button.';
   function isTowardAlert(a) {
     const r = a && a.raw || '';
     return /\nFlip side: TOWARD/.test(r) && /•\s*(Trade Setup:|High Confluence Setup)/.test(r);
@@ -5304,7 +5312,7 @@
       const tw = isTowardAlert(a);
       return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''} ${tw ? 'toward' : ''}">` +
         `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
-        `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? '<span class="sb-toward">TOWARD</span>' : ''}` +
+        `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
 
         `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st)) : ''}</div>` +
         `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
