@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v60 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v61 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -205,7 +205,9 @@
      v58: opening-range badge next to LONG/SHORT in the Trade Setup box: OR ✓ BELOW/ABOVE (green, beyond the range
      in the trade direction), IN OR (amber), OR ✗ ABOVE/BELOW (red, range edge between price and targets).
      v59: opening-range badge tooltip shows the full legend (OR ✓ / IN OR / OR ✗) plus what this setup's badge means.
-     v60: TOWARD badge tooltip explains toward vs away and names the setup's last 15m flip. -->
+     v60: TOWARD badge tooltip explains toward vs away and names the setup's last 15m flip.
+     v61: setup tables get TP1/SL1 and TP2/SL2 reward:risk columns (Entry row = from entry; new orange Price row =
+     from the latest alert price, live setups only). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -956,7 +958,8 @@
   #setupBox .sb-item.collapsed .sb-body { display: none; }
   #setupBox { width: auto; max-width: calc(100vw - 24px); }
   #setupBox .sb-body { display: flex; align-items: flex-start; gap: 6px; }
-  #setupBox .sb-main { width: 268px; flex: 0 0 268px; }
+  #setupBox .sb-main { width: 420px; flex: 0 0 420px; }
+  .sb-table td { white-space: nowrap; }
   #setupBox .sb-body .st-table { margin-top: 0; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
   #setupBox .sb-head .sb-out { flex-basis: 100%; font-weight: 500; font-size: 11px; color: #cbd5e1; }
@@ -972,6 +975,7 @@
   #setupBox .sb-tab span { opacity: .7; font-weight: 500; }
   #setupBox .sb-tab.active { background: #f59e0b; border-color: #f59e0b; color: #111827; }
   #setupBox .sb-empty { padding: 8px; color: #94a3b8; font-size: 12px; }
+  .sb-table tr.r-price td { background: #b45309; color: #fff; }
   .sb-table tr.r-flop td { background: #f59e0b; color: #111827; font-weight: 700; }
   .card.toward-card { border: 2px solid #eab308 !important; }
   #setupBox .sb-item.toward { outline: 2px solid #eab308; outline-offset: -2px; }
@@ -2255,7 +2259,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v60</footer>
+<footer>tv-webhook-dashboard · v61</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5253,17 +5257,43 @@
     };
     return `<div><table class="st-table">${pick.map(([k, v]) => `<tr><td class="k">${escapeHtml(k)}</td><td class="v ${cls(k, v)}">${escapeHtml(v)}</td></tr>`).join('')}</table>${note ? `<div class="st-note">${escapeHtml(note)}</div>` : ''}</div>`;
   }
-  function setupTableHtml(st, flip) {
-    const keys = (st.dir === 'SHORT' ? ['SL4', 'SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3', 'TP4'] : ['TP4', 'TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3', 'SL4']).filter(k => !/^(TP|SL)[34]$/.test(k) || st[k]);
+  // v61: reward:risk (TP - ref) / (ref - SL) in the trade direction -- same rule as the chart table.
+  function setupRR(ref, tp, sl, isLong) {
+    const r = parseFloat(ref), t = parseFloat(tp), l = parseFloat(sl);
+    if ([r, t, l].some(isNaN)) return '—';
+    const rew = isLong ? t - r : r - t, rsk = isLong ? r - l : l - r;
+    if (rsk <= 0) return '—';
+    if (rew <= 0) return '0';
+    return String(+(rew / rsk).toFixed(2));
+  }
+  // v61: latest price for a live setup (newest same-symbol alert carrying "Price:"), null once ENDED.
+  function setupNowPrice(idx, sym, st) {
+    if (idx < 0 || setupEnded(idx, sym, st)) return null;
+    for (let i = 0; i <= idx; i++) {
+      const r = alerts[i] && alerts[i].raw || '';
+      if (getSymbol(r) !== sym) continue;
+      const m = r.match(/\nPrice:\s*([-\d.]+)/);
+      if (m) return m[1];
+    }
+    return null;
+  }
+  function setupTableHtml(st, flip, now) {
+    const isLong = st.dir !== 'SHORT';
+    let keys = (st.dir === 'SHORT' ? ['SL4', 'SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3', 'TP4'] : ['TP4', 'TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3', 'SL4']).filter(k => !/^(TP|SL)[34]$/.test(k) || st[k]);
+    if (now) { const ei = keys.indexOf('Entry'); keys.splice(isLong ? ei + 1 : ei, 0, 'Price'); }
+    const lv = (k) => st[k] ? st[k].price : null;
     const rows = keys.map(k => {
-      const v = st[k] || { price: '—', pivot: '', pts: '' };
-      const cls = k === 'Entry' ? 'r-entry' : k.startsWith('TP') ? 'r-tp' : 'r-sl';
-      const piv = k === 'Entry' ? st.dir.charAt(0) + st.dir.slice(1).toLowerCase() : (v.pivot || '-');
-      return `<tr class="${cls}"><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
+      const v = k === 'Price' ? { price: now, pivot: '', pts: '' } : (st[k] || { price: '—', pivot: '', pts: '' });
+      const cls = k === 'Entry' ? 'r-entry' : k === 'Price' ? 'r-price' : k.startsWith('TP') ? 'r-tp' : 'r-sl';
+      const piv = k === 'Entry' ? st.dir.charAt(0) + st.dir.slice(1).toLowerCase() : k === 'Price' ? 'now' : (v.pivot || '-');
+      const ref = k === 'Entry' ? lv('Entry') : k === 'Price' ? now : null;
+      const rr1 = ref ? setupRR(ref, lv('TP1'), lv('SL1'), isLong) : '';
+      const rr2 = ref ? setupRR(ref, lv('TP2'), lv('SL2'), isLong) : '';
+      return `<tr class="${cls}"><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td><td class="num">${escapeHtml(rr1)}</td><td class="num">${escapeHtml(rr2)}</td></tr>`;
     }).join('');
-    const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '') +
-      (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
-    return `<table class="sb-table"><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th></tr>${rows}${flipRow}</table>`;
+    const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="6">${escapeHtml(flip.text)}</td></tr>` : '') +
+      (st.flop ? `<tr class="r-flop"><td colspan="6">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
+    return `<table class="sb-table"><tr><th>Level</th><th class="num">Price</th><th class="num">Pts</th><th>Pivot</th><th class="num" title="Reward : risk to TP1 vs SL1, from Entry and from the latest price">TP1/SL1</th><th class="num" title="Reward : risk to TP2 vs SL2, from Entry and from the latest price">TP2/SL2</th></tr>${rows}${flipRow}</table>`;
   }
   // v47: floating (desktop) -> sit just under the header; static (phone) -> leave it in the page flow.
   function positionSetupBox() {
@@ -5315,7 +5345,7 @@
         `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
 
         `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st)) : ''}</div>` +
-        `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
+        `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st), setupNowPrice(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
     }).join('');
     box.style.display = '';
     positionSetupBox();
@@ -5572,7 +5602,7 @@
         </div>
         ${badgeRowHtml}
         ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
-        ${(() => { const st = parseTradeSetup(a.raw); if (!st) { if (!/\nMarket:/.test(a.raw || '')) return ''; const idx0 = alerts.indexOf(a); const stHtml = setupStatusHtml(a, idx0, getSymbol(a.raw) || ''); return stHtml ? `<div class="setup-card-row status-only">${stHtml}</div>` : ''; } const idx = alerts.indexOf(a); const sym = getSymbol(a.raw) || ''; return `<div class="setup-card-row"><div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, sym, st))}</div>${setupStatusHtml(a, idx, sym)}</div>`; })()}
+        ${(() => { const st = parseTradeSetup(a.raw); if (!st) { if (!/\nMarket:/.test(a.raw || '')) return ''; const idx0 = alerts.indexOf(a); const stHtml = setupStatusHtml(a, idx0, getSymbol(a.raw) || ''); return stHtml ? `<div class="setup-card-row status-only">${stHtml}</div>` : ''; } const idx = alerts.indexOf(a); const sym = getSymbol(a.raw) || ''; return `<div class="setup-card-row"><div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, sym, st), setupNowPrice(idx, sym, st))}</div>${setupStatusHtml(a, idx, sym)}</div>`; })()}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }
