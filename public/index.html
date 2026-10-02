@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v75 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v77 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -221,7 +221,9 @@
      v72: Other markers = VWAP Bounce, High Confluence Setup, Key Level Alert; Price Enters HTF EMA9/20 Zone is off by default (turned off once in existing browsers). All three Other markers (VWAP Bounce, High Confluence Setup, Key Level Alert) get the orange border.
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
-     v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57. -->
+     v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v77: setup table shows the other SL method's SL1/SL2 ("SL1 ATR"/"SL2 ATR", or "SL1 Piv"/"SL2 Piv" when ATR is active; Pine v8.61) as darker info rows; all stop rows sorted by distance from Entry.
+     v76: status row label is just "HTF flip candle" (no "(15m)"). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -962,6 +964,7 @@
   .sb-table td.num, .sb-table th.num { text-align: right; }
   .sb-table tr.r-tp td { background: #15803d; } .sb-table tr.r-entry td { background: #334155; }
   .sb-table tr.r-sl td { background: #b91c1c; }
+  .sb-table tr.r-sl-alt td { background: #7f1d1d; color: #fecaca; }
   #setupBox { max-height: calc(100vh - 160px); overflow-y: auto; width: 270px; }
   #setupBox .sb-item + .sb-item { border-top: 2px solid #475569; }
 
@@ -2281,7 +2284,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v75</footer>
+<footer>tv-webhook-dashboard · v77</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5074,6 +5077,7 @@
       trigger: trig ? trig.slice(8).trim() : '',
       time: time ? time.slice(5).trim() : '',
       TP4: lvl('TP4'), TP3: lvl('TP3'), TP2: lvl('TP2'), TP1: lvl('TP1'), Entry: lvl('Entry'), SL1: lvl('SL1'), SL2: lvl('SL2'), SL3: lvl('SL3'), SL4: lvl('SL4'),
+      'SL1 ATR': lvl('SL1 ATR'), 'SL2 ATR': lvl('SL2 ATR'), 'SL1 Piv': lvl('SL1 Piv'), 'SL2 Piv': lvl('SL2 Piv'),
       flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : '',
       flop: ((lines.find(l => /^Flip flop:/.test(l)) || '').replace(/^Flip flop:\s*/, ''))
     };
@@ -5291,7 +5295,7 @@
       // v75: Pine v8.57 sends each of the 4 previous HTF candles as "HTF Prev1: H=.. L=.. R=..".
       const prevs = rows.filter(([pk]) => /^HTF Prev[1-4]$/.test(pk)).map(([pk, pv]) => `${pk.replace('HTF ', '')}: ${pv}`);
       const tip = [`This candle: H=${hi} L=${lo} R=${+rng.toFixed(2)}`, ...prevs, l4 ? `Last 4 ranges (newest first): ${l4.split(',').join(' / ')} pts` : '', a4 ? `Avg of last 4: ${a4} pts (${rx4}×)` : '', a20 ? `Avg of the 20 before it: ${a20} pts (${rx}×)` : ''].filter(Boolean).join('\n');
-      pick.push([`HTF flip candle (${tf})`, `${hi} / ${lo}  (${+rng.toFixed(2)} pts${isNaN(rx) ? '' : ' · ' + rx + '× avg20'}${isNaN(rx4) ? '' : ' · ' + rx4 + '× last4'})`, isNaN(rx) ? '' : rx >= 2 ? 'bear' : rx >= 1.5 ? 'warn' : 'neu', tip]);
+      pick.push([`HTF flip candle`, `${hi} / ${lo}  (${+rng.toFixed(2)} pts${isNaN(rx) ? '' : ' · ' + rx + '× avg20'}${isNaN(rx4) ? '' : ' · ' + rx4 + '× last4'})`, isNaN(rx) ? '' : rx >= 2 ? 'bear' : rx >= 1.5 ? 'warn' : 'neu', tip]);
     });
     // v57: potential-flop flag (Pine v8.41+): "Flip flop: crossed EMA200, VWAP".
     rows.filter(([k]) => k === 'Flip flop').slice(0, 1).forEach(([k, v]) => pick.push(['⚠ Potential flop', v]));
@@ -5332,12 +5336,17 @@
   }
   function setupTableHtml(st, flip, now, outcome) {
     const isLong = st.dir !== 'SHORT';
-    let keys = (st.dir === 'SHORT' ? ['SL4', 'SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3', 'TP4'] : ['TP4', 'TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3', 'SL4']).filter(k => !/^(TP|SL)[34]$/.test(k) || st[k]);
+    // v77: stop rows (SL1/SL2, the other SL method's SL1/SL2 ATR or Piv, SL3/SL4) sorted by distance from Entry.
+    const enP = parseFloat(st.Entry && st.Entry.price);
+    const slDist = (k) => { const p = parseFloat(st[k] && st[k].price); return isNaN(p) || isNaN(enP) ? 1e9 : Math.abs(p - enP); };
+    const slKeys = ['SL1', 'SL2', 'SL1 ATR', 'SL2 ATR', 'SL1 Piv', 'SL2 Piv', 'SL3', 'SL4'].filter(k => /^SL[12]$/.test(k) || st[k]).sort((x, y) => slDist(x) - slDist(y));
+    const tpKeys = ['TP1', 'TP2', 'TP3', 'TP4'].filter(k => !/^TP[34]$/.test(k) || st[k]);
+    let keys = st.dir === 'SHORT' ? [...slKeys.slice().reverse(), 'Entry', ...tpKeys] : [...tpKeys.slice().reverse(), 'Entry', ...slKeys];
     if (now) { const ei = keys.indexOf('Entry'); keys.splice(isLong ? ei + 1 : ei, 0, 'Price'); }
     const lv = (k) => st[k] ? st[k].price : null;
     const rows = keys.map(k => {
       const v = k === 'Price' ? { price: now, pivot: '', pts: '' } : (st[k] || { price: '—', pivot: '', pts: '' });
-      const cls = k === 'Entry' ? 'r-entry' : k === 'Price' ? 'r-price' : k.startsWith('TP') ? 'r-tp' : 'r-sl';
+      const cls = k === 'Entry' ? 'r-entry' : k === 'Price' ? 'r-price' : k.startsWith('TP') ? 'r-tp' : / (ATR|Piv)$/.test(k) ? 'r-sl-alt' : 'r-sl';
       const piv = k === 'Entry' ? st.dir.charAt(0) + st.dir.slice(1).toLowerCase() : k === 'Price' ? 'now' : (v.pivot || '-');
       // v68: an ended setup's Entry row becomes "Ent/Ex": entry price | exit price | exit - entry (signed for the side).
       if (k === 'Entry' && outcome && !isNaN(parseFloat(outcome.res)) && !isNaN(parseFloat(v.price))) {
@@ -5346,7 +5355,7 @@
         const rc = res > 0 ? 'win' : res < 0 ? 'loss' : '';
         return `<tr class="r-entry" title="Entered ${en}, exited ${ex} (${escapeHtml(outcome.why)}): ${escapeHtml(outcome.res)} pts"><td>Ent/Ex</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${ex}</td><td class="num ee ${rc}">${escapeHtml(outcome.res)}</td></tr>`;
       }
-      return `<tr class="${cls}"><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
+      return `<tr class="${cls}"${cls === 'r-sl-alt' ? ' title="Info only: the other SL method (Pine input SL method: 3m ATR). Not the active stop."' : ''}><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
     }).join('');
     const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '') +
       (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
