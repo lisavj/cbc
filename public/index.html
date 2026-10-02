@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v70 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v75 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -216,7 +216,12 @@
      v67: ended-setup result shows net points plus dollars for 1 contract (MES $5/pt, MGC $10/pt, MNQ $2/pt, ...).
      v68: ended setups: Entry row becomes "Ent/Ex" -- entry price | exit price | exit-entry pts (green/red).
      v69: HTF EMA9/EMA20 Pierce types also match the Pine v8.51 "Option 2: Reverse SHORT→LONG" wording.
-     v70: Trade Setup cards in the feed show the same ENDED outcome line as the box, under the badge row. -->
+     v70: Trade Setup cards in the feed show the same ENDED outcome line as the box, under the badge row.
+     v71: fresh browser defaults to View: Chronological (all symbols); Simple stays Off by default. Crossing alerts (Key Level S1/R1/PP..., level Crossing, EMA9/20 Cross) get an orange card border.
+     v72: Other markers = VWAP Bounce, High Confluence Setup, Key Level Alert; Price Enters HTF EMA9/20 Zone is off by default (turned off once in existing browsers). All three Other markers (VWAP Bounce, High Confluence Setup, Key Level Alert) get the orange border.
+     v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
+     v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
+     v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -993,6 +998,7 @@
   .sb-table td.ee.win { background: #15803d; font-weight: 700; } .sb-table td.ee.loss { background: #b91c1c; font-weight: 700; }
   .sb-table tr.r-price td { background: #b45309; color: #fff; }
   .sb-table tr.r-flop td { background: #f59e0b; color: #111827; font-weight: 700; }
+  .card.crossing-card { border: 2px solid #f97316 !important; }
   .card.toward-card { border: 2px solid #eab308 !important; }
   #setupBox .sb-item.toward { outline: 2px solid #eab308; outline-offset: -2px; }
   #setupBox .sb-toward { background: #eab308; color: #111827; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
@@ -2275,7 +2281,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v70</footer>
+<footer>tv-webhook-dashboard · v75</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -2328,7 +2334,7 @@
   // MES, or MES+MGC together) — independent of the single-select symbol tabs used in Tiered mode.
   const viewModeBtn = document.getElementById('viewModeBtn');
   const viewModePanel = document.getElementById('viewModePanel');
-  let chronoView = localStorage.getItem('chronoView') === 'true'; // default false (Tiered)
+  let chronoView = localStorage.getItem('chronoView') !== 'false'; // v71: default true (Chronological)
   let chronoSymbolFilter;
   try {
     const saved = JSON.parse(localStorage.getItem('chronoSymbolFilter') || 'null');
@@ -4132,7 +4138,9 @@
   ].filter(t => ALL_TYPE_TITLES.includes(t));
   // v30: the 7 split into two groups for the Alert Types panel's two master checkboxes.
   const SETUP_MARKER_TITLES = ['Trade Setup', 'A+ Setup (Long/Short)', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
-  const OTHER_MARKER_TITLES = SEVEN_MARKER_TITLES.filter(t => !SETUP_MARKER_TITLES.includes(t));
+  // v72: Price Enters HTF EMA9/20 Zone left out of Other markers (off by default).
+  const ZONE_ENTRY_TITLE = 'Price Enters HTF EMA9/20 Zone - Entry';
+  const OTHER_MARKER_TITLES = SEVEN_MARKER_TITLES.filter(t => !SETUP_MARKER_TITLES.includes(t) && t !== ZONE_ENTRY_TITLE);
   const MARKER_GROUPS = { setupMarkerMaster: SETUP_MARKER_TITLES, otherMarkerMaster: OTHER_MARKER_TITLES };
   // VWAP/EMA/Bill Breaker Proximity default OFF — these are the noisiest of the newly-added Level
   // Proximity types (VWAP/EMA20/EMA200/Bill Breakers are common levels price crosses constantly),
@@ -4181,6 +4189,11 @@
   } catch (e) {}
   // v55: A+ Setup moved into Setup markers -- one-time add for browsers already showing the setup markers.
   try {
+    // v72: one-time switch-off of Price Enters HTF EMA9/20 Zone in browsers that had it on.
+    if (!localStorage.getItem('zoneEntryOff')) {
+      if (enabledTypes.delete(ZONE_ENTRY_TITLE)) localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
+      localStorage.setItem('zoneEntryOff', '1');
+    }
     if (!localStorage.getItem('aplusSetupAdded')) {
       if (enabledTypes.has('Trade Setup') && enabledTypes.has('HTF CBC Flip (Long/Short)')) {
         enabledTypes.add('A+ Setup (Long/Short)');
@@ -5073,6 +5086,13 @@
     'The opposite, AWAY (long flip above / short flip below the EMA20), is the stronger signal.\n\n' +
     'The tag describes the last HTF flip, not the setup itself; every setup until the next HTF flip carries it. ' +
     'Toward setups are allowed by the Pine input "Include \'toward\' HTF flips" and can be hidden with the Toward: Show/Hide button.';
+  // v71: level "crossing" alerts (Key Level Alert, "<level> Crossing (", EMA9/20 Cross) get an orange border.
+  // v72: orange border also for every "Other markers" type (VWAP Bounce, High Confluence Setup, Key Level Alert).
+  function isCrossingAlert(a) {
+    const r = a && a.raw || '';
+    if (/•\s*(Key Level Alert:|[^\n]*?\sCrossing\s*\(|EMA9\/20 Cross:|VWAP Bounce|High Confluence Setup)/i.test(r)) return true;
+    return false;
+  }
   function isTowardAlert(a) {
     const r = a && a.raw || '';
     return /\nFlip side: TOWARD/.test(r) && /•\s*(Trade Setup:|High Confluence Setup)/.test(r);
@@ -5263,7 +5283,15 @@
       if (!hi || !lo) return;
       const tf = (k.match(/^HTF Candle \(([^,)]+)/) || [])[1] || 'HTF';
       const rng = Math.abs(parseFloat(hi) - parseFloat(lo));
-      pick.push([`HTF flip candle (${tf})`, `${hi} / ${lo}  (${+rng.toFixed(2)} pts)`]);
+      // v73: Pine v8.55 adds RangeX = this candle's range / avg range of the 20 HTF candles before it.
+      const rx = parseFloat((v.match(/RangeX=([\d.]+)/) || [])[1]);
+      // v74: Pine v8.56 also records the 4 HTF candles before it (Last4, Avg4, RangeX4) -- info only.
+      const rx4 = parseFloat((v.match(/RangeX4=([\d.]+)/) || [])[1]);
+      const l4 = (v.match(/Last4=([-\d.,]+)/) || [])[1], a4 = (v.match(/Avg4=([-\d.]+)/) || [])[1], a20 = (v.match(/AvgRange=([-\d.]+)/) || [])[1];
+      // v75: Pine v8.57 sends each of the 4 previous HTF candles as "HTF Prev1: H=.. L=.. R=..".
+      const prevs = rows.filter(([pk]) => /^HTF Prev[1-4]$/.test(pk)).map(([pk, pv]) => `${pk.replace('HTF ', '')}: ${pv}`);
+      const tip = [`This candle: H=${hi} L=${lo} R=${+rng.toFixed(2)}`, ...prevs, l4 ? `Last 4 ranges (newest first): ${l4.split(',').join(' / ')} pts` : '', a4 ? `Avg of last 4: ${a4} pts (${rx4}×)` : '', a20 ? `Avg of the 20 before it: ${a20} pts (${rx}×)` : ''].filter(Boolean).join('\n');
+      pick.push([`HTF flip candle (${tf})`, `${hi} / ${lo}  (${+rng.toFixed(2)} pts${isNaN(rx) ? '' : ' · ' + rx + '× avg20'}${isNaN(rx4) ? '' : ' · ' + rx4 + '× last4'})`, isNaN(rx) ? '' : rx >= 2 ? 'bear' : rx >= 1.5 ? 'warn' : 'neu', tip]);
     });
     // v57: potential-flop flag (Pine v8.41+): "Flip flop: crossed EMA200, VWAP".
     rows.filter(([k]) => k === 'Flip flop').slice(0, 1).forEach(([k, v]) => pick.push(['⚠ Potential flop', v]));
@@ -5271,6 +5299,7 @@
     const cls = (k, v) => {
       if (k === 'Market') return 'mkt';
       if (k === '⚠ Potential flop') return 'warn';
+      if (/^HTF flip candle/.test(k)) { const r = pick.find(p => p[0] === k); if (r && r[2]) return r[2]; }
       if (/HH\s*\/\s*HL/.test(v)) return 'bull';
       if (/LH\s*\/\s*LL/.test(v)) return 'bear';
       if (/^(Bullish|Favorable|Above)/i.test(v)) return 'bull';
@@ -5279,7 +5308,7 @@
       if (/^Fib Zone/.test(k)) return /IN/.test(v) ? 'bull' : 'neu';
       return 'neu';
     };
-    return `<div><table class="st-table">${pick.map(([k, v]) => `<tr><td class="k">${escapeHtml(k)}</td><td class="v ${cls(k, v)}">${escapeHtml(v)}</td></tr>`).join('')}</table>${note ? `<div class="st-note">${escapeHtml(note)}</div>` : ''}</div>`;
+    return `<div><table class="st-table">${pick.map(([k, v, c3, tip]) => `<tr${tip ? ` title="${escapeHtml(tip)}"` : ''}><td class="k">${escapeHtml(k)}</td><td class="v ${cls(k, v)}">${escapeHtml(v)}</td></tr>`).join('')}</table>${note ? `<div class="st-note">${escapeHtml(note)}</div>` : ''}</div>`;
   }
   // v61: reward:risk (TP - ref) / (ref - SL) in the trade direction -- same rule as the chart table.
   function setupRR(ref, tp, sl, isLong) {
@@ -5412,7 +5441,7 @@
     const bySymbol = simpleMode
       ? alerts.filter(a => !simpleSymbolExcluded.has(getSymbol(a.raw)) && (activeFilter === 'all' || getSymbol(a.raw) === activeFilter))
       : chronoView
-        ? alerts.filter(a => chronoSymbolFilter.has(getSymbol(a.raw)) && (activeFilter === 'all' || getSymbol(a.raw) === activeFilter))
+        ? alerts.filter(a => (!chronoSymbolFilterInitialized || chronoSymbolFilter.has(getSymbol(a.raw))) && (activeFilter === 'all' || getSymbol(a.raw) === activeFilter))
         : (activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter));
     const filtered = bySymbol.filter(a => {
       if (!showToward && isTowardAlert(a)) return false;
@@ -5491,7 +5520,7 @@
         const isExpandedWire = expandedIds.has(a.id);
         const statusCls = cbcWire.isBull === true ? 'status-confirmed' : cbcWire.isBull === false ? 'status-fail' : '';
         const pillCls = cbcWire.isBull === true ? 'pill-flip-long' : cbcWire.isBull === false ? 'pill-flip-short' : 'pill-neutral';
-        return `<div class="card ${statusCls} ${isExpandedWire ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''}" data-id="${a.id}">
+        return `<div class="card ${statusCls} ${isExpandedWire ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''} ${isCrossingAlert(a) ? 'crossing-card' : ''}" data-id="${a.id}">
           <div class="card-top" data-toggle="${a.id}">
             <div class="card-top-left">
               <span class="chevron">&#9656;</span>
@@ -5529,7 +5558,7 @@
       if (rows.length === 0) {
         const plainSummary = lines[0] || '(empty alert)';
         const isExpandedPlain = expandedIds.has(a.id);
-        return `<div class="card ${isExpandedPlain ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''}" data-id="${a.id}">
+        return `<div class="card ${isExpandedPlain ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''} ${isCrossingAlert(a) ? 'crossing-card' : ''}" data-id="${a.id}">
           <div class="card-top" data-toggle="${a.id}">
             <div class="card-top-left">
               <span class="chevron">&#9656;</span>
@@ -5620,7 +5649,7 @@
         ? `<span class="type-pill ${typePill.confirmed ? 'pill-confirmed' : 'pill-unconfirmed'}">${typePill.confirmed ? 'CONFIRMED' : 'UNCONFIRMED'}</span>`
         : '';
 
-      return `<div class="card ${statusClass} ${isExpanded ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''}" data-id="${a.id}">
+      return `<div class="card ${statusClass} ${isExpanded ? 'expanded' : ''} ${isTowardAlert(a) ? 'toward-card' : ''} ${isCrossingAlert(a) ? 'crossing-card' : ''}" data-id="${a.id}">
         <div class="card-top" data-toggle="${a.id}">
           <div class="card-top-left">
             <span class="chevron">&#9656;</span>
