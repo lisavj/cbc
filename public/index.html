@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v66 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v67 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -212,7 +212,8 @@
      v63: R:R moved out of the setup table into a small separate table (Entry / Now x TP1/SL1, TP2/SL2).
      v64: R:R table vertical -- TP1/SL1, TP1/SL2, TP2/SL1, TP2/SL2 rows x Entry / Now.
      v65: R:R table 2 columns, no header, no Now; rows TP2/SL1, TP1/SL1, TP1/SL2, TP2/SL2.
-     v66: desktop Trade Setup box shrinks to its content width (no dead space to the right). -->
+     v66: desktop Trade Setup box shrinks to its content width (no dead space to the right).
+     v67: ended-setup result shows net points plus dollars for 1 contract (MES $5/pt, MGC $10/pt, MNQ $2/pt, ...). -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2268,7 +2269,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v66</footer>
+<footer>tv-webhook-dashboard · v67</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5162,11 +5163,19 @@
       ? `<span class="sb-or with" title="${tip((shortSide ? 'SHORT below' : 'LONG above') + ' the opening range.')}">OR ✓ ${shortSide ? 'BELOW' : 'ABOVE'}</span>`
       : `<span class="sb-or against" title="${tip((shortSide ? 'SHORT above' : 'LONG below') + ' the opening range: the range ' + (shortSide ? 'high is support below price.' : 'low is resistance above price.'))}">OR ✗ ${shortSide ? 'ABOVE' : 'BELOW'}</span>`;
   }
-  function setupOutcomeHtml(o) {
+  // v67: dollars per point for 1 contract, by symbol root (MES1! -> MES).
+  const POINT_VALUE = { MES: 5, ES: 50, MNQ: 2, NQ: 20, M2K: 5, RTY: 50, MYM: 0.5, YM: 5, MGC: 10, GC: 100, MCL: 100, CL: 1000, SIL: 1000, SI: 5000, MBT: 0.1, MET: 0.1 };
+  function pointValue(sym) {
+    const root = String(sym || '').toUpperCase().replace(/[0-9!]+$/, '').replace(/[FGHJKMNQUVXZ]\d{1,2}$/, '');
+    return POINT_VALUE[root] || null;
+  }
+  function setupOutcomeHtml(o, sym) {
     if (!o) return '';
     const r = parseFloat(o.res);
     const cls = isNaN(r) ? '' : r > 0 ? 'win' : r < 0 ? 'loss' : '';
-    const parts = [`<b>${escapeHtml(o.why)}</b> <span class="sb-res ${cls}">${escapeHtml(o.res)}</span>`];
+    const pv = pointValue(sym);
+    const usd = !isNaN(r) && pv ? (r < 0 ? '-' : r > 0 ? '+' : '') + '$' + Math.abs(r * pv).toFixed(2) : '';
+    const parts = [`<b>${escapeHtml(o.why)}</b> <span class="sb-res ${cls}" title="Net result: ${escapeHtml(o.res)} pts${usd ? ' = ' + usd + ' per 1 contract (' + escapeHtml(sym) + ' $' + pv + '/pt, before commissions)' : ''}">${escapeHtml(o.res)} pts${usd ? ' · ' + usd : ''}</span>`];
     if (o.max && o.max !== 'none') parts.push(`Max ${escapeHtml(o.max)}`);
     if (o.at || o.mins) parts.push(`${escapeHtml(o.at)}${o.mins ? ' (' + escapeHtml(o.mins) + ')' : ''}`);
     if (o.best || o.worst) parts.push(`best ${escapeHtml(o.best)} / worst ${escapeHtml(o.worst)}`);
@@ -5356,7 +5365,7 @@
         `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
         `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
 
-        `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st)) : ''}</div>` +
+        `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st), sym) : ''}</div>` +
         `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st), setupNowPrice(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
     }).join('');
     box.style.display = '';
