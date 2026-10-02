@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v67 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v69 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -213,7 +213,9 @@
      v64: R:R table vertical -- TP1/SL1, TP1/SL2, TP2/SL1, TP2/SL2 rows x Entry / Now.
      v65: R:R table 2 columns, no header, no Now; rows TP2/SL1, TP1/SL1, TP1/SL2, TP2/SL2.
      v66: desktop Trade Setup box shrinks to its content width (no dead space to the right).
-     v67: ended-setup result shows net points plus dollars for 1 contract (MES $5/pt, MGC $10/pt, MNQ $2/pt, ...). -->
+     v67: ended-setup result shows net points plus dollars for 1 contract (MES $5/pt, MGC $10/pt, MNQ $2/pt, ...).
+     v68: ended setups: Entry row becomes "Ent/Ex" -- entry price | exit price | exit-entry pts (green/red).
+     v69: HTF EMA9/EMA20 Pierce types also match the Pine v8.51 "Option 2: Reverse SHORT→LONG" wording. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -985,6 +987,7 @@
   .sb-table.sb-rr { width: auto; margin-top: 4px; }
   .sb-table.sb-rr td { background: #1e293b; } .sb-table.sb-rr td.rr-k { background: #15803d; }
   .sb-table.sb-rr th.rr-e { background: #334155; } .sb-table.sb-rr th.rr-n { background: #b45309; }
+  .sb-table td.ee.win { background: #15803d; font-weight: 700; } .sb-table td.ee.loss { background: #b91c1c; font-weight: 700; }
   .sb-table tr.r-price td { background: #b45309; color: #fff; }
   .sb-table tr.r-flop td { background: #f59e0b; color: #111827; font-weight: 700; }
   .card.toward-card { border: 2px solid #eab308 !important; }
@@ -2269,7 +2272,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v67</footer>
+<footer>tv-webhook-dashboard · v69</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -3938,12 +3941,12 @@
       def: 'v56: sent by Pine v8.40+ when a Trade Setup stops being valid (SL1 hit, HTF CBC flip against it, 17:00 ET, or a new setup). Carries the reason, result in points, furthest TP reached, best/worst move and duration; the Trade Setup box shows it under ENDED. Off by default in the feed.'
     },
     {
-      test: (l) => /HTF EMA9 Pierce - Entry/i.test(l),
+      test: (l) => /HTF EMA9 Pierce - (Entry|Option 2)/i.test(l),
       title: 'HTF EMA9 Pierce - Entry (Long/Short)',
       def: 'v50: fires when price pierces the HTF EMA9 line (first bar touching it after a bar that did not) with the HTF CBC direction confirmed and the flip-away gate passed. Once every 3 bars. A Trade Setup is also drawn when the bar closes on the favorable side. Setup marker.'
     },
     {
-      test: (l) => /HTF EMA20 Pierce - Entry/i.test(l),
+      test: (l) => /HTF EMA20 Pierce - (Entry|Option 2)/i.test(l),
       title: 'HTF EMA20 Pierce - Entry (Long/Short)',
       def: 'v50: same as HTF EMA9 Pierce, on the HTF EMA20 line. Setup marker.'
     },
@@ -5295,7 +5298,7 @@
     }
     return null;
   }
-  function setupTableHtml(st, flip, now) {
+  function setupTableHtml(st, flip, now, outcome) {
     const isLong = st.dir !== 'SHORT';
     let keys = (st.dir === 'SHORT' ? ['SL4', 'SL3', 'SL2', 'SL1', 'Entry', 'TP1', 'TP2', 'TP3', 'TP4'] : ['TP4', 'TP3', 'TP2', 'TP1', 'Entry', 'SL1', 'SL2', 'SL3', 'SL4']).filter(k => !/^(TP|SL)[34]$/.test(k) || st[k]);
     if (now) { const ei = keys.indexOf('Entry'); keys.splice(isLong ? ei + 1 : ei, 0, 'Price'); }
@@ -5304,6 +5307,13 @@
       const v = k === 'Price' ? { price: now, pivot: '', pts: '' } : (st[k] || { price: '—', pivot: '', pts: '' });
       const cls = k === 'Entry' ? 'r-entry' : k === 'Price' ? 'r-price' : k.startsWith('TP') ? 'r-tp' : 'r-sl';
       const piv = k === 'Entry' ? st.dir.charAt(0) + st.dir.slice(1).toLowerCase() : k === 'Price' ? 'now' : (v.pivot || '-');
+      // v68: an ended setup's Entry row becomes "Ent/Ex": entry price | exit price | exit - entry (signed for the side).
+      if (k === 'Entry' && outcome && !isNaN(parseFloat(outcome.res)) && !isNaN(parseFloat(v.price))) {
+        const res = parseFloat(outcome.res), en = parseFloat(v.price);
+        const ex = +(en + (isLong ? res : -res)).toFixed(2);
+        const rc = res > 0 ? 'win' : res < 0 ? 'loss' : '';
+        return `<tr class="r-entry" title="Entered ${en}, exited ${ex} (${escapeHtml(outcome.why)}): ${escapeHtml(outcome.res)} pts"><td>Ent/Ex</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${ex}</td><td class="num ee ${rc}">${escapeHtml(outcome.res)}</td></tr>`;
+      }
       return `<tr class="${cls}"><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
     }).join('');
     const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '') +
@@ -5366,7 +5376,7 @@
         `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
 
         `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st), sym) : ''}</div>` +
-        `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st), setupNowPrice(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
+        `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st), setupNowPrice(i, sym, st), setupOutcome(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
     }).join('');
     box.style.display = '';
     positionSetupBox();
@@ -5623,7 +5633,7 @@
         </div>
         ${badgeRowHtml}
         ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
-        ${(() => { const st = parseTradeSetup(a.raw); if (!st) { if (!/\nMarket:/.test(a.raw || '')) return ''; const idx0 = alerts.indexOf(a); const stHtml = setupStatusHtml(a, idx0, getSymbol(a.raw) || ''); return stHtml ? `<div class="setup-card-row status-only">${stHtml}</div>` : ''; } const idx = alerts.indexOf(a); const sym = getSymbol(a.raw) || ''; return `<div class="setup-card-row"><div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, sym, st), setupNowPrice(idx, sym, st))}</div>${setupStatusHtml(a, idx, sym)}</div>`; })()}
+        ${(() => { const st = parseTradeSetup(a.raw); if (!st) { if (!/\nMarket:/.test(a.raw || '')) return ''; const idx0 = alerts.indexOf(a); const stHtml = setupStatusHtml(a, idx0, getSymbol(a.raw) || ''); return stHtml ? `<div class="setup-card-row status-only">${stHtml}</div>` : ''; } const idx = alerts.indexOf(a); const sym = getSymbol(a.raw) || ''; return `<div class="setup-card-row"><div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, sym, st), setupNowPrice(idx, sym, st), idx < 0 ? null : setupOutcome(idx, sym, st))}</div>${setupStatusHtml(a, idx, sym)}</div>`; })()}
         <div class="field-body">${bodyHtml}</div>
       </div>`;
     }
