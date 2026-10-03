@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v78 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v81 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,9 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v81: setup table rows for Pine v8.75 "Suspicious: HTF crossed S1, R1 since the flip" (amber) and "Range mode: ON (...)" (blue).
+     v80: active TP1/TP2/SL1/SL2 rows (the ones used for R:R, Max TP and the SL1 exit) get an orange outline.
+     v79: HTF flip candle value wraps onto 3 short lines (high / low, range pts, × avg20 · × last4) so the status column stays narrow; Potential flop wraps after "crossed".
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
      v77: setup table shows the other SL method's SL1/SL2 ("SL1 ATR"/"SL2 ATR", or "SL1 Piv"/"SL2 Piv" when ATR is active; Pine v8.61) as darker info rows; all stop rows sorted by distance from Entry.
      v76: status row label is just "HTF flip candle" (no "(15m)"). -->
@@ -966,6 +969,10 @@
   .sb-table tr.r-tp td { background: #15803d; } .sb-table tr.r-entry td { background: #334155; }
   .sb-table tr.r-sl td { background: #b91c1c; }
   .sb-table tr.r-sl-alt td { background: #7f1d1d; color: #fecaca; }
+  .sb-table tr.r-range td { background: #1e3a5f; color: #bfdbfe; }
+  .sb-table tr.r-active td { box-shadow: inset 0 2px 0 #f97316, inset 0 -2px 0 #f97316; }
+  .sb-table tr.r-active td:first-child { box-shadow: inset 2px 0 0 #f97316, inset 0 2px 0 #f97316, inset 0 -2px 0 #f97316; }
+  .sb-table tr.r-active td:last-child { box-shadow: inset -2px 0 0 #f97316, inset 0 2px 0 #f97316, inset 0 -2px 0 #f97316; }
   .sb-table tr.r-tp-alt td { background: #14532d; color: #bbf7d0; }
   #setupBox { max-height: calc(100vh - 160px); overflow-y: auto; width: 270px; }
   #setupBox .sb-item + .sb-item { border-top: 2px solid #475569; }
@@ -1013,6 +1020,7 @@
   .st-table td { padding: 3px 8px; border: 1px solid #1f2937; white-space: nowrap; }
   .st-table td.k { background: #1e293b; color: #cbd5e1; }
   .st-table td.v { text-align: right; font-weight: 600; }
+  .st-table td.v.wrap { white-space: pre-line; line-height: 1.3; }
   .st-table td.v.bull { background: #15803d; } .st-table td.v.bear { background: #b91c1c; }
   .st-table td.v.warn { background: #f59e0b; color: #111827; }
   .st-table td.v.neu { background: #334155; } .st-table td.v.mkt { background: #7e22ce; }
@@ -2286,7 +2294,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v78</footer>
+<footer>tv-webhook-dashboard · v81</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5082,7 +5090,9 @@
       'TP1 ATR': lvl('TP1 ATR'), 'TP2 ATR': lvl('TP2 ATR'), 'TP1 Piv': lvl('TP1 Piv'), 'TP2 Piv': lvl('TP2 Piv'),
       'SL1 ATR': lvl('SL1 ATR'), 'SL2 ATR': lvl('SL2 ATR'), 'SL1 Piv': lvl('SL1 Piv'), 'SL2 Piv': lvl('SL2 Piv'),
       flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : '',
-      flop: ((lines.find(l => /^Flip flop:/.test(l)) || '').replace(/^Flip flop:\s*/, ''))
+      flop: ((lines.find(l => /^Flip flop:/.test(l)) || '').replace(/^Flip flop:\s*/, '')),
+      susp: ((lines.find(l => /^Suspicious:/.test(l)) || '').replace(/^Suspicious:\s*HTF crossed\s*/, '').replace(/\s*since the flip$/, '')),
+      range: ((lines.find(l => /^Range mode: ON/.test(l)) || '').replace(/^Range mode:\s*/, ''))
     };
   }
   // v53: "toward" setups -- Trade Setup / High Confluence alerts carrying "Flip side: TOWARD" (Pine v8.37+).
@@ -5298,10 +5308,11 @@
       // v75: Pine v8.57 sends each of the 4 previous HTF candles as "HTF Prev1: H=.. L=.. R=..".
       const prevs = rows.filter(([pk]) => /^HTF Prev[1-4]$/.test(pk)).map(([pk, pv]) => `${pk.replace('HTF ', '')}: ${pv}`);
       const tip = [`This candle: H=${hi} L=${lo} R=${+rng.toFixed(2)}`, ...prevs, l4 ? `Last 4 ranges (newest first): ${l4.split(',').join(' / ')} pts` : '', a4 ? `Avg of last 4: ${a4} pts (${rx4}×)` : '', a20 ? `Avg of the 20 before it: ${a20} pts (${rx}×)` : ''].filter(Boolean).join('\n');
-      pick.push([`HTF flip candle`, `${hi} / ${lo}  (${+rng.toFixed(2)} pts${isNaN(rx) ? '' : ' · ' + rx + '× avg20'}${isNaN(rx4) ? '' : ' · ' + rx4 + '× last4'})`, isNaN(rx) ? '' : rx >= 2 ? 'bear' : rx >= 1.5 ? 'warn' : 'neu', tip]);
+      const rxs = [isNaN(rx) ? '' : rx + '× avg20', isNaN(rx4) ? '' : rx4 + '× last4'].filter(Boolean).join(' · ');
+      pick.push([`HTF flip candle`, `${hi} / ${lo}\n${+rng.toFixed(2)} pts${rxs ? '\n' + rxs : ''}`, isNaN(rx) ? '' : rx >= 2 ? 'bear' : rx >= 1.5 ? 'warn' : 'neu', tip]);
     });
     // v57: potential-flop flag (Pine v8.41+): "Flip flop: crossed EMA200, VWAP".
-    rows.filter(([k]) => k === 'Flip flop').slice(0, 1).forEach(([k, v]) => pick.push(['⚠ Potential flop', v]));
+    rows.filter(([k]) => k === 'Flip flop').slice(0, 1).forEach(([k, v]) => pick.push(['⚠ Potential flop', v.replace(/^crossed\s*/, 'crossed\n').replace(/,\s*/g, ', ')]));
     if (!pick.length) return '';
     const cls = (k, v) => {
       if (k === 'Market') return 'mkt';
@@ -5315,7 +5326,7 @@
       if (/^Fib Zone/.test(k)) return /IN/.test(v) ? 'bull' : 'neu';
       return 'neu';
     };
-    return `<div><table class="st-table">${pick.map(([k, v, c3, tip]) => `<tr${tip ? ` title="${escapeHtml(tip)}"` : ''}><td class="k">${escapeHtml(k)}</td><td class="v ${cls(k, v)}">${escapeHtml(v)}</td></tr>`).join('')}</table>${note ? `<div class="st-note">${escapeHtml(note)}</div>` : ''}</div>`;
+    return `<div><table class="st-table">${pick.map(([k, v, c3, tip]) => `<tr${tip ? ` title="${escapeHtml(tip)}"` : ''}><td class="k">${escapeHtml(k)}</td><td class="v ${cls(k, v)}${/\n/.test(v) ? ' wrap' : ''}">${escapeHtml(v)}</td></tr>`).join('')}</table>${note ? `<div class="st-note">${escapeHtml(note)}</div>` : ''}</div>`;
   }
   // v61: reward:risk (TP - ref) / (ref - SL) in the trade direction -- same rule as the chart table.
   function setupRR(ref, tp, sl, isLong) {
@@ -5358,10 +5369,13 @@
         const rc = res > 0 ? 'win' : res < 0 ? 'loss' : '';
         return `<tr class="r-entry" title="Entered ${en}, exited ${ex} (${escapeHtml(outcome.why)}): ${escapeHtml(outcome.res)} pts"><td>Ent/Ex</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${ex}</td><td class="num ee ${rc}">${escapeHtml(outcome.res)}</td></tr>`;
       }
-      return `<tr class="${cls}"${/-alt$/.test(cls) ? ' title="Info only: the other method (Pine inputs SL/TP method: 3m ATR). Not the active level."' : ''}><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
+      const act = /^(TP|SL)[12]$/.test(k) ? ' r-active' : '';
+      return `<tr class="${cls}${act}"${act ? ' title="Active level: used for R:R, Max TP and the SL1-hit exit"' : ''}${/-alt$/.test(cls) ? ' title="Info only: the other method (Pine inputs SL/TP method: 3m ATR). Not the active level."' : ''}><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
     }).join('');
     const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '') +
-      (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
+      (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '') +
+      (st.susp ? `<tr class="r-flop" title="Since the last HTF flip a confirmed HTF candle crossed these levels -- every setup until the next flip is marked"><td colspan="4">⚠ Suspicious: HTF crossed ${escapeHtml(st.susp.replace(/,\s*/g, ' · '))}</td></tr>` : '') +
+      (st.range ? `<tr class="r-range" title="Range mode was on when this setup fired (stricter rules applied)"><td colspan="4">↔ Range mode ${escapeHtml(st.range)}</td></tr>` : '');
     // v63: reward:risk in its own small table under the levels (Entry row always; Now row while live).
     // v64: vertical R:R table -- 4 TP/SL combos x Entry / Now (Now only while the setup is live).
     // v65: R:R from Entry, 2 columns, no header: TP2/SL1, TP1/SL1, TP1/SL2, TP2/SL2.
