@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v81 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v80 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,7 +222,6 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
-     v81: setup table rows for Pine v8.75 "Suspicious: HTF crossed S1, R1 since the flip" (amber) and "Range mode: ON (...)" (blue).
      v80: active TP1/TP2/SL1/SL2 rows (the ones used for R:R, Max TP and the SL1 exit) get an orange outline.
      v79: HTF flip candle value wraps onto 3 short lines (high / low, range pts, × avg20 · × last4) so the status column stays narrow; Potential flop wraps after "crossed".
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
@@ -969,7 +968,6 @@
   .sb-table tr.r-tp td { background: #15803d; } .sb-table tr.r-entry td { background: #334155; }
   .sb-table tr.r-sl td { background: #b91c1c; }
   .sb-table tr.r-sl-alt td { background: #7f1d1d; color: #fecaca; }
-  .sb-table tr.r-range td { background: #1e3a5f; color: #bfdbfe; }
   .sb-table tr.r-active td { box-shadow: inset 0 2px 0 #f97316, inset 0 -2px 0 #f97316; }
   .sb-table tr.r-active td:first-child { box-shadow: inset 2px 0 0 #f97316, inset 0 2px 0 #f97316, inset 0 -2px 0 #f97316; }
   .sb-table tr.r-active td:last-child { box-shadow: inset -2px 0 0 #f97316, inset 0 2px 0 #f97316, inset 0 -2px 0 #f97316; }
@@ -2294,7 +2292,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v81</footer>
+<footer>tv-webhook-dashboard · v80</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5090,9 +5088,7 @@
       'TP1 ATR': lvl('TP1 ATR'), 'TP2 ATR': lvl('TP2 ATR'), 'TP1 Piv': lvl('TP1 Piv'), 'TP2 Piv': lvl('TP2 Piv'),
       'SL1 ATR': lvl('SL1 ATR'), 'SL2 ATR': lvl('SL2 ATR'), 'SL1 Piv': lvl('SL1 Piv'), 'SL2 Piv': lvl('SL2 Piv'),
       flipTf: flipM ? flipM[1] : '', flipText: flipM ? flipLine : '',
-      flop: ((lines.find(l => /^Flip flop:/.test(l)) || '').replace(/^Flip flop:\s*/, '')),
-      susp: ((lines.find(l => /^Suspicious:/.test(l)) || '').replace(/^Suspicious:\s*HTF crossed\s*/, '').replace(/\s*since the flip$/, '')),
-      range: ((lines.find(l => /^Range mode: ON/.test(l)) || '').replace(/^Range mode:\s*/, ''))
+      flop: ((lines.find(l => /^Flip flop:/.test(l)) || '').replace(/^Flip flop:\s*/, ''))
     };
   }
   // v53: "toward" setups -- Trade Setup / High Confluence alerts carrying "Flip side: TOWARD" (Pine v8.37+).
@@ -5373,9 +5369,7 @@
       return `<tr class="${cls}${act}"${act ? ' title="Active level: used for R:R, Max TP and the SL1-hit exit"' : ''}${/-alt$/.test(cls) ? ' title="Info only: the other method (Pine inputs SL/TP method: 3m ATR). Not the active level."' : ''}><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
     }).join('');
     const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '') +
-      (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '') +
-      (st.susp ? `<tr class="r-flop" title="Since the last HTF flip a confirmed HTF candle crossed these levels -- every setup until the next flip is marked"><td colspan="4">⚠ Suspicious: HTF crossed ${escapeHtml(st.susp.replace(/,\s*/g, ' · '))}</td></tr>` : '') +
-      (st.range ? `<tr class="r-range" title="Range mode was on when this setup fired (stricter rules applied)"><td colspan="4">↔ Range mode ${escapeHtml(st.range)}</td></tr>` : '');
+      (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
     // v63: reward:risk in its own small table under the levels (Entry row always; Now row while live).
     // v64: vertical R:R table -- 4 TP/SL combos x Entry / Now (Now only while the setup is live).
     // v65: R:R from Entry, 2 columns, no header: TP2/SL1, TP1/SL1, TP1/SL2, TP2/SL2.
