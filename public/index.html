@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v80 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v81 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,10 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v81: CHT (chart-time Pine script) support. Alerts whose bullet starts "• CH<min> " (e.g. "• CH15 Trade Setup: LONG")
+       get two new Alert Types, "Chart-TF Setups" and "Chart-TF Alerts" (default on, in Setup markers), are grouped
+       under their own symbol key "MES1! CH15" (tabs, setup matching, ENDED/outcome logic stay separate from the 3m
+       ones), and their setups show in a separate "Chart-TF setups" section of the Trade Setup box.
      v80: active TP1/TP2/SL1/SL2 rows (the ones used for R:R, Max TP and the SL1 exit) get an orange outline.
      v79: HTF flip candle value wraps onto 3 short lines (high / low, range pts, × avg20 · × last4) so the status column stays narrow; Potential flop wraps after "crossed".
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
@@ -997,6 +1001,9 @@
   #setupBox .sb-or.with { background: #15803d; color: #fff; }
   #setupBox .sb-or.in { background: #f59e0b; color: #111827; }
   #setupBox .sb-or.against { background: #b91c1c; color: #fff; border: 1px solid #fecaca; }
+  #setupBox .sb-sec { font: 700 11px var(--mono); color: #93C5FD; text-transform: uppercase; letter-spacing: .04em; margin: 4px 2px 3px; }
+  #setupBox .sb-sec-ch { color: #FBBF24; border-top: 1px solid #334155; padding-top: 6px; margin-top: 8px; }
+  #setupBox .sb-sec-ch ~ .sb-tabs { position: static; }
   #setupBox .sb-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; border-bottom: 1px solid #334155; position: sticky; top: 0; background: #020617; z-index: 1; }
   #setupBox .sb-tab { background: #0f172a; border: 1px solid #334155; color: #94a3b8; font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 6px; cursor: pointer; }
   #setupBox .sb-tab span { opacity: .7; font-weight: 500; }
@@ -2292,7 +2299,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v80</footer>
+<footer>tv-webhook-dashboard · v81</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -3629,7 +3636,10 @@
     // extract just the ticker part, not the whole line, or every uniquely-worded message would
     // create its own bogus one-off "symbol" instead of grouping under the real ticker.
     const tickerMatch = firstLine.match(/^([^\s—]+)\s*—/);
-    if (tickerMatch) return tickerMatch[1].trim();
+    // v81: CHT (chart-time) alerts get their own symbol key, e.g. "MES1! CH15", so their tabs, setups and
+    // ENDED/outcome matching never mix with the 3m CBC alerts of the same ticker.
+    const chTag = (raw || '').match(/\n•\s*(CH\d+)\s/);
+    if (tickerMatch) return tickerMatch[1].trim() + (chTag ? ' ' + chTag[1] : '');
     return firstLine.replace(/[—\s]+$/, '').trim();
   }
 
@@ -3905,6 +3915,17 @@
   // own tooltips change, to keep them in sync.
   // ---------------------------------------------------------------------
   const ALERT_TYPE_DEFS = [
+    // v81: CHT (chart-time) script alerts -- bullet starts "• CH<minutes> ". Must stay first (find() takes the first match).
+    {
+      test: (l) => /^•\s*CH\d+\s+(Trade Setup|Setup Ended):/i.test(l),
+      title: 'Chart-TF Setups',
+      def: 'From the CHT Pine script (signals on the chart timeframe, e.g. a 15m chart): new Trade Setups and Setup Ended. Shown in their own "Chart-TF setups" section of the Trade Setup box.'
+    },
+    {
+      test: (l) => /^•\s*CH\d+\s/i.test(l),
+      title: 'Chart-TF Alerts',
+      def: 'From the CHT Pine script (chart timeframe, e.g. 15m): CBC Flip, EMA9/EMA20 Pierce, Pullback - Structure Confirmed, EMA9/20 Zone, EMA20 Touch, EMA 200 Break, EMA9/20 Cross.'
+    },
     {
       test: (l) => /Trade Setup:/i.test(l),
       title: 'Trade Setup',
@@ -4148,7 +4169,7 @@
     'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)'
   ].filter(t => ALL_TYPE_TITLES.includes(t));
   // v30: the 7 split into two groups for the Alert Types panel's two master checkboxes.
-  const SETUP_MARKER_TITLES = ['Trade Setup', 'A+ Setup (Long/Short)', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
+  const SETUP_MARKER_TITLES = ['Chart-TF Setups', 'Chart-TF Alerts', 'Trade Setup', 'A+ Setup (Long/Short)', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
   // v72: Price Enters HTF EMA9/20 Zone left out of Other markers (off by default).
   const ZONE_ENTRY_TITLE = 'Price Enters HTF EMA9/20 Zone - Entry';
   const OTHER_MARKER_TITLES = SEVEN_MARKER_TITLES.filter(t => !SETUP_MARKER_TITLES.includes(t) && t !== ZONE_ENTRY_TITLE);
@@ -4163,6 +4184,8 @@
   // starting set on first visit or if nothing valid was saved yet.
   // v29: defaults are now an explicit ON list (everything else starts off), per direct request.
   const DEFAULT_ON_TYPES = [
+    'Chart-TF Setups',
+    'Chart-TF Alerts',
     'A+ Setup (Long/Short)',
     'LTF EMA20 Pierce - Entry (Long/Short)',
     'HTF Pullback Entry - Structure Confirmed (Long/Short)',
@@ -4204,6 +4227,12 @@
     if (!localStorage.getItem('zoneEntryOff')) {
       if (enabledTypes.delete(ZONE_ENTRY_TITLE)) localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
       localStorage.setItem('zoneEntryOff', '1');
+    }
+    // v81: one-time add of the two Chart-TF (CHT script) types.
+    if (!localStorage.getItem('chtTypesAdded')) {
+      ['Chart-TF Setups', 'Chart-TF Alerts'].forEach(t => enabledTypes.add(t));
+      localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
+      localStorage.setItem('chtTypesAdded', '1');
     }
     if (!localStorage.getItem('aplusSetupAdded')) {
       if (enabledTypes.has('Trade Setup') && enabledTypes.has('HTF CBC Flip (Long/Short)')) {
@@ -5009,6 +5038,7 @@
   // the app automatically; otherwise it opens the web chart in whatever browser you're logged into.
   function buildChartUrl(tickerOnly, rows) {
     if (!tickerOnly) return null;
+    tickerOnly = String(tickerOnly).replace(/\s+CH\d+$/, ''); // v81: "MES1! CH15" -> "MES1!"
     const chartField = rows.find(([k]) => k === 'Chart');
     let tf = null;
     if (chartField) {
@@ -5067,7 +5097,7 @@
   //   TICKER —\n• Trade Setup: SHORT\nTrigger: ...\nTP2: 7695.75 | S3 | -54.75\n...Entry: 7750.5\n...Time: ...
   function parseTradeSetup(raw) {
     const lines = (raw || '').split('\n').map(l => l.trim());
-    const head = lines.find(l => /^•\s*Trade Setup:/i.test(l));
+    const head = lines.find(l => /^•\s*(?:CH\d+\s+)?Trade Setup:/i.test(l));
     if (!head) return null;
     const dir = /\bSHORT\b/.test(head) ? 'SHORT' : 'LONG';
     const get = (key) => lines.find(l => l.toUpperCase().startsWith(key.toUpperCase() + ':'));
@@ -5108,7 +5138,7 @@
   }
   function isTowardAlert(a) {
     const r = a && a.raw || '';
-    return /\nFlip side: TOWARD/.test(r) && /•\s*(Trade Setup:|High Confluence Setup)/.test(r);
+    return /\nFlip side: TOWARD/.test(r) && /•\s*(?:CH\d+\s+)?(Trade Setup:|High Confluence Setup)/.test(r);
   }
   let showToward = true;
   try { showToward = localStorage.getItem('showToward') !== 'false'; } catch (e) {}
@@ -5160,7 +5190,7 @@
     const entry = st.Entry ? st.Entry.price : null;
     for (let i = idx - 1; i >= 0; i--) {
       const r = alerts[i] && alerts[i].raw || '';
-      if (getSymbol(r) !== sym || !/•\s*Setup Ended:/.test(r)) continue;
+      if (getSymbol(r) !== sym || !/•\s*(?:CH\d+\s+)?Setup Ended:/.test(r)) continue;
       const se = (r.match(/\nSetup Entry:\s*([-\d.]+)/) || [])[1];
       if (entry && se && parseFloat(se) !== parseFloat(entry)) continue;
       const line = (r.split('\n').find(l => l.trim().startsWith('Ended:')) || '').trim().slice(6);
@@ -5205,7 +5235,7 @@
   // v67: dollars per point for 1 contract, by symbol root (MES1! -> MES).
   const POINT_VALUE = { MES: 5, ES: 50, MNQ: 2, NQ: 20, M2K: 5, RTY: 50, MYM: 0.5, YM: 5, MGC: 10, GC: 100, MCL: 100, CL: 1000, SIL: 1000, SI: 5000, MBT: 0.1, MET: 0.1 };
   function pointValue(sym) {
-    const root = String(sym || '').toUpperCase().replace(/[0-9!]+$/, '').replace(/[FGHJKMNQUVXZ]\d{1,2}$/, '');
+    const root = String(sym || '').toUpperCase().replace(/\s+CH\d+$/, '').replace(/[0-9!]+$/, '').replace(/[FGHJKMNQUVXZ]\d{1,2}$/, '');
     return POINT_VALUE[root] || null;
   }
   function setupOutcomeHtml(o, sym) {
@@ -5250,6 +5280,7 @@
         if (m) { text = `HTF Flip ${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()} ${m[2]} - ${m[3]}`; isShort = m[1].toUpperCase() === 'SHORT'; break; }
       }
     }
+    if (/\sCH\d+$/.test(sym)) text = text.replace(/^HTF Flip/, 'CBC Flip'); // v81: chart-timeframe flip
     return { text, isShort };
   }
   // v43: chart link for a setup -- its own "Chart:" line, else the closest same-symbol alert's.
@@ -5394,42 +5425,53 @@
     const box = document.getElementById('setupBox');
     if (!box) return;
     const limit = !keepSetups ? 1 : keepSetupsCount === 'all' ? Infinity : parseInt(keepSetupsCount, 10) || 5;
-    const items = [];
-    for (let i = 0; i < alerts.length && items.length < limit; i++) {
-      const a = alerts[i];
-      const sym = getSymbol(a.raw) || '';
-      if (!setupSymbolOk(sym)) continue;
-      if (!showToward && isTowardAlert(a)) continue;
-      const st = parseTradeSetup(a.raw);
-      if (st) items.push({ a, i, sym, st });
-    }
-    // v55: symbol tabs at the top of the box, linked to the feed's tabs (same activeFilter).
-    const setupCounts = new Map();
-    alerts.forEach(a => {
-      if (!/•\s*Trade Setup:/.test(a.raw || '')) return;
-      if (!showToward && isTowardAlert(a)) return;
-      const s0 = getSymbol(a.raw) || '';
-      setupCounts.set(s0, (setupCounts.get(s0) || 0) + 1);
-    });
-    if (!setupCounts.size) { box.style.display = 'none'; return; }
-    const tabSyms = Array.from(setupCounts.keys()).sort();
-    const totalSetups = tabSyms.reduce((n, k) => n + setupCounts.get(k), 0);
-    const tabsHtml = `<div class="sb-tabs"><button class="sb-tab ${activeFilter === 'all' ? 'active' : ''}" data-sbsym="all">All <span>${totalSetups}</span></button>` +
-      tabSyms.map(k => `<button class="sb-tab ${activeFilter === k ? 'active' : ''}" data-sbsym="${escapeHtml(k)}">${escapeHtml(k)} <span>${setupCounts.get(k)}</span></button>`).join('') + '</div>';
-    box.innerHTML = tabsHtml + (items.length ? '' : `<div class="sb-empty">No setups for ${escapeHtml(activeFilter)}</div>`) + items.map(({ a, i, sym, st }, n) => {
-      const ended = setupEnded(i, sym, st);
-      const key = setupKey(a);
-      const open = sbOpenState.has(key) ? sbOpenState.get(key) : n === 0;
-      const received = a.receivedAt ? new Date(a.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-      const when = `${escapeHtml(st.trigger || 'Setup')}${st.time ? ' · ' + escapeHtml(st.time) : (received ? ' · ' + received : '')}`;
-      const tw = isTowardAlert(a);
-      return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''} ${tw ? 'toward' : ''}">` +
-        `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
-        `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
+    // v81: two sections -- CBC (3m) setups, then Chart-TF (CHT script, symbol key "TICKER CHnn") setups.
+    const isChSym = (x) => /\sCH\d+$/.test(x || '');
+    const section = (ch) => {
+      const items = [];
+      for (let i = 0; i < alerts.length && items.length < limit; i++) {
+        const a = alerts[i];
+        const sym = getSymbol(a.raw) || '';
+        if (isChSym(sym) !== ch) continue;
+        if (!setupSymbolOk(sym)) continue;
+        if (!showToward && isTowardAlert(a)) continue;
+        const st = parseTradeSetup(a.raw);
+        if (st) items.push({ a, i, sym, st });
+      }
+      // v55: symbol tabs at the top of the box, linked to the feed's tabs (same activeFilter).
+      const setupCounts = new Map();
+      alerts.forEach(a => {
+        if (!/•\s*(?:CH\d+\s+)?Trade Setup:/.test(a.raw || '')) return;
+        if (!showToward && isTowardAlert(a)) return;
+        const s0 = getSymbol(a.raw) || '';
+        if (isChSym(s0) !== ch) return;
+        setupCounts.set(s0, (setupCounts.get(s0) || 0) + 1);
+      });
+      if (!setupCounts.size) return '';
+      const tabSyms = Array.from(setupCounts.keys()).sort();
+      const totalSetups = tabSyms.reduce((n, k) => n + setupCounts.get(k), 0);
+      const tabsHtml = `<div class="sb-tabs"><button class="sb-tab ${activeFilter === 'all' ? 'active' : ''}" data-sbsym="all">All <span>${totalSetups}</span></button>` +
+        tabSyms.map(k => `<button class="sb-tab ${activeFilter === k ? 'active' : ''}" data-sbsym="${escapeHtml(k)}">${escapeHtml(k)} <span>${setupCounts.get(k)}</span></button>`).join('') + '</div>';
+      const showEmpty = !items.length && (activeFilter === 'all' || isChSym(activeFilter) === ch);
+      return tabsHtml + (showEmpty ? `<div class="sb-empty">No setups for ${escapeHtml(activeFilter)}</div>` : '') + items.map(({ a, i, sym, st }, n) => {
+        const ended = setupEnded(i, sym, st);
+        const key = setupKey(a);
+        const open = sbOpenState.has(key) ? sbOpenState.get(key) : n === 0;
+        const received = a.receivedAt ? new Date(a.receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+        const when = `${escapeHtml(st.trigger || 'Setup')}${st.time ? ' · ' + escapeHtml(st.time) : (received ? ' · ' + received : '')}`;
+        const tw = isTowardAlert(a);
+        return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''} ${tw ? 'toward' : ''}">` +
+          `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
+          `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
 
-        `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st), sym) : ''}</div>` +
-        `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st), setupNowPrice(i, sym, st), setupOutcome(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
-    }).join('');
+          `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st), sym) : ''}</div>` +
+          `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st), setupNowPrice(i, sym, st), setupOutcome(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
+      }).join('');
+    };
+    const mainHtml = section(false), chHtml = section(true);
+    if (!mainHtml && !chHtml) { box.style.display = 'none'; return; }
+    box.innerHTML = (chHtml && mainHtml ? '<div class="sb-sec">CBC setups</div>' : '') + mainHtml +
+      (chHtml ? '<div class="sb-sec sb-sec-ch">Chart-TF setups (CHT)</div>' + chHtml : '');
     box.style.display = '';
     positionSetupBox();
     box.querySelectorAll('.sb-tab').forEach(b => {
