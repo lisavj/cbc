@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v91 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v92 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,9 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v92: price-axis range control that never touches the candle width: "Range" box (points shown top-to-bottom, blank =
+       auto), ↕− / ↕+ / Fit no longer redraw the data (horizontal zoom and scroll stay exactly as they are), Shift + mouse
+       wheel over the chart = vertical zoom.
      v91: (1) vertical price zoom: "↕−" / "↕+" buttons squeeze / stretch the price axis, "Fit" resets; the far-away level
        lines (R1/PP/S1, YDH/YDL, opening ranges) no longer force the scale unless "Levels in scale" is on; dragging the
        price axis with the mouse also works (double-click it to reset). (2) cloud colours follow the timeframe you view,
@@ -1999,6 +2002,7 @@
         <button id="chVOut" title="Show more price range (squeeze candles)">↕−</button>
         <button id="chVIn" title="Show less price range (stretch candles)">↕+</button>
         <button id="chVFit" title="Reset the price axis">Fit</button>
+        <label class="ch-layer" title="Price range shown top-to-bottom, in points (blank = automatic). Candle width does not change.">Range <input type="number" id="chRange" min="0" step="1" placeholder="auto" style="width:64px;background:#111827;color:var(--text);border:1px solid #334155;border-radius:6px;padding:2px 4px;"> pts</label>
         <label class="ch-layer" title="Include R1/PP/S1, YDH/YDL and the opening ranges when fitting the price axis"><input type="checkbox" id="chFitLv"> Levels in scale</label>
       </span>
       <button id="chFullBtn" title="Fill the whole browser window (Esc to exit)">⤢ Full size</button>
@@ -2372,7 +2376,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v91</footer>
+<footer>tv-webhook-dashboard · v92</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -7836,7 +7840,7 @@
     ['piv', 'R1 / PP / S1', true], ['yd', 'YDH / YDL', true], ['or', 'Opening ranges', true],
     ['flop', 'Flop tint', true], ['flip', '15m CBC flips', true], ['setup', 'Setups', true]
   ];
-  const chState = { vScale: 1, fitLevels: false, lib: null, chart: null, candle: null, lines: {}, bands: null, tint: null, boxes: null, bars: [], sym: '', loadedKey: '', firstFit: true, dirty: false, layers: {} };
+  const chState = { vSpan: 0, vScale: 1, fitLevels: false, lib: null, chart: null, candle: null, lines: {}, bands: null, tint: null, boxes: null, bars: [], sym: '', loadedKey: '', firstFit: true, dirty: false, layers: {} };
   try { chState.layers = JSON.parse(localStorage.getItem('chLayers') || '{}') || {}; } catch (e) { chState.layers = {}; }
   CH_LAYERS.forEach(([k, , d]) => { if (typeof chState.layers[k] !== 'boolean') chState.layers[k] = d; });
   try { const p = JSON.parse(localStorage.getItem('chPrefs') || '{}'); if (p.tf) chTfSel.value = p.tf; if (p.days) chDaysSel.value = p.days; if (p.sym) chState.sym = p.sym; } catch (e) {}
@@ -7964,13 +7968,13 @@
       crosshair: { mode: LWC.CrosshairMode.Normal },
       localization: { locale: 'en-US' }
     });
-    const candle = chart.addCandlestickSeries({ upColor: '#22C55E', downColor: '#EF4444', wickUpColor: '#22C55E', wickDownColor: '#EF4444', borderVisible: false, autoscaleInfoProvider: (orig) => { const r = orig(); if (!r || !r.priceRange) return r; const c = (r.priceRange.minValue + r.priceRange.maxValue) / 2, h = (r.priceRange.maxValue - r.priceRange.minValue) / 2 * chState.vScale; return { priceRange: { minValue: c - h, maxValue: c + h }, margins: r.margins }; } });
+    const candle = chart.addCandlestickSeries({ upColor: '#22C55E', downColor: '#EF4444', wickUpColor: '#22C55E', wickDownColor: '#EF4444', borderVisible: false, autoscaleInfoProvider: (orig) => { const r = orig(); if (!r || !r.priceRange) return r; const c = (r.priceRange.minValue + r.priceRange.maxValue) / 2, h = chHalf(r); return { priceRange: { minValue: c - h, maxValue: c + h }, margins: r.margins }; } });
     // v91: vertical zoom -- candles / EMAs / EMA200 / VWAP scaled by chState.vScale around their centre; level lines only count
     // when "Levels in scale" is on
     const scaled = (orig) => {
       const r = orig();
       if (!r || !r.priceRange) return r;
-      const c = (r.priceRange.minValue + r.priceRange.maxValue) / 2, h = (r.priceRange.maxValue - r.priceRange.minValue) / 2 * chState.vScale;
+      const c = (r.priceRange.minValue + r.priceRange.maxValue) / 2, h = chHalf(r);
       return { priceRange: { minValue: c - h, maxValue: c + h }, margins: r.margins };
     };
     const lvlScale = (orig) => (chState.fitLevels ? scaled(orig) : null);
@@ -8209,10 +8213,35 @@
   });
   chImportBtn.addEventListener('click', () => chImportFile.click());
   // v91: vertical price zoom
-  function chVZoom(k) {
-    chState.vScale = k == null ? 1 : Math.min(8, Math.max(0.15, chState.vScale * k));
-    if (chState.chart) { chState.chart.priceScale('right').applyOptions({ autoScale: true }); chRender(); }
+  // v92: half of the visible price span -- fixed "Range" (points) if set, else auto range x vScale
+  function chHalf(r) {
+    if (chState.vSpan > 0) { // the price scale keeps 20% top / 10% bottom margins -> scale so the whole axis shows vSpan
+      const m = chState.chart ? chState.chart.priceScale('right').options().scaleMargins : { top: 0.2, bottom: 0.1 };
+      return chState.vSpan * (1 - m.top - m.bottom) / 2;
+    }
+    return (r.priceRange.maxValue - r.priceRange.minValue) / 2 * chState.vScale;
   }
+  const chRangeIn = document.getElementById('chRange');
+  // re-fit the price axis only (no setData, so the time axis / candle width are untouched)
+  function chRefitPrice() {
+    if (!chState.chart) return;
+    const ps = chState.chart.priceScale('right');
+    ps.applyOptions({ autoScale: false });
+    ps.applyOptions({ autoScale: true });
+  }
+  function chVZoom(k) {
+    if (k == null) { chState.vScale = 1; chState.vSpan = 0; chRangeIn.value = ''; }
+    else if (chState.vSpan > 0) { chState.vSpan = Math.max(0.5, Math.round(chState.vSpan * k * 4) / 4); chRangeIn.value = chState.vSpan; }
+    else chState.vScale = Math.min(8, Math.max(0.15, chState.vScale * k));
+    chRefitPrice();
+  }
+  chRangeIn.addEventListener('change', () => { const v = parseFloat(chRangeIn.value); chState.vSpan = v > 0 ? v : 0; if (!(v > 0)) chRangeIn.value = ''; chRefitPrice(); });
+  // Shift + wheel over the chart = vertical zoom (plain wheel keeps zooming time as before)
+  chHostEl.addEventListener('wheel', (e) => {
+    if (!e.shiftKey) return;
+    e.preventDefault(); e.stopPropagation();
+    chVZoom((e.deltaY || e.deltaX) > 0 ? 1.15 : 1 / 1.15);
+  }, { capture: true, passive: false });
   document.getElementById('chVOut').addEventListener('click', () => chVZoom(1.3));
   document.getElementById('chVIn').addEventListener('click', () => chVZoom(1 / 1.3));
   document.getElementById('chVFit').addEventListener('click', () => chVZoom(null));
