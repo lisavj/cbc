@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v89 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v91 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,13 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v91: (1) vertical price zoom: "↕−" / "↕+" buttons squeeze / stretch the price axis, "Fit" resets; the far-away level
+       lines (R1/PP/S1, YDH/YDL, opening ranges) no longer force the scale unless "Levels in scale" is on; dragging the
+       price axis with the mouse also works (double-click it to reset). (2) cloud colours follow the timeframe you view,
+       like CBC: the viewed timeframe's EMA 9/20 = green / red 50% (grey #808080 / #C8C8C8 lines), the other one = teal
+       #007A8A / burnt orange #B34700 75% with blue #2962FF lines. 15m view: 15m green/red, 3m teal/tan; 3m view: reverse.
+     v90: EMA clouds use CBC v9.05's default colours -- 3m: EMA9 #808080 (1px), EMA20 #C8C8C8 (2px), cloud green / red
+       (color.green / color.red at 50% transp); 15m: EMA9 / EMA20 #2962FF lines, cloud #007A8A / #B34700 at 75% transp.
      v89: chart toolbar buttons "⤢ Full size" (chart fills the whole browser window; Esc or the button again to exit) and
        "↗ Pop out" (opens the chart alone in its own window -- /?view=chart&popout=1&sym=..&tf=..&days=.. -- live updates
        included; drag it to a second monitor).
@@ -1988,6 +1995,12 @@
       <button id="chImportBtn" title="Backfill history: TradingView 3m chart with BarFeed on it -> Export chart data (CSV, time as UNIX) -> import here">Import CSV</button>
       <input type="file" id="chImportFile" accept=".csv,.json,text/csv,application/json" style="display:none;">
       <span id="chStatus"></span>
+      <span class="ch-vz" title="Price axis: squeeze / stretch the candles vertically. You can also drag the price axis with the mouse (double-click it to reset).">
+        <button id="chVOut" title="Show more price range (squeeze candles)">↕−</button>
+        <button id="chVIn" title="Show less price range (stretch candles)">↕+</button>
+        <button id="chVFit" title="Reset the price axis">Fit</button>
+        <label class="ch-layer" title="Include R1/PP/S1, YDH/YDL and the opening ranges when fitting the price axis"><input type="checkbox" id="chFitLv"> Levels in scale</label>
+      </span>
       <button id="chFullBtn" title="Fill the whole browser window (Esc to exit)">⤢ Full size</button>
       <button id="chPopBtn" title="Open the chart in its own window">↗ Pop out</button>
       <button id="chCloseBtn" title="Hide the chart">✕ Close chart</button>
@@ -2359,7 +2372,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v89</footer>
+<footer>tv-webhook-dashboard · v91</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -7823,7 +7836,7 @@
     ['piv', 'R1 / PP / S1', true], ['yd', 'YDH / YDL', true], ['or', 'Opening ranges', true],
     ['flop', 'Flop tint', true], ['flip', '15m CBC flips', true], ['setup', 'Setups', true]
   ];
-  const chState = { lib: null, chart: null, candle: null, lines: {}, bands: null, tint: null, boxes: null, bars: [], sym: '', loadedKey: '', firstFit: true, dirty: false, layers: {} };
+  const chState = { vScale: 1, fitLevels: false, lib: null, chart: null, candle: null, lines: {}, bands: null, tint: null, boxes: null, bars: [], sym: '', loadedKey: '', firstFit: true, dirty: false, layers: {} };
   try { chState.layers = JSON.parse(localStorage.getItem('chLayers') || '{}') || {}; } catch (e) { chState.layers = {}; }
   CH_LAYERS.forEach(([k, , d]) => { if (typeof chState.layers[k] !== 'boolean') chState.layers[k] = d; });
   try { const p = JSON.parse(localStorage.getItem('chPrefs') || '{}'); if (p.tf) chTfSel.value = p.tf; if (p.days) chDaysSel.value = p.days; if (p.sym) chState.sym = p.sym; } catch (e) {}
@@ -7886,7 +7899,11 @@
   function chDrawBands(self, ctx) {
     const ts = self.chart.timeScale(), s = self.series;
     const [i0, i1] = chVisibleSpan(self);
-    const pairs = [['a1', 'b1', 'rgba(134,239,172,0.30)', 'rgba(252,165,165,0.30)', 'c15'], ['a2', 'b2', 'rgba(134,239,172,0.42)', 'rgba(252,165,165,0.42)', 'c3']];
+    const MAIN = ['rgba(76,175,80,0.50)', 'rgba(242,54,69,0.50)'], OTHER = ['rgba(0,122,138,0.25)', 'rgba(179,71,0,0.25)'];
+    const on15 = (parseInt(chTfSel.value, 10) || 3) > 3;
+    // viewed timeframe's cloud = CBC chart-TF colours (drawn first, underneath); the other = CBC HTF colours
+    const p15 = ['a1', 'b1', ...(on15 ? MAIN : OTHER), 'c15'], p3 = ['a2', 'b2', ...(on15 ? OTHER : MAIN), 'c3'];
+    const pairs = on15 ? [p15, p3] : [p3, p15];
     pairs.forEach(([ka, kb, up, dn, layer]) => {
       if (!chState.layers[layer]) return;
       for (let i = i0; i < i1; i++) {
@@ -7947,11 +7964,20 @@
       crosshair: { mode: LWC.CrosshairMode.Normal },
       localization: { locale: 'en-US' }
     });
-    const candle = chart.addCandlestickSeries({ upColor: '#22C55E', downColor: '#EF4444', wickUpColor: '#22C55E', wickDownColor: '#EF4444', borderVisible: false });
-    const line = (color, width, title, style, extra) => chart.addLineSeries(Object.assign({ color, lineWidth: width, title: title || '', lineStyle: style || 0, priceLineVisible: false, lastValueVisible: !!title, crosshairMarkerVisible: false }, extra || {}));
+    const candle = chart.addCandlestickSeries({ upColor: '#22C55E', downColor: '#EF4444', wickUpColor: '#22C55E', wickDownColor: '#EF4444', borderVisible: false, autoscaleInfoProvider: (orig) => { const r = orig(); if (!r || !r.priceRange) return r; const c = (r.priceRange.minValue + r.priceRange.maxValue) / 2, h = (r.priceRange.maxValue - r.priceRange.minValue) / 2 * chState.vScale; return { priceRange: { minValue: c - h, maxValue: c + h }, margins: r.margins }; } });
+    // v91: vertical zoom -- candles / EMAs / EMA200 / VWAP scaled by chState.vScale around their centre; level lines only count
+    // when "Levels in scale" is on
+    const scaled = (orig) => {
+      const r = orig();
+      if (!r || !r.priceRange) return r;
+      const c = (r.priceRange.minValue + r.priceRange.maxValue) / 2, h = (r.priceRange.maxValue - r.priceRange.minValue) / 2 * chState.vScale;
+      return { priceRange: { minValue: c - h, maxValue: c + h }, margins: r.margins };
+    };
+    const lvlScale = (orig) => (chState.fitLevels ? scaled(orig) : null);
+    const line = (color, width, title, style, extra) => chart.addLineSeries(Object.assign({ color, lineWidth: width, title: title || '', lineStyle: style || 0, priceLineVisible: false, lastValueVisible: !!title, crosshairMarkerVisible: false, autoscaleInfoProvider: scaled }, extra || {}));
     chState.lines = {
-      h9: line('#4ADE80', 1, '15m 9'), h20: line('#F87171', 1, '15m 20'),
-      e9: line('#60A5FA', 1, '3m 9'), e20: line('#3B82F6', 1, '3m 20'),
+      h9: line('#2962FF', 1, '15m 9'), h20: line('#2962FF', 1, '15m 20'),
+      e9: line('#808080', 1, '3m 9'), e20: line('#C8C8C8', 2, '3m 20'),
       e200: line('#FBC02D', 2, 'EMA200'), vw: line('#800080', 2, 'VWAP'),
       r1: line('#EF4444', 1, 'R1', 2), pp: line('#94A3B8', 1, 'PP', 2), s1: line('#22C55E', 1, 'S1', 2),
       ydh: line('#CE93D8', 2, 'YDH'), ydl: line('#CE93D8', 2, 'YDL'),
@@ -7959,6 +7985,7 @@
       lnh: line('#FF9800', 1, 'LN OR-H', 3), lnl: line('#FF9800', 1, 'LN OR-L', 3),
       ash: line('#2962FF', 1, 'AS OR-H', 3), asl: line('#2962FF', 1, 'AS OR-L', 3)
     };
+    ['r1', 'pp', 's1', 'ydh', 'ydl', 'nyh', 'nyl', 'lnh', 'lnl', 'ash', 'asl'].forEach((k) => chState.lines[k].applyOptions({ autoscaleInfoProvider: lvlScale }));
     chState.bands = chPrimitive(chDrawBands); candle.attachPrimitive(chState.bands);
     chState.tint = chPrimitive(chDrawTint); candle.attachPrimitive(chState.tint);
     chState.boxes = chPrimitive(chDrawBoxes); candle.attachPrimitive(chState.boxes);
@@ -8101,6 +8128,12 @@
       if (L.flip && r.hf) { const c = r.hf > 0 ? '#15FF00' : '#FF1500'; d.color = c; d.wickColor = c; d.borderColor = c; }
       return d;
     }));
+    // v91: viewed TF's EMAs = CBC chart-TF lines (grey), the other TF = CBC HTF lines (blue)
+    const v15 = tfMin > 3;
+    chState.lines.e9.applyOptions({ color: v15 ? '#2962FF' : '#808080', lineWidth: 1 });
+    chState.lines.e20.applyOptions({ color: v15 ? '#2962FF' : '#C8C8C8', lineWidth: v15 ? 1 : 2 });
+    chState.lines.h9.applyOptions({ color: v15 ? '#808080' : '#2962FF', lineWidth: 1 });
+    chState.lines.h20.applyOptions({ color: v15 ? '#C8C8C8' : '#2962FF', lineWidth: v15 ? 2 : 1 });
     const set = (k, on, data) => { chState.lines[k].applyOptions({ visible: !!on }); chState.lines[k].setData(on ? data : []); };
     const plain = (k) => rows.map((r) => (r[k] == null ? { time: r.time } : { time: r.time, value: r[k] }));
     set('h9', L.c15, plain('h9')); set('h20', L.c15, plain('h20'));
@@ -8175,6 +8208,15 @@
     chState.layers[k] = e.target.checked; chSavePrefs(); chRender();
   });
   chImportBtn.addEventListener('click', () => chImportFile.click());
+  // v91: vertical price zoom
+  function chVZoom(k) {
+    chState.vScale = k == null ? 1 : Math.min(8, Math.max(0.15, chState.vScale * k));
+    if (chState.chart) { chState.chart.priceScale('right').applyOptions({ autoScale: true }); chRender(); }
+  }
+  document.getElementById('chVOut').addEventListener('click', () => chVZoom(1.3));
+  document.getElementById('chVIn').addEventListener('click', () => chVZoom(1 / 1.3));
+  document.getElementById('chVFit').addEventListener('click', () => chVZoom(null));
+  document.getElementById('chFitLv').addEventListener('change', (e) => { chState.fitLevels = e.target.checked; chVZoom(1); });
   document.getElementById('chCloseBtn').addEventListener('click', () => { chSetFull(false); chInlineOpen = false; setView('alerts'); });
   // v89: full size (fills the browser window) and pop out (own window)
   const chFullBtn = document.getElementById('chFullBtn');
