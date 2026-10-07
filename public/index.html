@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v99 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v100 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,9 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v100: last-price box in the chart's top-left corner: last price (green when above the previous candle's close, red
+       below), change vs that close in points and %, and the time of the update (ET) -- refreshes with every BarFeed bar
+       (each minute with BarFeed v1.01).
      v99: chart background White (default) or Dark -- "☾ Dark" / "☀ White" button in the chart toolbar, remembered per
        browser. Only the chart changes; the rest of the page keeps its dark theme.
      v98: flip-arrow setup price on its own line under the F (long: arrow, F, price; short: F, price, arrow), via a second
@@ -1081,6 +1084,11 @@
   #chartView.ch-inline { padding: 0 0 14px; }
   #chartView.ch-inline #chCloseBtn { display: inline-block; }
   #chartView.ch-inline #chHost { height: 460px; min-height: 0; }
+  #chHost { position: relative; }
+  #chLast { position: absolute; top: 8px; left: 8px; z-index: 5; display: none; gap: 8px; align-items: center; padding: 4px 9px; border-radius: 6px; border: 2px solid; font: 600 13px/1.25 -apple-system, Segoe UI, sans-serif; background: rgba(255,255,255,0.92); pointer-events: none; }
+  #chartView:not(.ch-light) #chLast { background: rgba(11,18,32,0.9); }
+  #chLast .p { font-size: 17px; font-weight: 700; }
+  #chLast .s { font-size: 11px; font-weight: 500; opacity: 0.8; }
   #chHost { width: 100%; height: calc(100vh - 230px); min-height: 380px; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden; }
   body.chart-mode #setupBox { display: none !important; }
   body.chart-mode main { max-width: none; }
@@ -2027,7 +2035,7 @@
       <button id="chPopBtn" title="Open the chart in its own window">↗ Pop out</button>
       <button id="chCloseBtn" title="Hide the chart">✕ Close chart</button>
     </div>
-    <div id="chHost"></div>
+    <div id="chHost"><div id="chLast"></div></div>
   </div>
 
   <div id="list"></div>
@@ -2394,7 +2402,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v99</footer>
+<footer>tv-webhook-dashboard · v100</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -8257,6 +8265,7 @@
       ts.setVisibleLogicalRange({ from: idx - w, to: idx + w });
       chState.focusMs = null;
     }
+    chUpdateLast();
     const last = chState.bars[chState.bars.length - 1];
     chStatusEl.textContent = rows.length
       ? `${chState.sym} · ${rows.length} candles · last ${new Date(last.t).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ET`
@@ -8282,6 +8291,7 @@
     try {
       const data = await fetch('/bars?sym=' + encodeURIComponent(chState.sym) + '&days=' + encodeURIComponent(chDaysSel.value)).then((r) => r.json());
       chState.bars = (data && data.bars) || [];
+      chState.lastRecv = 0;
       chState.loadedKey = key;
       chState.firstFit = true;
       chRender();
@@ -8402,6 +8412,20 @@
       if (r.ok) { await chLoadSymbols(); chSymSel.value = sym; await chLoadBars(); }
     } catch (e) { alert('Import failed: ' + e.message); }
   });
+  // v100: last-price box (top-left). Change = last price vs the previous candle's close (feed timeframe).
+  function chUpdateLast() {
+    const el = document.getElementById('chLast');
+    const n = chState.bars.length;
+    if (!el || n === 0) { if (el) el.style.display = 'none'; return; }
+    const b = chState.bars[n - 1], prev = n > 1 ? chState.bars[n - 2].c : b.o;
+    const d = b.c - prev, pct = prev ? d / prev * 100 : 0;
+    const col = d > 0 ? '#16A34A' : d < 0 ? '#DC2626' : '#64748B';
+    const t = chState.lastRecv || Math.min(Date.now(), b.t + chB() * 60000);
+    const tm = new Date(t).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    const fmt = (x) => (Math.abs(x) >= 100 ? x.toFixed(2) : x.toFixed(2));
+    el.style.display = 'flex'; el.style.borderColor = col; el.style.color = col;
+    el.innerHTML = `<span class="p">${fmt(b.c)}</span><span>${d >= 0 ? '+' : ''}${d.toFixed(2)} (${d >= 0 ? '+' : ''}${pct.toFixed(2)}%)</span><span class="s">${escapeHtml(chKeyRoot(chState.sym))} · ${tm} ET</span>`;
+  }
   // live candles (named SSE event from server v2) and new setup alerts
   es.addEventListener('bar', (e) => {
     let d; try { d = JSON.parse(e.data); } catch (err) { return; }
@@ -8410,6 +8434,7 @@
     if (arr.length && arr[arr.length - 1].t === b.t) arr[arr.length - 1] = b;
     else if (!arr.length || arr[arr.length - 1].t < b.t) arr.push(b);
     else return;
+    chState.lastRecv = Date.now();
     if (chartViewEl.style.display !== 'none') chRender(); else chState.dirty = true;
   });
   es.addEventListener('message', () => {
