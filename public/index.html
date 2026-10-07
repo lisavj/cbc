@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v100 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v102 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,11 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v102: Pierce alerts (LTF EMA20 / HTF EMA9 / HTF EMA20) get the same outcome line as setups (result pts / $, end
+       time (duration), best / worst), computed from the BarFeed 3m bars: entry = alert Price, ends at the first 15m CBC
+       flip against the trade, 17:00 ET or 2 hours; LIVE while still running.
+     v101: CHART button on EVERY alert card in the feed (pierces, flips, touches ... not just Trade Setups) -- opens the
+       chart on that symbol centred on the alert's candle.
      v100: last-price box in the chart's top-left corner: last price (green when above the previous candle's close, red
        below), change vs that close in points and %, and the time of the update (ET) -- refreshes with every BarFeed bar
        (each minute with BarFeed v1.01).
@@ -2402,7 +2407,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v100</footer>
+<footer>tv-webhook-dashboard · v102</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5375,6 +5380,92 @@
     if (o.best || o.worst) parts.push(`best ${escapeHtml(o.best)} / worst ${escapeHtml(o.worst)}`);
     return `<span class="sb-out">${parts.join(' · ')}</span>`;
   }
+  // v102: pierce outcome, computed here from the BarFeed 3m bars (Pierce alerts have no Pine "Setup Ended").
+  // Entry = the alert's Price, direction = Entry LONG/SHORT (Option 2: the side after the arrow). Ends at the first
+  // of: 15m CBC flip against the trade (at the 15m close), 17:00 ET, or 2 hours. Result = that bar's close - entry.
+  const PIERCE_MAX_MS = 2 * 3600000;
+  const pierceBars = new Map(); // root -> { bars, days, loading }
+  function pierceRoot(sym) {
+    const r = String(sym || '').replace(/^.*:/, '').replace(/[0-9!]+$/, '').toUpperCase();
+    return /\s/.test(sym || '') || !/^[A-Z][A-Z0-9]{1,6}$/.test(r) ? null : r;
+  }
+  function parsePierce(raw) {
+    const m = /\n•\s*(LTF EMA20|HTF EMA9|HTF EMA20) Pierce - (?:Entry: (LONG|SHORT)|Option 2: Reverse \w+→(LONG|SHORT))/.exec(raw || '');
+    const p = /\nPrice:\s*([-\d.]+)/.exec(raw || '');
+    if (!m || !p) return null;
+    return { line: m[1], long: (m[2] || m[3]) === 'LONG', entry: parseFloat(p[1]) };
+  }
+  // 15m CBC state on every 3m bar (changes only on the bar that closes the 15m candle), same rule as chDerive
+  function pierceHc(bars) {
+    const HMS = 15 * 60000, out = [];
+    let g = null, prevG = null, st = null;
+    bars.forEach((b, i) => {
+      const gk = Math.floor(b.t / HMS) * HMS;
+      if (!g || g.k !== gk) { if (g) prevG = g; g = { k: gk, h: b.h, l: b.l, c: b.c }; }
+      else { g.h = Math.max(g.h, b.h); g.l = Math.min(g.l, b.l); g.c = b.c; }
+      const nxt = bars[i + 1];
+      const closes = b.t + 3 * 60000 >= gk + HMS || (nxt && Math.floor(nxt.t / HMS) * HMS !== gk);
+      if (closes && prevG) {
+        let s = st == null ? g.c > prevG.h : st;
+        if (s && g.c < prevG.l) s = false;
+        if (!s && g.c > prevG.h) s = true;
+        st = s;
+      }
+      out.push(st);
+    });
+    return out;
+  }
+  function pierceEnsureBars(root, sinceMs) {
+    const days = Math.min(60, Math.max(2, Math.ceil((Date.now() - sinceMs) / 86400000) + 1));
+    const c = pierceBars.get(root);
+    if (c && (c.loading || c.days >= days)) return c.bars ? c : null;
+    pierceBars.set(root, { bars: c ? c.bars : null, days, loading: true });
+    fetch('/bars?sym=' + encodeURIComponent(root) + '&days=' + days).then((r) => r.json()).then((d) => {
+      const arr = (Array.isArray(d) ? d : (d && d.bars) || []).filter((b) => b && b.t != null).sort((a, b) => a.t - b.t);
+      pierceBars.set(root, { bars: arr, hc: null, days, loading: false });
+      render();
+    }).catch(() => pierceBars.set(root, { bars: c ? c.bars : null, days, loading: false }));
+    return c && c.bars ? c : null;
+  }
+  function pierceOutcome(a) {
+    const p = parsePierce(a && a.raw);
+    if (!p || isNaN(p.entry)) return null;
+    const root = pierceRoot(getSymbol(a.raw));
+    if (!root) return null;
+    const ra = new Date(a.receivedAt || Date.now()).getTime();
+    const c = pierceEnsureBars(root, ra);
+    if (!c || !c.bars || !c.bars.length) return null;
+    const bars = c.bars;
+    if (!c.hc || c.hcLen !== bars.length) { c.hc = pierceHc(bars); c.hcLen = bars.length; }
+    const t0 = ra - 60000; // first bar that opens after the pierce bar closed
+    let i = bars.findIndex((b) => b.t >= t0);
+    if (i < 0 || bars[i].t - t0 > 10 * 60000) return null; // no feed bars at the alert time
+    const sgn = p.long ? 1 : -1, start = bars[i].t;
+    const close17 = (ms) => { const d = new Date(ms + chNyOffsetMs(ms)); return d.getUTCHours() === 17 && d.getUTCMinutes() === 0; };
+    let best = -Infinity, worst = Infinity, end = null, why = '';
+    for (; i < bars.length; i++) {
+      const b = bars[i];
+      best = Math.max(best, sgn > 0 ? b.h - p.entry : p.entry - b.l);
+      worst = Math.min(worst, sgn > 0 ? b.l - p.entry : p.entry - b.h);
+      const hc = c.hc[i], prev = i > 0 ? c.hc[i - 1] : null;
+      if (hc != null && prev != null && hc !== prev && hc !== p.long) { end = b; why = '15m flip ' + (hc ? 'long' : 'short'); break; }
+      const tEnd = b.t + 3 * 60000;
+      if (close17(tEnd)) { end = b; why = '17:00 ET'; break; }
+      if (tEnd - start >= PIERCE_MAX_MS) { end = b; why = '2h cap'; break; }
+    }
+    const last = end || bars[bars.length - 1];
+    const tEnd = last.t + 3 * 60000;
+    const fmt = (x) => (x >= 0 ? '+' : '') + x.toFixed(2);
+    const at = new Date(tEnd).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+    return { ended: !!end, why: end ? why : 'Running', res: fmt(sgn * (last.c - p.entry)), max: '', best: fmt(Math.max(best, 0)), worst: fmt(Math.min(worst, 0)), mins: Math.round((tEnd - start) / 60000) + 'm', at };
+  }
+  function pierceOutcomeRow(a) {
+    const o = pierceOutcome(a);
+    if (!o) return '';
+    const sym = getSymbol(a.raw) || '';
+    return `<div class="card-outcome" title="Pierce outcome from the 3m bar feed: entry = alert Price; ends at the first 15m CBC flip against the trade, 17:00 ET, or 2 hours."><span class="sb-ended"${o.ended ? '' : ' style="background:#2563eb"'}>${o.ended ? 'ENDED' : 'LIVE'}</span> ${setupOutcomeHtml(o, sym)}</div>`;
+  }
+  let pierceRenderTimer = null;
   function setupEnded(idx, sym, st) {
     if (setupOutcome(idx, sym, st)) return true;
     const entry = st.Entry ? st.Entry.price : null;
@@ -5853,6 +5944,7 @@
         </div>
         ${badgeRowHtml}
         ${(() => { const st0 = parseTradeSetup(a.raw); if (!st0) return ''; const i0 = alerts.indexOf(a); if (i0 < 0) return ''; const s0 = getSymbol(a.raw) || ''; const o0 = setupOutcome(i0, s0, st0); return o0 ? `<div class="card-outcome"><span class="sb-ended">ENDED</span> ${setupOutcomeHtml(o0, s0)}</div>` : ''; })()}
+        ${parseTradeSetup(a.raw) ? '' : pierceOutcomeRow(a)}
         ${headlineLines.length ? `<div class="card-headline"><span class="headline-text">${headlineHtml}</span><span class="info-icon" data-headline="${encodeURIComponent(headlineLines.join('\n'))}">i</span></div>` : ''}
         ${(() => { const st = parseTradeSetup(a.raw); if (!st) { if (!/\nMarket:/.test(a.raw || '')) return ''; const idx0 = alerts.indexOf(a); const stHtml = setupStatusHtml(a, idx0, getSymbol(a.raw) || ''); return stHtml ? `<div class="setup-card-row status-only">${stHtml}</div>` : ''; } const idx = alerts.indexOf(a); const sym = getSymbol(a.raw) || ''; return `<div class="setup-card-row"><div class="setup-card-table">${setupTableHtml(st, setupFlip(idx < 0 ? 0 : idx, sym, st), setupNowPrice(idx, sym, st), idx < 0 ? null : setupOutcome(idx, sym, st))}</div>${setupStatusHtml(a, idx, sym)}</div>`; })()}
         <div class="field-body">${bodyHtml}</div>
@@ -7815,8 +7907,12 @@
   // ============================================================================
   // v86: CHART button on Trade Setup alerts -> Chart tab centred on that setup
   function chGotoBtn(a) {
-    if (!a || !/•\s*(?:CH\d+\s+)?Trade Setup:/.test(a.raw || '')) return '';
-    return `<button type="button" class="ch-goto" data-ch-id="${escapeHtml(String(a.id))}" title="Show this setup on the Chart tab">CHART</button>`;
+    if (!a || !a.raw) return '';
+    // v101: any alert with a real ticker (e.g. "MES1!"), not only Trade Setups
+    const r0 = (getSymbol(a.raw) || '').replace(/\s+CH\d+$/, '').replace(/^.*:/, '').replace(/[0-9!]+$/, '').toUpperCase();
+    if (!/^[A-Z][A-Z0-9]{1,6}$/.test(r0)) return '';
+    const isSetup = /•\s*(?:CH\d+\s+)?Trade Setup:/.test(a.raw);
+    return `<button type="button" class="ch-goto" data-ch-id="${escapeHtml(String(a.id))}" title="Show this ${isSetup ? 'setup' : 'alert'} on the chart">CHART</button>`;
   }
   const chRootSym = (s) => (s || '').replace(/\s+CH\d+$/, '').replace(/^.*:/, '').replace(/[0-9!]+$/, '').toUpperCase();
   document.addEventListener('click', (e) => {
@@ -8429,6 +8525,12 @@
   // live candles (named SSE event from server v2) and new setup alerts
   es.addEventListener('bar', (e) => {
     let d; try { d = JSON.parse(e.data); } catch (err) { return; }
+    if (d && d.bar && pierceBars.has(d.sym) && pierceBars.get(d.sym).bars) {
+      const pa = pierceBars.get(d.sym).bars, pb = d.bar;
+      if (pa.length && pa[pa.length - 1].t === pb.t) pa[pa.length - 1] = pb; else if (!pa.length || pa[pa.length - 1].t < pb.t) pa.push(pb);
+      pierceBars.get(d.sym).hc = null;
+      if (!pierceRenderTimer) pierceRenderTimer = setTimeout(() => { pierceRenderTimer = null; render(); }, 20000);
+    }
     if (!d || !d.bar || d.sym !== chState.sym || !chState.loadedKey) return;
     const arr = chState.bars, b = d.bar;
     if (arr.length && arr[arr.length - 1].t === b.t) arr[arr.length - 1] = b;
