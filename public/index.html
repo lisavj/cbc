@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v98 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v99 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,8 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v99: chart background White (default) or Dark -- "☾ Dark" / "☀ White" button in the chart toolbar, remembered per
+       browser. Only the chart changes; the rest of the page keeps its dark theme.
      v98: flip-arrow setup price on its own line under the F (long: arrow, F, price; short: F, price, arrow), via a second
        stacked marker with a zero-size shape.
      v97: when a setup starts on (or right after) a flip candle, its entry price is shown at the flip arrow -- under the up
@@ -1071,6 +1073,7 @@
   #chCloseBtn { display: none; }
   #chFullBtn { margin-left: auto; }
   #chartView.ch-full { position: fixed; inset: 0; z-index: 9000; background: #0b1220; padding: 8px 12px; margin: 0; }
+  #chartView.ch-light #chHost { border-color: #d1d5db; }
   #chartView.ch-full #chHost { height: calc(100vh - 110px) !important; }
   body.ch-popout header, body.ch-popout footer, body.ch-popout #setupBox, body.ch-popout #symbolTabs, body.ch-popout #chPopBtn { display: none !important; }
   body.ch-popout main { max-width: none; padding: 8px 12px; }
@@ -2019,6 +2022,7 @@
         <label class="ch-layer" title="Price range shown top-to-bottom, in points (blank = automatic). Candle width does not change.">Range <input type="number" id="chRange" min="0" step="1" placeholder="auto" style="width:64px;background:#111827;color:var(--text);border:1px solid #334155;border-radius:6px;padding:2px 4px;"> pts</label>
         <label class="ch-layer" title="Include R1/PP/S1, YDH/YDL and the opening ranges when fitting the price axis"><input type="checkbox" id="chFitLv"> Levels in scale</label>
       </span>
+      <button id="chThemeBtn" title="Chart background: white or dark">☾ Dark</button>
       <button id="chFullBtn" title="Fill the whole browser window (Esc to exit)">⤢ Full size</button>
       <button id="chPopBtn" title="Open the chart in its own window">↗ Pop out</button>
       <button id="chCloseBtn" title="Hide the chart">✕ Close chart</button>
@@ -2390,7 +2394,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v98</footer>
+<footer>tv-webhook-dashboard · v99</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -7860,7 +7864,7 @@
     ['piv', 'R1 / PP / S1', true], ['yd', 'YDH / YDL', true], ['or', 'Opening ranges', true],
     ['flop', 'Flop tint', true], ['flip', '{H}m CBC flips', true], ['setup', 'Setups', true]
   ];
-  const chState = { vSpan: 0, vScale: 1, fitLevels: false, lib: null, chart: null, candle: null, lines: {}, bands: null, tint: null, boxes: null, bars: [], sym: '', loadedKey: '', firstFit: true, dirty: false, layers: {} };
+  const chState = { theme: 'light', vSpan: 0, vScale: 1, fitLevels: false, lib: null, chart: null, candle: null, lines: {}, bands: null, tint: null, boxes: null, bars: [], sym: '', loadedKey: '', firstFit: true, dirty: false, layers: {} };
   try { chState.layers = JSON.parse(localStorage.getItem('chLayers') || '{}') || {}; } catch (e) { chState.layers = {}; }
   CH_LAYERS.forEach(([k, , d]) => { if (typeof chState.layers[k] !== 'boolean') chState.layers[k] = d; });
   try { const p = JSON.parse(localStorage.getItem('chPrefs') || '{}'); if (p.tf) chTfSel.value = p.tf; if (p.days) chDaysSel.value = p.days; if (p.sym) chState.sym = p.sym; } catch (e) {}
@@ -7998,7 +8002,7 @@
         ctx.fillStyle = col; ctx.fillRect(x1, Math.min(ye, y), Math.max(2, x2 - x1), Math.abs(y - ye));
       };
       rect(b.tp, 'rgba(34,197,94,0.18)'); rect(b.sl, 'rgba(239,68,68,0.18)');
-      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x1, ye); ctx.lineTo(x2, ye); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = chState.theme === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(17,24,39,0.6)'; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x1, ye); ctx.lineTo(x2, ye); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = b.long ? '#22C55E' : '#EF4444'; ctx.font = '11px sans-serif';
       if (!b.atArrow) ctx.fillText(String(b.entry), x1 + 3, ye + 12);
     });
@@ -8041,6 +8045,7 @@
     chState.boxes = chPrimitive(chDrawBoxes); candle.attachPrimitive(chState.boxes);
     chState.flipBoxes = chPrimitive(chDrawFlipBoxes); candle.attachPrimitive(chState.flipBoxes);
     chState.chart = chart; chState.candle = candle; chState.lib = LWC;
+    chApplyTheme();
   }
 
   // 3m bars -> 15m: OHLC aggregated, everything else from the group's last 3m bar, flip if any bar flipped
@@ -8229,7 +8234,7 @@
     // short = [arrow "price"] then [dot "F"] -> reads F / price / arrow from the top.
     const mk = [];
     if (L.flip) rows.filter((r) => r.hf).forEach((r) => {
-      const up = r.hf > 0, color = up ? '#15FF00' : '#FF1500', pos = up ? 'belowBar' : 'aboveBar';
+      const up = r.hf > 0, color = up ? (chState.theme === 'dark' ? '#15FF00' : '#08A000') : '#FF1500', pos = up ? 'belowBar' : 'aboveBar';
       const shape = up ? 'arrowUp' : 'arrowDown', size = r.fl ? 1.4 : 1;
       const price = arrowPrice.has(r.time) ? String(arrowPrice.get(r.time)) : '';
       const head = r.fl ? 'F' : price ? '' : lo ? '' : (up ? chH() + 'm LONG' : chH() + 'm SHORT');
@@ -8300,6 +8305,28 @@
     chState.layers[k] = e.target.checked; chSavePrefs(); chRender();
   });
   chImportBtn.addEventListener('click', () => chImportFile.click());
+  // v99: chart theme -- white (default) or dark, remembered in this browser
+  try { const t = localStorage.getItem('chTheme'); if (t === 'dark' || t === 'light') chState.theme = t; } catch (e) {}
+  const chThemeBtn = document.getElementById('chThemeBtn');
+  function chApplyTheme() {
+    const dark = chState.theme === 'dark';
+    chThemeBtn.textContent = dark ? '☀ White' : '☾ Dark';
+    chartViewEl.classList.toggle('ch-light', !dark);
+    if (!chState.chart) return;
+    const grid = dark ? 'rgba(148,163,184,0.08)' : 'rgba(15,23,42,0.07)', border = dark ? '#334155' : '#d1d5db';
+    chState.chart.applyOptions({
+      layout: { background: { color: dark ? '#0b1220' : '#FFFFFF' }, textColor: dark ? '#cbd5e1' : '#131722' },
+      grid: { vertLines: { color: grid }, horzLines: { color: grid } },
+      rightPriceScale: { borderColor: border }, timeScale: { borderColor: border }
+    });
+  }
+  chThemeBtn.addEventListener('click', () => {
+    chState.theme = chState.theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('chTheme', chState.theme); } catch (e) {}
+    chApplyTheme();
+    if (chState.chart) chRender();
+  });
+  chApplyTheme();
   // v91: vertical price zoom
   // v92: half of the visible price span -- fixed "Range" (points) if set, else auto range x vScale
   function chHalf(r) {
