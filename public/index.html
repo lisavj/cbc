@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v81 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v83 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,10 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v83: FLOP badge -- Trade Setup alerts carrying "Flip flop: crossed <levels>" (the current 15m flip candle crossed
+       EMA200 / VWAP / a pivot) show an orange-red FLOP badge next to LONG/SHORT in the Trade Setup box and on the feed card.
+     v82: FIB badge -- Trade Setup alerts carrying "Fib zone: IN 15m <top> / <bot>" (Pine CBC v8.91) show a purple FIB badge
+       next to LONG/SHORT in the Trade Setup box and on the feed card (tooltip = the zone).
      v81: CHT (chart-time Pine script) support. Alerts whose bullet starts "• CH<min> " (e.g. "• CH15 Trade Setup: LONG")
        get two new Alert Types, "Chart-TF Setups" and "Chart-TF Alerts" (default on, in Setup markers), are grouped
        under their own symbol key "MES1! CH15" (tabs, setup matching, ENDED/outcome logic stay separate from the 3m
@@ -1018,6 +1022,8 @@
   .card.crossing-card { border: 2px solid #f97316 !important; }
   .card.toward-card { border: 2px solid #eab308 !important; }
   #setupBox .sb-item.toward { outline: 2px solid #eab308; outline-offset: -2px; }
+  .flop-badge { background: #FF5722; color: #fff; padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+  .fib-badge { background: #7c3aed; color: #fff; padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 700; margin-left: 4px; }
   #setupBox .sb-toward { background: #eab308; color: #111827; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
   .setup-card-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; padding: 6px 12px 10px; }
   .setup-card-row .setup-card-table { padding: 0; flex: 1 1 360px; }
@@ -2299,7 +2305,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v81</footer>
+<footer>tv-webhook-dashboard · v83</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5204,6 +5210,18 @@
   // Below/Inside range"), or the nearest same-symbol status alert within 10 min. WITH = beyond the range in
   // the trade direction (short below / long above); IN = inside the range; AGAINST = on the far side
   // (short above / long below), so the range edge sits between price and the targets.
+  // v83: the current HTF flip was a potential flop (Pine "Flip flop: crossed S1, VWAP"); Trade Setup alerts only.
+  function flopBadge(a) {
+    const raw = (a && a.raw) || '';
+    if (!/• (CH\d+ )?Trade Setup:/.test(raw)) return '';
+    const m = /\nFlip flop: crossed ([^\n]+)/.exec(raw);
+    return m ? `<span class="flop-badge" title="${escapeHtml('Potential flop: the HTF flip candle crossed ' + m[1])}">FLOP</span>` : '';
+  }
+  // v82: Entry inside the HTF Fib golden pocket (Pine v8.91 "Fib zone: IN 15m 4162 / 4161.3").
+  function fibBadge(a) {
+    const m = /\nFib zone: IN ([^\n]+)/.exec((a && a.raw) || '');
+    return m ? `<span class="fib-badge" title="${escapeHtml('Setup Entry is inside the Fib golden pocket (50%–61.8%): ' + m[1])}">FIB</span>` : '';
+  }
   function setupOrBadge(a, idx, sym, st) {
     let rows = statusRowsFrom(a.raw);
     let orv = (rows.find(([k]) => k === 'Opening range') || [])[1];
@@ -5462,7 +5480,7 @@
         const tw = isTowardAlert(a);
         return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''} ${tw ? 'toward' : ''}">` +
           `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
-          `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
+          `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${fibBadge(a)}${flopBadge(a)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
 
           `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st), sym) : ''}</div>` +
           `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st), setupNowPrice(i, sym, st), setupOutcome(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
@@ -5717,6 +5735,7 @@
             <span class="chevron">&#9656;</span>
             ${typePillHtml}
             ${flipConfirmPillHtml}
+            ${fibBadge(a)}${flopBadge(a)}
             <span class="card-summary">${escapeHtml(summaryText)}</span>
           </div>
           <div style="display:flex; align-items:baseline; gap:10px; flex-shrink:0;">
