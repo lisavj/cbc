@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v95 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v96 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,8 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v96: setup box label shows only the entry price (e.g. "4146", green = long / red = short), drawn just BELOW the entry
+       line instead of "LONG 4146 ⚠ FLOP" above it.
      v95: flop flips marked with an "F" -- under the green up arrow (long) / above the red down arrow (short), in the arrow's
        colour, on both views. On the higher-TF view the "15m LONG/SHORT" text is replaced by the F on flop flips.
      v94: any feed timeframe -- server v3 stores each symbol + timeframe separately ("MES" = 3m, "MES_2" = 2m ...). The
@@ -2383,7 +2385,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v95</footer>
+<footer>tv-webhook-dashboard · v96</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -7993,7 +7995,7 @@
       rect(b.tp, 'rgba(34,197,94,0.18)'); rect(b.sl, 'rgba(239,68,68,0.18)');
       ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x1, ye); ctx.lineTo(x2, ye); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = b.long ? '#22C55E' : '#EF4444'; ctx.font = '11px sans-serif';
-      ctx.fillText((b.long ? 'LONG ' : 'SHORT ') + b.entry + (b.flop ? '  ⚠ FLOP' : ''), x1 + 3, ye - 4);
+      ctx.fillText(String(b.entry), x1 + 3, ye + 12);
     });
   }
 
