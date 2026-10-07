@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v84 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v85 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,10 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v85: Chart tab computes from the candles themselves whenever a bar has no BarFeed values (e.g. CSV history without
+       BarFeed columns): 3m EMA9/20/200, VWAP (resets 18:00 ET), 15m EMA9/20 and the 15m CBC (same rule as CBC: a 15m
+       close above the prior 15m high = long, below the prior low = short; taken at the 15m close). 15m flip candles
+       are drawn bright lime / red with an arrow (on 3m: the candle that closes the flipping 15m candle).
      v84: Chart tab -- candles rebuilt from the "BarFeed" Pine indicator's 3m bars (server v2: GET /bars, SSE "bar"
        events, POST /bars/import for a TradingView CSV export). 3m / 15m, 2-60 days, layers: 3m and 15m EMA 9/20
        clouds, EMA200, VWAP, R1/PP/S1, YDH/YDL, NY/LN/AS opening ranges, flop tint, 15m CBC flips, setup boxes.
@@ -2331,7 +2335,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v84</footer>
+<footer>tv-webhook-dashboard · v85</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -7896,6 +7900,58 @@
   }
 
   // 3m bars -> 15m: OHLC aggregated, everything else from the group's last 3m bar, flip if any bar flipped
+  // v85: fill in what the BarFeed values don't cover, from OHLC only. Feed values win where present, except the 15m CBC
+  // flip (hf / hc / fl), which is always recomputed here so every loaded candle uses the same rule.
+  function chDerive(bars) {
+    const out = [];
+    const k9 = 2 / 10, k20 = 2 / 21, k200 = 2 / 201;
+    let e9 = null, e20 = null, e200 = null, vwN = 0, vwD = 0, vwDay = null;
+    let h9 = null, h20 = null, g = null, prevG = null, hState = null, fl = '';
+    const ema = (prev, x, k) => (prev == null ? x : prev + (x - prev) * k);
+    const nyDay = (ms) => Math.floor((ms + chNyOffsetMs(ms) + 6 * 3600000) / 86400000); // CME day starts 18:00 ET
+    const cross = (lv, lo, hi) => lv != null && lo <= lv && hi >= lv;
+    bars.forEach((b, i) => {
+      const r = Object.assign({}, b);
+      e9 = ema(e9, b.c, k9); e20 = ema(e20, b.c, k20); e200 = ema(e200, b.c, k200);
+      const d = nyDay(b.t);
+      if (d !== vwDay) { vwDay = d; vwN = 0; vwD = 0; }
+      const v = b.v > 0 ? b.v : 1;
+      vwN += (b.h + b.l + b.c) / 3 * v; vwD += v;
+      if (r.e9 == null) r.e9 = e9;
+      if (r.e20 == null) r.e20 = e20;
+      if (r.e200 == null) r.e200 = e200;
+      if (r.vw == null) r.vw = vwN / vwD;
+      // 15m candle this 3m bar belongs to
+      const gk = Math.floor(b.t / 900000) * 900000;
+      if (!g || g.k !== gk) {
+        if (g) { h9 = ema(h9, g.c, k9); h20 = ema(h20, g.c, k20); prevG = g; }
+        g = { k: gk, h: b.h, l: b.l, c: b.c };
+      } else { g.h = Math.max(g.h, b.h); g.l = Math.min(g.l, b.l); g.c = b.c; }
+      // forming 15m EMA (like CBC's lookahead_on request on the live 15m candle)
+      if (r.h9 == null) r.h9 = h9 == null ? null : h9 + (g.c - h9) * k9;
+      if (r.h20 == null) r.h20 = h20 == null ? null : h20 + (g.c - h20) * k20;
+      // 15m CBC at the 15m close: this bar closes the 15m candle, or the next loaded bar starts a new one
+      const nxt = bars[i + 1];
+      const closes15 = b.t + 180000 >= gk + 900000 || (nxt && Math.floor(nxt.t / 900000) * 900000 !== gk);
+      r.hf = 0;
+      if (closes15 && prevG) {
+        let st = hState == null ? (g.c > prevG.h) : hState;
+        if (st && g.c < prevG.l) st = false;
+        if (!st && g.c > prevG.h) st = true;
+        if (hState != null && st !== hState) {
+          r.hf = st ? 1 : -1;
+          const lv = [r.e200, r.vw, r.pp, r.r1, r.s1].filter((x) => x != null);
+          const names = ['EMA200', 'VWAP', 'PP', 'R1', 'S1'].filter((n, j) => [r.e200, r.vw, r.pp, r.r1, r.s1][j] != null);
+          fl = lv.map((x, j) => (cross(x, g.l, g.h) ? names[j] : '')).filter(Boolean).join(', ');
+        }
+        hState = st;
+      }
+      r.hc = hState == null ? null : (hState ? 1 : 0);
+      r.fl = fl;
+      out.push(r);
+    });
+    return out;
+  }
   function chAgg(bars, tfMin) {
     if (tfMin <= 3) return bars;
     const ms = tfMin * 60000, out = [];
@@ -7966,14 +8022,19 @@
     chState.dirty = false;
     const tfMin = parseInt(chTfSel.value, 10) || 3;
     const rows = [];
-    chAgg(chState.bars, tfMin).forEach((b) => { // strictly increasing chart times (guards the DST fall-back hour)
+    chAgg(chDerive(chState.bars), tfMin).forEach((b) => { // strictly increasing chart times (guards the DST fall-back hour)
       const time = chT(b.t);
       if (!rows.length || time > rows[rows.length - 1].time) rows.push(Object.assign({}, b, { ms: b.t, time }));
     });
     const L = chState.layers;
     const ts = chState.chart.timeScale();
     const keepRange = !chState.firstFit ? ts.getVisibleLogicalRange() : null;
-    chState.candle.setData(rows.map((r) => ({ time: r.time, open: r.o, high: r.h, low: r.l, close: r.c })));
+    // v85: 15m flip candles in bright lime / red
+    chState.candle.setData(rows.map((r) => {
+      const d = { time: r.time, open: r.o, high: r.h, low: r.l, close: r.c };
+      if (L.flip && r.hf) { const c = r.hf > 0 ? '#15FF00' : '#FF1500'; d.color = c; d.wickColor = c; d.borderColor = c; }
+      return d;
+    }));
     const set = (k, on, data) => { chState.lines[k].applyOptions({ visible: !!on }); chState.lines[k].setData(on ? data : []); };
     const plain = (k) => rows.map((r) => (r[k] == null ? { time: r.time } : { time: r.time, value: r[k] }));
     set('h9', L.c15, plain('h9')); set('h20', L.c15, plain('h20'));
@@ -7987,7 +8048,7 @@
     chState.boxes.setRows(L.setup ? chSetups(rows) : []);
     chState.candle.setMarkers(L.flip ? rows.filter((r) => r.hf).map((r) => ({
       time: r.time, position: r.hf > 0 ? 'belowBar' : 'aboveBar', color: r.hf > 0 ? '#15FF00' : '#FF1500',
-      shape: r.hf > 0 ? 'arrowUp' : 'arrowDown', text: (r.hf > 0 ? '15m L' : '15m S') + (r.fl ? ' ⚠' : '')
+      shape: r.hf > 0 ? 'arrowUp' : 'arrowDown', text: (r.hf > 0 ? '15m LONG' : '15m SHORT') + (r.fl ? ' ⚠ FLOP' : '')
     })) : []);
     if (chState.firstFit && rows.length) {
       ts.setVisibleLogicalRange({ from: Math.max(0, rows.length - (tfMin <= 3 ? 160 : 100)), to: rows.length + 6 });
