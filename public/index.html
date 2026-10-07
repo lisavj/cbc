@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v86 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v88 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,10 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v88: EMA lines labelled on the price axis ("3m 9", "3m 20", "15m 9", "15m 20"); both clouds shaded light green when
+       EMA9 > EMA20, light red otherwise.
+     v87: CHART button on the Alerts page opens the chart INLINE at the top of the feed (alerts shift down), centred on
+       the setup; "Close chart" hides it again. From other pages it still opens the Chart tab.
      v86: blue CHART button on every Trade Setup (Trade Setup box header, after ENDED, and on the feed card) -- opens the
        Chart tab on that symbol, loads enough days and centres the chart on the setup's candle.
      v85: Chart tab computes from the candles themselves whenever a bar has no BarFeed values (e.g. CSV history without
@@ -1037,6 +1041,10 @@
   .ch-layer { display: inline-flex; gap: 4px; align-items: center; margin-right: 10px; white-space: nowrap; cursor: pointer; }
   #chLayers { display: flex; flex-wrap: wrap; }
   #chStatus { color: var(--muted); }
+  #chCloseBtn { display: none; margin-left: auto; }
+  #chartView.ch-inline { padding: 0 0 14px; }
+  #chartView.ch-inline #chCloseBtn { display: inline-block; }
+  #chartView.ch-inline #chHost { height: 460px; min-height: 0; }
   #chHost { width: 100%; height: calc(100vh - 230px); min-height: 380px; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden; }
   body.chart-mode #setupBox { display: none !important; }
   body.chart-mode main { max-width: none; }
@@ -1962,13 +1970,6 @@
 
 <main>
   <div class="symbol-tabs" id="symbolTabs"></div>
-  <div id="list"></div>
-  <div class="empty" id="emptyState" style="display:none;">
-    <div class="big">···</div>
-    Waiting for the first alert.<br />
-    Point a TradingView alert's webhook URL here and it'll show up instantly.
-  </div>
-
   <div id="chartView" style="display:none;">
     <div class="ch-toolbar">
       <select id="chSym" title="Symbol (from the BarFeed alerts)"></select>
@@ -1978,8 +1979,16 @@
       <button id="chImportBtn" title="Backfill history: TradingView 3m chart with BarFeed on it -> Export chart data (CSV, time as UNIX) -> import here">Import CSV</button>
       <input type="file" id="chImportFile" accept=".csv,.json,text/csv,application/json" style="display:none;">
       <span id="chStatus"></span>
+      <button id="chCloseBtn" title="Hide the chart">✕ Close chart</button>
     </div>
     <div id="chHost"></div>
+  </div>
+
+  <div id="list"></div>
+  <div class="empty" id="emptyState" style="display:none;">
+    <div class="big">···</div>
+    Waiting for the first alert.<br />
+    Point a TradingView alert's webhook URL here and it'll show up instantly.
   </div>
 
   <div id="faqView" style="display:none;">
@@ -2339,7 +2348,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v86</footer>
+<footer>tv-webhook-dashboard · v88</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -2721,6 +2730,7 @@
   let autopsyRendered = false;
   const JOURNAL_DROPDOWN_VIEWS = ['journal', 'rules', 'checklist', 'autopsy'];
   const LEARN_DROPDOWN_VIEWS = ['videos', 'flashcards', 'faq'];
+  var chInlineOpen = false; // v87: chart shown inline above the alerts
   function setView(view) {
     const isFaq = view === 'faq';
     const isFlash = view === 'flashcards';
@@ -2733,7 +2743,9 @@
     const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal && !isRules && !isChecklist && !isAutopsy && !isChart;
     tabAlertsBtn.classList.toggle('active', isAlerts);
     tabChartBtn.classList.toggle('active', isChart);
-    document.getElementById('chartView').style.display = isChart ? 'block' : 'none';
+    const chV = document.getElementById('chartView');
+    chV.style.display = (isChart || (isAlerts && chInlineOpen)) ? 'block' : 'none';
+    chV.classList.toggle('ch-inline', !isChart);
     document.body.classList.toggle('chart-mode', isChart);
     tabFaqBtn.classList.toggle('active', isFaq);
     tabFlashBtn.classList.toggle('active', isFlash);
@@ -2766,7 +2778,7 @@
     if (isRules && !rulesRendered) { rlInit(); rulesRendered = true; }
     if (isChecklist && !checklistRendered) { pcInit(); checklistRendered = true; }
     if (isAutopsy && !autopsyRendered) { atInit(); autopsyRendered = true; }
-    if (isChart) chOnShow();
+    if (isChart || (isAlerts && chInlineOpen)) chOnShow();
   }
   tabAlertsBtn.addEventListener('click', () => setView('alerts'));
   tabChartBtn.addEventListener('click', () => setView('chart'));
@@ -7769,8 +7781,16 @@
     chState.sym = chRootSym(getSymbol(a.raw));
     chState.focusMs = ms;
     const built = !!chState.chart;
-    setView('chart');
-    window.scrollTo(0, 0);
+    if (tabAlertsBtn.classList.contains('active')) {
+      chInlineOpen = true;
+      setView('alerts');
+      const hdr = document.querySelector('header');
+      const off = hdr && getComputedStyle(hdr).position !== 'static' ? hdr.getBoundingClientRect().height : 0;
+      window.scrollTo({ top: Math.max(0, chartViewEl.getBoundingClientRect().top + window.scrollY - off - 8), behavior: 'smooth' });
+    } else {
+      setView('chart');
+      window.scrollTo(0, 0);
+    }
     if (built) {
       if (![...chSymSel.options].some((o) => o.value === chState.sym)) await chLoadSymbols();
       chSymSel.value = chState.sym;
@@ -7855,7 +7875,7 @@
   function chDrawBands(self, ctx) {
     const ts = self.chart.timeScale(), s = self.series;
     const [i0, i1] = chVisibleSpan(self);
-    const pairs = [['a1', 'b1', 'rgba(34,197,94,0.20)', 'rgba(239,68,68,0.28)', 'c15'], ['a2', 'b2', 'rgba(34,197,94,0.38)', 'rgba(239,68,68,0.38)', 'c3']];
+    const pairs = [['a1', 'b1', 'rgba(134,239,172,0.30)', 'rgba(252,165,165,0.30)', 'c15'], ['a2', 'b2', 'rgba(134,239,172,0.42)', 'rgba(252,165,165,0.42)', 'c3']];
     pairs.forEach(([ka, kb, up, dn, layer]) => {
       if (!chState.layers[layer]) return;
       for (let i = i0; i < i1; i++) {
@@ -7919,8 +7939,8 @@
     const candle = chart.addCandlestickSeries({ upColor: '#22C55E', downColor: '#EF4444', wickUpColor: '#22C55E', wickDownColor: '#EF4444', borderVisible: false });
     const line = (color, width, title, style, extra) => chart.addLineSeries(Object.assign({ color, lineWidth: width, title: title || '', lineStyle: style || 0, priceLineVisible: false, lastValueVisible: !!title, crosshairMarkerVisible: false }, extra || {}));
     chState.lines = {
-      h9: line('rgba(34,197,94,0.55)', 1), h20: line('rgba(239,68,68,0.55)', 1),
-      e9: line('#60A5FA', 1), e20: line('#3B82F6', 1),
+      h9: line('#4ADE80', 1, '15m 9'), h20: line('#F87171', 1, '15m 20'),
+      e9: line('#60A5FA', 1, '3m 9'), e20: line('#3B82F6', 1, '3m 20'),
       e200: line('#FBC02D', 2, 'EMA200'), vw: line('#800080', 2, 'VWAP'),
       r1: line('#EF4444', 1, 'R1', 2), pp: line('#94A3B8', 1, 'PP', 2), s1: line('#22C55E', 1, 'S1', 2),
       ydh: line('#CE93D8', 2, 'YDH'), ydl: line('#CE93D8', 2, 'YDL'),
@@ -8144,6 +8164,7 @@
     chState.layers[k] = e.target.checked; chSavePrefs(); chRender();
   });
   chImportBtn.addEventListener('click', () => chImportFile.click());
+  document.getElementById('chCloseBtn').addEventListener('click', () => { chInlineOpen = false; setView('alerts'); });
   chImportFile.addEventListener('change', async () => {
     const f = chImportFile.files && chImportFile.files[0];
     chImportFile.value = '';
