@@ -3,6 +3,7 @@
 // - POST /webhook?token=YOUR_SECRET   <- point your TradingView alert's webhook URL here
 // - GET  /                            <- live dashboard (auto-updates as alerts arrive)
 // - GET  /alerts                      <- raw JSON of stored alerts
+// - GET  /bars?sym=MES&days=5          <- BarFeed 3m bars for the Chart tab (stored under DATA_DIR/bars, kept 60 days)
 //
 // Alerts are kept in memory (fast, instant dashboard updates) and mirrored to alerts.json
 // on disk so they survive a restart/redeploy. Only the most recent MAX_ALERTS are kept.
@@ -234,6 +235,119 @@ function broadcast(alert) {
   sseClients.forEach((res) => res.write(payload));
 }
 
+// v2 (10/07/2026): named SSE events (e.g. "bar") -- the page's default onmessage handler never sees them,
+// so older pages simply ignore bar updates.
+function broadcastEvent(name, obj) {
+  const payload = `event: ${name}\ndata: ${JSON.stringify(obj)}\n\n`;
+  sseClients.forEach((res) => res.write(payload));
+}
+
+// ============================================================================
+// v2 (10/07/2026): BarFeed bars for the Alert Feed Chart tab.
+// The "BarFeed" Pine indicator sends one JSON alert per closed 3m candle:
+//   {"type":"bar","sym":"MES","tf":3,"t":<open ms>,"o":..,"h":..,"l":..,"c":..,"v":..,"e9":..,...,"fl":"S1"}
+// These are NOT added to the alert list (no feed spam, no Discord). They go to
+// DATA_DIR/bars/<SYM>.ndjson (one JSON line per bar, appended), are kept in
+// memory per symbol sorted by time, and are trimmed to BAR_KEEP_DAYS (60).
+// A re-sent candle (same t) replaces the old one (last line wins on reload).
+// ============================================================================
+const BARS_DIR = path.join(DATA_DIR, 'bars');
+try { fs.mkdirSync(BARS_DIR, { recursive: true }); } catch (e) { console.error('Could not create BARS_DIR', BARS_DIR, e.message); }
+const BAR_KEEP_DAYS = Number(process.env.BAR_KEEP_DAYS || 60);
+const BAR_NUM_FIELDS = ['o', 'h', 'l', 'c', 'v', 'e9', 'e20', 'h9', 'h20', 'e200', 'vw', 'pp', 'r1', 's1', 'ydh', 'ydl', 'nyh', 'nyl', 'lnh', 'lnl', 'ash', 'asl', 'hc', 'hf'];
+const BAR_SYM_RE = /^[A-Z0-9]{1,12}$/;
+let bars = {}; // sym -> array of bars sorted by t (ms)
+
+function barFile(sym) { return path.join(BARS_DIR, sym + '.ndjson'); }
+
+function cleanBar(b) {
+  const t = Number(b && b.t);
+  if (!Number.isFinite(t) || t <= 0) return null;
+  const out = { t: Math.round(t) };
+  BAR_NUM_FIELDS.forEach((k) => {
+    const v = b[k];
+    out[k] = (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) ? null : Number(v);
+  });
+  if (out.o === null || out.h === null || out.l === null || out.c === null) return null;
+  out.fl = typeof b.fl === 'string' ? b.fl.slice(0, 80) : '';
+  return out;
+}
+
+function barCutoff() { return Date.now() - BAR_KEEP_DAYS * 86400000; }
+
+// Insert or replace by t, keeping the array sorted. Returns true if it was a brand-new candle.
+function upsertBar(sym, bar) {
+  const arr = bars[sym] || (bars[sym] = []);
+  if (!arr.length || arr[arr.length - 1].t < bar.t) { arr.push(bar); return true; }
+  let lo = 0, hi = arr.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid].t === bar.t) { arr[mid] = bar; return false; }
+    if (arr[mid].t < bar.t) lo = mid + 1; else hi = mid - 1;
+  }
+  arr.splice(lo, 0, bar);
+  return true;
+}
+
+function rewriteBarFile(sym) {
+  try {
+    fs.writeFileSync(barFile(sym), (bars[sym] || []).map((b) => JSON.stringify(b)).join('\n') + '\n');
+    return true;
+  } catch (e) {
+    console.error('Could not write bars file', sym, e.message);
+    return false;
+  }
+}
+
+function trimBars(rewrite) {
+  const cut = barCutoff();
+  Object.keys(bars).forEach((sym) => {
+    const arr = bars[sym];
+    let i = 0;
+    while (i < arr.length && arr[i].t < cut) i++;
+    if (i > 0) { bars[sym] = arr.slice(i); if (rewrite) rewriteBarFile(sym); }
+  });
+}
+
+function loadBars() {
+  let files = [];
+  try { files = fs.readdirSync(BARS_DIR).filter((f) => f.endsWith('.ndjson')); } catch (e) { return; }
+  files.forEach((f) => {
+    const sym = f.replace(/\.ndjson$/, '');
+    if (!BAR_SYM_RE.test(sym)) return;
+    bars[sym] = [];
+    try {
+      fs.readFileSync(path.join(BARS_DIR, f), 'utf8').split('\n').forEach((line) => {
+        if (!line.trim()) return;
+        try { const b = cleanBar(JSON.parse(line)); if (b) upsertBar(sym, b); } catch (e) { /* skip a bad line */ }
+      });
+    } catch (e) {
+      console.error('Could not read bars file', f, e.message);
+    }
+  });
+  trimBars(false);
+  Object.keys(bars).forEach((sym) => rewriteBarFile(sym)); // compact: one line per candle, trimmed
+  console.log('bars: loaded ' + Object.keys(bars).map((s) => s + '=' + bars[s].length).join(', '));
+}
+loadBars();
+setInterval(() => trimBars(true), 3600000); // hourly: drop candles older than BAR_KEEP_DAYS
+
+function handleBar(parsed) {
+  const sym = String(parsed.sym || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!BAR_SYM_RE.test(sym)) return 'bad symbol';
+  const bar = cleanBar(parsed);
+  if (!bar) return 'bad bar';
+  const isNew = upsertBar(sym, bar);
+  try {
+    if (isNew && bars[sym][bars[sym].length - 1] === bar) fs.appendFileSync(barFile(sym), JSON.stringify(bar) + '\n');
+    else rewriteBarFile(sym);
+  } catch (e) {
+    console.error('Could not append bar', sym, e.message);
+  }
+  broadcastEvent('bar', { sym, bar });
+  return null;
+}
+
 // ---- Discord forwarding ----
 // Turns the plain-text alert body into a Discord embed: bullet lines (the "• LTF(3)..." headline
 // lines) become the description, and every "Key: Value" line becomes its own field — giving
@@ -300,6 +414,13 @@ app.post('/webhook', (req, res) => {
     }
   }
 
+  // v2: BarFeed candles go to the bar store, not the alert list.
+  if (parsed && parsed.type === 'bar') {
+    const err = handleBar(parsed);
+    if (err) return res.status(400).send(err);
+    return res.status(200).send('OK');
+  }
+
   const alert = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
     receivedAt: new Date().toISOString(),
@@ -320,6 +441,83 @@ app.post('/webhook', (req, res) => {
 // ---- JSON list of stored alerts (used by the dashboard on load) ----
 app.get('/alerts', (req, res) => {
   res.json(alerts);
+});
+
+// ---- v2: BarFeed bars for the Chart tab ----
+// GET /bars                     -> [{ sym, count, first, last }]
+// GET /bars?sym=MES&days=5      -> { sym, bars: [...] } (last N days, max BAR_KEEP_DAYS)
+app.get('/bars', (req, res) => {
+  const sym = String(req.query.sym || '').toUpperCase();
+  if (!sym) {
+    return res.json(Object.keys(bars).sort().map((s) => ({
+      sym: s, count: bars[s].length,
+      first: bars[s].length ? bars[s][0].t : null,
+      last: bars[s].length ? bars[s][bars[s].length - 1].t : null,
+    })));
+  }
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('bad symbol');
+  const days = Math.min(BAR_KEEP_DAYS, Math.max(1, Number(req.query.days) || 5));
+  const cut = Date.now() - days * 86400000;
+  res.json({ sym, bars: (bars[sym] || []).filter((b) => b.t >= cut) });
+});
+
+// POST /bars/import?token=SECRET&sym=MES  -- history backfill from TradingView "Export chart data" (CSV, with
+// BarFeed on the chart so its Data Window columns e9, e20, h9 ... are included) or a JSON array of bars.
+// Candles that already exist (from the live feed) are kept; only missing ones are added.
+function splitCsvLine(line) {
+  const out = []; let cur = ''; let q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+function csvToBars(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const head = splitCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
+  const col = (names) => head.findIndex((h) => names.includes(h));
+  const iT = col(['time', 'date', 'datetime']);
+  const map = { o: col(['open']), h: col(['high']), l: col(['low']), c: col(['close']), v: col(['volume']) };
+  BAR_NUM_FIELDS.slice(5).forEach((k) => { map[k] = col([k]); });
+  const iFl = col(['fl']);
+  if (iT < 0 || map.o < 0 || map.c < 0) throw new Error('CSV needs time, open, high, low, close columns');
+  return lines.slice(1).map((l) => {
+    const c = splitCsvLine(l);
+    const raw = (c[iT] || '').trim();
+    const tNum = Number(raw);
+    const t = Number.isFinite(tNum) ? (tNum < 1e12 ? tNum * 1000 : tNum) : Date.parse(raw);
+    const b = { t };
+    Object.keys(map).forEach((k) => { if (map[k] >= 0) b[k] = c[map[k]]; });
+    if (iFl >= 0 && Number(c[iFl]) === 1) b.fl = 'flop';
+    return b;
+  });
+}
+app.post('/bars/import', (req, res) => {
+  if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
+  const sym = String(req.query.sym || '').toUpperCase();
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('Add ?sym=MES (or MGC)');
+  let list;
+  try {
+    const body = typeof req.body === 'string' ? req.body : '';
+    list = body.trim().startsWith('[') ? JSON.parse(body) : csvToBars(body);
+  } catch (e) {
+    return res.status(400).send('Could not read the file: ' + e.message);
+  }
+  const cut = barCutoff();
+  const have = new Set((bars[sym] || []).map((b) => b.t));
+  let added = 0;
+  list.forEach((raw) => {
+    const b = cleanBar(raw);
+    if (!b || b.t < cut || have.has(b.t)) return;
+    upsertBar(sym, b); have.add(b.t); added++;
+  });
+  if (added) rewriteBarFile(sym);
+  res.send(`Imported ${added} new candle(s) for ${sym} (${(bars[sym] || []).length} stored).`);
 });
 
 // ---- Live stream for the dashboard ----
@@ -824,6 +1022,7 @@ app.get('/health', (req, res) => {
       'autopsy.json': Object.assign({ inMemoryEntryCount: Object.keys(autopsyEntries).length }, fileStatus(AUTOPSY_FILE)),
       'alerts.json': Object.assign({ inMemoryEntryCount: alerts.length }, fileStatus(DATA_FILE)),
     },
+    bars: Object.keys(bars).map((s) => Object.assign({ sym: s, inMemoryCount: bars[s].length }, fileStatus(barFile(s)))),
   });
 });
 
