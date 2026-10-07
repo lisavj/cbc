@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v102 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v103 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,8 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v103: Chart pivots R1 / PP / S1 drawn as horizontal lines on every day: when a bar has no pivot values from BarFeed
+       (imported CSV / older bars) they are computed from the prior CME day (18:00 ET) high / low / close. Lines 2px.
      v102: Pierce alerts (LTF EMA20 / HTF EMA9 / HTF EMA20) get the same outcome line as setups (result pts / $, end
        time (duration), best / worst), computed from the BarFeed 3m bars: entry = alert Price, ends at the first 15m CBC
        flip against the trade, 17:00 ET or 2 hours; LIVE while still running.
@@ -2407,7 +2409,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v102</footer>
+<footer>tv-webhook-dashboard · v103</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -8137,7 +8139,7 @@
       h9: line('#2962FF', 1, '15m 9'), h20: line('#2962FF', 1, '15m 20'),
       e9: line('#808080', 1, '3m 9'), e20: line('#C8C8C8', 2, '3m 20'),
       e200: line('#FBC02D', 2, 'EMA200'), vw: line('#800080', 2, 'VWAP'),
-      r1: line('#EF4444', 1, 'R1', 2), pp: line('#94A3B8', 1, 'PP', 2), s1: line('#22C55E', 1, 'S1', 2),
+      r1: line('#EF4444', 2, 'R1', 2), pp: line('#64748B', 2, 'PP', 2), s1: line('#22C55E', 2, 'S1', 2),
       ydh: line('#CE93D8', 2, 'YDH'), ydl: line('#CE93D8', 2, 'YDL'),
       nyh: line('#FB8C00', 1, 'NY OR-H', 1), nyl: line('#FB8C00', 1, 'NY OR-L', 1),
       lnh: line('#FF9800', 1, 'LN OR-H', 3), lnl: line('#FF9800', 1, 'LN OR-L', 3),
@@ -8161,6 +8163,7 @@
     const k9 = 2 / 10, k20 = 2 / 21, k200 = 2 / 201;
     let e9 = null, e20 = null, e200 = null, vwN = 0, vwD = 0, vwDay = null;
     let h9 = null, h20 = null, g = null, prevG = null, hState = null, fl = '';
+    let dH = null, dL = null, dC = null, pH = null, pL = null, pC = null; // v103: CME day (18:00 ET) H/L/C, current + prior
     const ema = (prev, x, k) => (prev == null ? x : prev + (x - prev) * k);
     const nyDay = (ms) => Math.floor((ms + chNyOffsetMs(ms) + 6 * 3600000) / 86400000); // CME day starts 18:00 ET
     const cross = (lv, lo, hi) => lv != null && lo <= lv && hi >= lv;
@@ -8168,7 +8171,10 @@
       const r = Object.assign({}, b);
       e9 = ema(e9, b.c, k9); e20 = ema(e20, b.c, k20); e200 = ema(e200, b.c, k200);
       const d = nyDay(b.t);
-      if (d !== vwDay) { vwDay = d; vwN = 0; vwD = 0; }
+      if (d !== vwDay) { vwDay = d; vwN = 0; vwD = 0; if (dH != null) { pH = dH; pL = dL; pC = dC; } dH = null; dL = null; }
+      dH = dH == null ? b.h : Math.max(dH, b.h); dL = dL == null ? b.l : Math.min(dL, b.l); dC = b.c;
+      // v103: daily pivots from the prior CME day when the feed didn't send them (imported / older bars)
+      if (r.pp == null && pH != null) { const pp = (pH + pL + pC) / 3; r.pp = pp; r.r1 = 2 * pp - pL; r.s1 = 2 * pp - pH; }
       const v = b.v > 0 ? b.v : 1;
       vwN += (b.h + b.l + b.c) / 3 * v; vwD += v;
       if (r.e9 == null) r.e9 = e9;
