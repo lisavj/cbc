@@ -4,6 +4,7 @@
 // - GET  /                            <- live dashboard (auto-updates as alerts arrive)
 // - GET  /alerts                      <- raw JSON of stored alerts
 // - GET  /bars?sym=MES&days=5          <- BarFeed 3m bars for the Chart tab (stored under DATA_DIR/bars, kept 60 days)
+//   v3: one store per symbol AND chart timeframe -- key "MES" = 3m (unchanged), "MES_2" = 2m, "MGC_5" = 5m ...
 //
 // Alerts are kept in memory (fast, instant dashboard updates) and mirrored to alerts.json
 // on disk so they survive a restart/redeploy. Only the most recent MAX_ALERTS are kept.
@@ -255,7 +256,7 @@ const BARS_DIR = path.join(DATA_DIR, 'bars');
 try { fs.mkdirSync(BARS_DIR, { recursive: true }); } catch (e) { console.error('Could not create BARS_DIR', BARS_DIR, e.message); }
 const BAR_KEEP_DAYS = Number(process.env.BAR_KEEP_DAYS || 60);
 const BAR_NUM_FIELDS = ['o', 'h', 'l', 'c', 'v', 'e9', 'e20', 'h9', 'h20', 'e200', 'vw', 'pp', 'r1', 's1', 'ydh', 'ydl', 'nyh', 'nyl', 'lnh', 'lnl', 'ash', 'asl', 'hc', 'hf'];
-const BAR_SYM_RE = /^[A-Z0-9]{1,12}$/;
+const BAR_SYM_RE = /^[A-Z0-9]{1,12}(_[0-9]{1,3})?$/; // v3: key = SYMBOL, or SYMBOL_<minutes> for a non-3m feed
 let bars = {}; // sym -> array of bars sorted by t (ms)
 
 function barFile(sym) { return path.join(BARS_DIR, sym + '.ndjson'); }
@@ -333,7 +334,9 @@ loadBars();
 setInterval(() => trimBars(true), 3600000); // hourly: drop candles older than BAR_KEEP_DAYS
 
 function handleBar(parsed) {
-  const sym = String(parsed.sym || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const root = String(parsed.sym || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const tf = parseInt(parsed.tf, 10) || 3;
+  const sym = tf === 3 ? root : root + '_' + tf; // v3: 3m keeps the plain key so existing files stay valid
   if (!BAR_SYM_RE.test(sym)) return 'bad symbol';
   const bar = cleanBar(parsed);
   if (!bar) return 'bad bar';
@@ -450,7 +453,7 @@ app.get('/bars', (req, res) => {
   const sym = String(req.query.sym || '').toUpperCase();
   if (!sym) {
     return res.json(Object.keys(bars).sort().map((s) => ({
-      sym: s, count: bars[s].length,
+      sym: s, tf: s.includes('_') ? Number(s.split('_')[1]) : 3, count: bars[s].length,
       first: bars[s].length ? bars[s][0].t : null,
       last: bars[s].length ? bars[s][bars[s].length - 1].t : null,
     })));
@@ -500,7 +503,7 @@ function csvToBars(text) {
 app.post('/bars/import', (req, res) => {
   if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
   const sym = String(req.query.sym || '').toUpperCase();
-  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('Add ?sym=MES (or MGC)');
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('Add ?sym=MES (or MGC, or MES_2 for a 2m feed)');
   let list;
   try {
     const body = typeof req.body === 'string' ? req.body : '';
