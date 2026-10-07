@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v88 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v89 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,9 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v89: chart toolbar buttons "⤢ Full size" (chart fills the whole browser window; Esc or the button again to exit) and
+       "↗ Pop out" (opens the chart alone in its own window -- /?view=chart&popout=1&sym=..&tf=..&days=.. -- live updates
+       included; drag it to a second monitor).
      v88: EMA lines labelled on the price axis ("3m 9", "3m 20", "15m 9", "15m 20"); both clouds shaded light green when
        EMA9 > EMA20, light red otherwise.
      v87: CHART button on the Alerts page opens the chart INLINE at the top of the feed (alerts shift down), centred on
@@ -1041,7 +1044,13 @@
   .ch-layer { display: inline-flex; gap: 4px; align-items: center; margin-right: 10px; white-space: nowrap; cursor: pointer; }
   #chLayers { display: flex; flex-wrap: wrap; }
   #chStatus { color: var(--muted); }
-  #chCloseBtn { display: none; margin-left: auto; }
+  #chCloseBtn { display: none; }
+  #chFullBtn { margin-left: auto; }
+  #chartView.ch-full { position: fixed; inset: 0; z-index: 9000; background: #0b1220; padding: 8px 12px; margin: 0; }
+  #chartView.ch-full #chHost { height: calc(100vh - 110px) !important; }
+  body.ch-popout header, body.ch-popout footer, body.ch-popout #setupBox, body.ch-popout #symbolTabs, body.ch-popout #chPopBtn { display: none !important; }
+  body.ch-popout main { max-width: none; padding: 8px 12px; }
+  body.ch-popout #chHost { height: calc(100vh - 110px) !important; }
   #chartView.ch-inline { padding: 0 0 14px; }
   #chartView.ch-inline #chCloseBtn { display: inline-block; }
   #chartView.ch-inline #chHost { height: 460px; min-height: 0; }
@@ -1979,6 +1988,8 @@
       <button id="chImportBtn" title="Backfill history: TradingView 3m chart with BarFeed on it -> Export chart data (CSV, time as UNIX) -> import here">Import CSV</button>
       <input type="file" id="chImportFile" accept=".csv,.json,text/csv,application/json" style="display:none;">
       <span id="chStatus"></span>
+      <button id="chFullBtn" title="Fill the whole browser window (Esc to exit)">⤢ Full size</button>
+      <button id="chPopBtn" title="Open the chart in its own window">↗ Pop out</button>
       <button id="chCloseBtn" title="Hide the chart">✕ Close chart</button>
     </div>
     <div id="chHost"></div>
@@ -2348,7 +2359,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v88</footer>
+<footer>tv-webhook-dashboard · v89</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -8164,7 +8175,32 @@
     chState.layers[k] = e.target.checked; chSavePrefs(); chRender();
   });
   chImportBtn.addEventListener('click', () => chImportFile.click());
-  document.getElementById('chCloseBtn').addEventListener('click', () => { chInlineOpen = false; setView('alerts'); });
+  document.getElementById('chCloseBtn').addEventListener('click', () => { chSetFull(false); chInlineOpen = false; setView('alerts'); });
+  // v89: full size (fills the browser window) and pop out (own window)
+  const chFullBtn = document.getElementById('chFullBtn');
+  function chSetFull(on) {
+    chartViewEl.classList.toggle('ch-full', on);
+    chFullBtn.textContent = on ? '⤡ Exit full size' : '⤢ Full size';
+    document.body.style.overflow = on ? 'hidden' : '';
+  }
+  chFullBtn.addEventListener('click', () => chSetFull(!chartViewEl.classList.contains('ch-full')));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && chartViewEl.classList.contains('ch-full')) chSetFull(false); });
+  document.getElementById('chPopBtn').addEventListener('click', () => {
+    let focus = '';
+    try { const r = chState.chart && chState.chart.timeScale().getVisibleLogicalRange(); if (r) focus = '&span=' + Math.round(r.to - r.from); } catch (e) {}
+    const url = '/?view=chart&popout=1&sym=' + encodeURIComponent(chSymSel.value || chState.sym) + '&tf=' + encodeURIComponent(chTfSel.value) + '&days=' + encodeURIComponent(chDaysSel.value) + focus;
+    window.open(url, 'cbcChart_' + (chSymSel.value || 'x'), 'width=1400,height=850,menubar=no,toolbar=no,location=no,status=no');
+  });
+  // ?view=chart (&popout=1&sym=&tf=&days=) -> open straight on the chart
+  (function chDeepLink() {
+    const q = new URLSearchParams(location.search);
+    if (q.get('view') !== 'chart') return;
+    if (q.get('popout') === '1') { document.body.classList.add('ch-popout'); document.title = (q.get('sym') || 'Chart') + ' chart'; }
+    if (q.get('sym')) chState.sym = q.get('sym').toUpperCase();
+    if (q.get('tf')) chTfSel.value = q.get('tf');
+    if (q.get('days')) chDaysSel.value = q.get('days');
+    setView('chart');
+  })();
   chImportFile.addEventListener('change', async () => {
     const f = chImportFile.files && chImportFile.files[0];
     chImportFile.value = '';
