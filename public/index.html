@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v106 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v107 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,8 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v107: fix -- if loading a symbol's candles fails (server restarting: Render answers with an HTML error page), the chart
+       no longer keeps showing the previous symbol under the new name: it clears and retries every 5 s (up to 12 times).
      v106: "Beep: On/Off" + "Beep for ▾": browser beep on new Trade Setups, chosen by trigger (HTF CBC Flip, LTF EMA20
        Pierce / Touch, HTF EMA9 / EMA20 Pierce, Pullback Structure, Momentum, other) and direction; long = rising tones, short =
        falling; optional low tone on Setup Ended. Test buttons. Remembered in this browser.
@@ -2421,7 +2423,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v106</footer>
+<footer>tv-webhook-dashboard · v107</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -8060,6 +8062,7 @@
       if (![...chSymSel.options].some((o) => o.value === chState.sym)) await chLoadSymbols();
       chSymSel.value = chState.sym;
       chSavePrefs();
+      chRetry = 0;
       await chLoadBars();
     }
   }
@@ -8504,16 +8507,32 @@
     if (quiet && key !== chState.loadedKey) return;
     if (!quiet) { chTfOptions(); chRenderLayers(); chStatusEl.textContent = 'Loading ' + chState.sym + '…'; }
     try {
-      const data = await fetch('/bars?sym=' + encodeURIComponent(chState.sym) + '&days=' + encodeURIComponent(chDaysSel.value), { cache: 'no-store' }).then((r) => r.json());
+      const data = await fetch('/bars?sym=' + encodeURIComponent(chState.sym) + '&days=' + encodeURIComponent(chDaysSel.value), { cache: 'no-store' }).then((r) => {
+        if (!r.ok || !/json/i.test(r.headers.get('content-type') || '')) throw new Error('server not ready (HTTP ' + r.status + ')');
+        return r.json();
+      });
       if (quiet && key !== chState.sym + '|' + chDaysSel.value) return;
       chState.bars = (data && data.bars) || [];
       if (!quiet) chState.lastRecv = 0;
       chState.loadedKey = key;
       if (!quiet) chState.firstFit = true;
       chChecked = Date.now();
+      chRetry = 0;
       chRender();
-    } catch (e) { chStatusEl.textContent = 'Could not load bars: ' + e.message; }
+    } catch (e) {
+      if (quiet) return; // background refresh: keep what is shown, try again next minute
+      // v107: never leave the previous symbol's candles under the new symbol's name -- clear and retry
+      chState.bars = []; chState.loadedKey = ''; chState.lastRecv = 0;
+      try { chRender(); } catch (e2) {}
+      const want = key;
+      if (chRetry < 12) {
+        chRetry++;
+        chStatusEl.textContent = 'Could not load ' + chState.sym + ': ' + e.message + ' -- retrying in 5 s (' + chRetry + '/12)';
+        setTimeout(() => { if (chState.sym + '|' + chDaysSel.value === want && !chState.loadedKey) chLoadBars(); }, 5000);
+      } else chStatusEl.textContent = 'Could not load ' + chState.sym + ': ' + e.message + ' -- pick the symbol again to retry';
+    }
   }
+  let chRetry = 0;
   let chStarted = false;
   // v105: phones pause the live stream when the screen locks / the browser is in the background, and the stream can drop
   // silently -> re-read the bars when the page comes back, and every 60 s while the chart is open and no candle came in.
@@ -8533,7 +8552,7 @@
       await chLoadBars();
     } else if (chState.dirty) chRender();
   }
-  chSymSel.addEventListener('change', () => { chSavePrefs(); chLoadBars(); });
+  chSymSel.addEventListener('change', () => { chSavePrefs(); chRetry = 0; chLoadBars(); });
   chDaysSel.addEventListener('change', () => { chSavePrefs(); chLoadBars(); });
   chTfSel.addEventListener('change', () => { chSavePrefs(); chState.firstFit = true; chRender(); });
   chLayersEl.addEventListener('change', (e) => {
