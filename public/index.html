@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v105 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v106 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,9 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v106: "Beep: On/Off" + "Beep for ▾": browser beep on new Trade Setups, chosen by trigger (HTF CBC Flip, LTF EMA20
+       Pierce / Touch, HTF EMA9 / EMA20 Pierce, Pullback Structure, Momentum, other) and direction; long = rising tones, short =
+       falling; optional low tone on Setup Ended. Test buttons. Remembered in this browser.
      v105: chart keeps up when the live stream stalls (iPhone screen lock / background tab / dropped connection): bars are
        re-read when the page becomes visible again and every 60 s with no new candle while the chart is open (view kept).
      v104: fix -- switching the chart to another symbol (e.g. MES -> MGC CHART button on iPhone) kept the old price axis
@@ -1986,6 +1989,11 @@
       <button id="simpleSymbolBtn">Symbols ▾</button>
       <div class="type-filter-panel" id="simpleSymbolPanel"></div>
     </div>
+    <button id="beepToggleBtn" title="Beep in this browser when a new Trade Setup arrives (pick which ones under Beep for). Long = rising tones, short = falling tones.">Beep: Off</button>
+    <div class="type-filter-wrap">
+      <button id="beepFilterBtn">Beep for ▾</button>
+      <div class="type-filter-panel" id="beepFilterPanel"></div>
+    </div>
     <button id="voiceToggleBtn">Voice: Off</button>
     <div class="type-filter-wrap">
       <button id="voiceFilterBtn">Voice Categories ▾</button>
@@ -2413,7 +2421,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v105</footer>
+<footer>tv-webhook-dashboard · v106</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4939,6 +4947,105 @@
     }
   });
 
+
+  // v106: beep on new Trade Setups, filtered by trigger and direction (remembered in this browser).
+  const BEEP_KEYS = [
+    ['flip', 'HTF CBC Flip', /HTF CBC Flip/i],
+    ['ltfp', 'LTF EMA20 Pierce', /LTF EMA20 Pierce/i],
+    ['ltft', 'LTF EMA20 Touch', /LTF EMA20 Touch/i],
+    ['h9', 'HTF EMA9 Pierce', /HTF EMA9 Pierce/i],
+    ['h20', 'HTF EMA20 Pierce', /HTF EMA20 Pierce/i],
+    ['pb', 'HTF Pullback Structure', /Pullback Structure/i],
+    ['mo', 'Momentum break', /Momentum break/i],
+    ['other', 'Other trigger', null],
+    ['long', 'LONG setups', null],
+    ['short', 'SHORT setups', null],
+    ['ended', 'Setup Ended (one low tone)', null]
+  ];
+  let beepOn = false, beepSel = {};
+  BEEP_KEYS.forEach(([k]) => { beepSel[k] = k !== 'ended'; });
+  try {
+    beepOn = localStorage.getItem('beepOn') === '1';
+    const st = JSON.parse(localStorage.getItem('beepSel') || 'null');
+    if (st) Object.assign(beepSel, st);
+  } catch (e) {}
+  const beepToggleBtn = document.getElementById('beepToggleBtn');
+  const beepFilterBtn = document.getElementById('beepFilterBtn');
+  const beepFilterPanel = document.getElementById('beepFilterPanel');
+  let beepCtx = null;
+  function beepAudio() {
+    try {
+      if (!beepCtx) beepCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (beepCtx.state === 'suspended') beepCtx.resume();
+    } catch (e) { beepCtx = null; }
+    return beepCtx;
+  }
+  // tones: [[freq Hz, start s, length s], ...]
+  function beepPlay(tones) {
+    const ctx = beepAudio();
+    if (!ctx) return;
+    const t0 = ctx.currentTime + 0.02;
+    tones.forEach(([f, at, len]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + at);
+      g.gain.exponentialRampToValueAtTime(0.35, t0 + at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + len);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t0 + at); o.stop(t0 + at + len + 0.05);
+    });
+  }
+  const BEEP_LONG = [[660, 0, 0.18], [880, 0.22, 0.18], [1100, 0.44, 0.25]];
+  const BEEP_SHORT = [[1100, 0, 0.18], [880, 0.22, 0.18], [660, 0.44, 0.25]];
+  const BEEP_END = [[440, 0, 0.35]];
+  function beepSave() { try { localStorage.setItem('beepOn', beepOn ? '1' : '0'); localStorage.setItem('beepSel', JSON.stringify(beepSel)); } catch (e) {} }
+  function beepSyncBtn() { beepToggleBtn.textContent = beepOn ? 'Beep: On' : 'Beep: Off'; }
+  function renderBeepPanel() {
+    const row = ([k, label]) => `<label class="type-filter-row"><input type="checkbox" data-beep="${k}" ${beepSel[k] ? 'checked' : ''}> ${escapeHtml(label)}</label>`;
+    beepFilterPanel.innerHTML = '<div class="type-filter-row" style="opacity:.7;cursor:default;">Trigger (any checked)</div>' +
+      BEEP_KEYS.slice(0, 8).map(row).join('') +
+      '<div class="type-filter-row" style="opacity:.7;cursor:default;">Direction</div>' + BEEP_KEYS.slice(8, 10).map(row).join('') +
+      '<div class="type-filter-row" style="opacity:.7;cursor:default;">Also</div>' + row(BEEP_KEYS[10]) +
+      '<div class="type-filter-actions"><button type="button" id="beepTestL">Test long</button><button type="button" id="beepTestS">Test short</button></div>';
+  }
+  // which beep (if any) a new alert gets
+  function beepFor(a) {
+    const raw = (a && a.raw) || '';
+    if (/•\s*(?:CH\d+\s+)?Setup Ended:/.test(raw)) return beepSel.ended ? BEEP_END : null;
+    const st = parseTradeSetup(raw);
+    if (!st) return null;
+    if (!beepSel[st.dir === 'LONG' ? 'long' : 'short']) return null;
+    const hits = BEEP_KEYS.slice(0, 7).filter(([, , re]) => re.test(st.trigger));
+    const ok = hits.length ? hits.some(([k]) => beepSel[k]) : beepSel.other;
+    return ok ? (st.dir === 'LONG' ? BEEP_LONG : BEEP_SHORT) : null;
+  }
+  function beepAlert(a) { if (beepOn) { const t = beepFor(a); if (t) beepPlay(t); } }
+  beepSyncBtn(); renderBeepPanel();
+  beepToggleBtn.addEventListener('click', () => {
+    beepOn = !beepOn; beepSyncBtn(); beepSave();
+    if (beepOn) beepPlay(BEEP_LONG); // the click also unlocks sound in the browser
+  });
+  beepFilterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = !beepFilterPanel.classList.contains('open');
+    beepFilterPanel.classList.toggle('open');
+    if (opening) {
+      const r = beepFilterBtn.getBoundingClientRect(), w = beepFilterPanel.offsetWidth || 260;
+      beepFilterPanel.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - 8 - w)) + 'px';
+      beepFilterPanel.style.top = Math.min(r.bottom + 6, window.innerHeight - 48) + 'px';
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (!beepFilterPanel.contains(e.target) && e.target !== beepFilterBtn) beepFilterPanel.classList.remove('open');
+  });
+  beepFilterPanel.addEventListener('click', (e) => {
+    if (e.target.id === 'beepTestL') { beepPlay(BEEP_LONG); return; }
+    if (e.target.id === 'beepTestS') { beepPlay(BEEP_SHORT); return; }
+    if (e.target.matches('input[data-beep]')) { beepSel[e.target.dataset.beep] = e.target.checked; beepSave(); }
+  });
+  // browsers only allow sound after the page was clicked / tapped once
+  ['click', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, () => { if (beepOn) beepAudio(); }, { once: true, passive: true }));
+
   // Speaks a short summary of a new alert via the browser's built-in text-to-speech, once voice is
   // on globally AND at least one of this alert's classified types is voice-enabled.
   function speakAlert(alertObj) {
@@ -6185,6 +6292,7 @@
     render();
     flashPulse();
     if (voiceOn) speakAlert(alert);
+    beepAlert(alert);
   };
 
   // ---- Backup ▾ pulldown: Download (export what's loaded) / Upload (restore from a backup) ----
