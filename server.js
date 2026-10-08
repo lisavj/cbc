@@ -4,6 +4,9 @@
 // - GET  /                            <- live dashboard (auto-updates as alerts arrive)
 // - GET  /alerts                      <- raw JSON of stored alerts
 // - GET  /bars?sym=MES&days=5          <- BarFeed 3m bars for the Chart tab (stored under DATA_DIR/bars, kept 60 days)
+//   v5: Render log names each alert ("MES1! | LTF EMA20 Pierce - Entry: LONG") and logs every BarFeed candle
+//       ("bar MGC 3m 10:51 ET LIVE c=4161.7") so live 1-minute updates can be checked in the log.
+//   v4: BarFeed v1.01 re-sends the forming candle every minute ("live":1) -> replaced in place, appended to the file.
 //   v3: one store per symbol AND chart timeframe -- key "MES" = 3m (unchanged), "MES_2" = 2m, "MGC_5" = 5m ...
 //
 // Alerts are kept in memory (fast, instant dashboard updates) and mirrored to alerts.json
@@ -340,9 +343,11 @@ function handleBar(parsed) {
   if (!BAR_SYM_RE.test(sym)) return 'bad symbol';
   const bar = cleanBar(parsed);
   if (!bar) return 'bad bar';
-  const isNew = upsertBar(sym, bar);
+  upsertBar(sym, bar);
   try {
-    if (isNew && bars[sym][bars[sym].length - 1] === bar) fs.appendFileSync(barFile(sym), JSON.stringify(bar) + '\n');
+    // v4: the newest candle (new, or a BarFeed v1.01 "live" re-send of the forming candle) is just appended -- the
+    // reload at startup keeps the last line per candle, so no full-file rewrite every minute. Older candles rewrite.
+    if (bars[sym][bars[sym].length - 1] === bar) fs.appendFileSync(barFile(sym), JSON.stringify(bar) + '\n');
     else rewriteBarFile(sym);
   } catch (e) {
     console.error('Could not append bar', sym, e.message);
@@ -420,6 +425,8 @@ app.post('/webhook', (req, res) => {
   // v2: BarFeed candles go to the bar store, not the alert list.
   if (parsed && parsed.type === 'bar') {
     const err = handleBar(parsed);
+    const bt = new Date(Number(parsed.t)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+    console.log(`bar ${parsed.sym} ${parsed.tf}m ${bt} ET ${parsed.live ? 'LIVE' : 'CLOSE'} c=${parsed.c}${err ? ' REJECTED: ' + err : ''}`);
     if (err) return res.status(400).send(err);
     return res.status(200).send('OK');
   }
@@ -437,7 +444,9 @@ app.post('/webhook', (req, res) => {
   broadcast(alert);
   sendToDiscord(alert.raw);
 
-  console.log(`[${alert.receivedAt}] alert received (${alert.raw.length} chars)`);
+  const lines = alert.raw.split('\n').map((l) => l.trim()).filter(Boolean);
+  const what = lines.filter((l) => l.startsWith('•')).map((l) => l.replace(/^•\s*/, '')).slice(0, 3).join(' + ') || (lines[1] || '').slice(0, 80);
+  console.log(`alert ${(lines[0] || '').replace(/\s*—\s*$/, '')} | ${what} (${alert.raw.length} chars)`);
   res.status(200).send('OK');
 });
 
