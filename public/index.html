@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v104 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v105 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,8 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v105: chart keeps up when the live stream stalls (iPhone screen lock / background tab / dropped connection): bars are
+       re-read when the page becomes visible again and every 60 s with no new candle while the chart is open (view kept).
      v104: fix -- switching the chart to another symbol (e.g. MES -> MGC CHART button on iPhone) kept the old price axis
        when auto-scale had been turned off by a drag on the axis; every new symbol / TF load re-enables price auto-scale.
      v103: Chart pivots R1 / PP / S1 drawn as horizontal lines on every day: when a bar has no pivot values from BarFeed
@@ -2411,7 +2413,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v104</footer>
+<footer>tv-webhook-dashboard · v105</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -8388,21 +8390,33 @@
       chState.sym = chSymSel.value;
     } catch (e) { chStatusEl.textContent = 'Could not reach /bars: ' + e.message; }
   }
-  async function chLoadBars() {
+  async function chLoadBars(quiet) {
     chState.sym = chSymSel.value;
-    chTfOptions(); chRenderLayers();
     const key = chState.sym + '|' + chDaysSel.value;
-    chStatusEl.textContent = 'Loading ' + chState.sym + '…';
+    if (quiet && key !== chState.loadedKey) return;
+    if (!quiet) { chTfOptions(); chRenderLayers(); chStatusEl.textContent = 'Loading ' + chState.sym + '…'; }
     try {
-      const data = await fetch('/bars?sym=' + encodeURIComponent(chState.sym) + '&days=' + encodeURIComponent(chDaysSel.value)).then((r) => r.json());
+      const data = await fetch('/bars?sym=' + encodeURIComponent(chState.sym) + '&days=' + encodeURIComponent(chDaysSel.value), { cache: 'no-store' }).then((r) => r.json());
+      if (quiet && key !== chState.sym + '|' + chDaysSel.value) return;
       chState.bars = (data && data.bars) || [];
-      chState.lastRecv = 0;
+      if (!quiet) chState.lastRecv = 0;
       chState.loadedKey = key;
-      chState.firstFit = true;
+      if (!quiet) chState.firstFit = true;
+      chChecked = Date.now();
       chRender();
     } catch (e) { chStatusEl.textContent = 'Could not load bars: ' + e.message; }
   }
   let chStarted = false;
+  // v105: phones pause the live stream when the screen locks / the browser is in the background, and the stream can drop
+  // silently -> re-read the bars when the page comes back, and every 60 s while the chart is open and no candle came in.
+  let chChecked = 0;
+  function chResync() {
+    if (!chState.chart || !chState.loadedKey || chartViewEl.style.display === 'none' || document.hidden) return;
+    if (Date.now() - Math.max(chState.lastRecv || 0, chChecked) < 60000) return;
+    chLoadBars(true);
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { chChecked = 0; chState.lastRecv = 0; chResync(); } });
+  setInterval(chResync, 15000);
   async function chOnShow() {
     if (!chStarted) {
       chStarted = true;
