@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v109 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v110 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,8 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v110: Setup Ended result with a TP1 partial (CBC v9.26: "+5.2 = 0.5×6.1(TP1) + 0.5×4.3(Trail)") shows the total in the
+       green/red pill (pts and $) and the split in brackets.
      v109: "Beep for ▾" gets a Symbols section (one checkbox per symbol in the feed; new symbols beep until unticked).
      v108: Trade Setup table last row "HTF Long 11:15 - 4" (was "HTF Flip Long") in 3 columns + last column "Setup HH:mm"
        (time the setup was drawn), matching CBC v9.25.
@@ -2426,7 +2428,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v109</footer>
+<footer>tv-webhook-dashboard · v110</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5494,11 +5496,14 @@
   }
   function setupOutcomeHtml(o, sym) {
     if (!o) return '';
+    // v110: TP1 partial -- "Result: +5.2 = 0.5×6.1(TP1) + 0.5×4.3(Trail)" -> total + the split in brackets
+    const sp = String(o.res || '').split(' = ');
+    if (sp.length > 1) o = Object.assign({}, o, { res: sp[0].trim(), split: sp.slice(1).join(' = ').trim() });
     const r = parseFloat(o.res);
     const cls = isNaN(r) ? '' : r > 0 ? 'win' : r < 0 ? 'loss' : '';
     const pv = pointValue(sym);
     const usd = !isNaN(r) && pv ? (r < 0 ? '-' : r > 0 ? '+' : '') + '$' + Math.abs(r * pv).toFixed(2) : '';
-    const parts = [`<b>${escapeHtml(o.why)}</b> <span class="sb-res ${cls}" title="Net result: ${escapeHtml(o.res)} pts${usd ? ' = ' + usd + ' per 1 contract (' + escapeHtml(sym) + ' $' + pv + '/pt, before commissions)' : ''}">${escapeHtml(o.res)} pts${usd ? ' · ' + usd : ''}</span>`];
+    const parts = [`<b>${escapeHtml(o.why)}</b> <span class="sb-res ${cls}" title="Net result: ${escapeHtml(o.res)} pts${usd ? ' = ' + usd + ' per 1 contract (' + escapeHtml(sym) + ' $' + pv + '/pt, before commissions)' : ''}">${escapeHtml(o.res)} pts${usd ? ' · ' + usd : ''}</span>${o.split ? ' <span title="Blended: part closed at TP1 + the rest">(' + escapeHtml(o.split) + ')</span>' : ''}`];
     if (o.max && o.max !== 'none') parts.push(`Max ${escapeHtml(o.max)}`);
     if (o.at || o.mins) parts.push(`${escapeHtml(o.at)}${o.mins ? ' (' + escapeHtml(o.mins) + ')' : ''}`);
     if (o.best || o.worst) parts.push(`best ${escapeHtml(o.best)} / worst ${escapeHtml(o.worst)}`);
