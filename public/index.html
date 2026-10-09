@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v107 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v109 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,9 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v109: "Beep for ▾" gets a Symbols section (one checkbox per symbol in the feed; new symbols beep until unticked).
+     v108: Trade Setup table last row "HTF Long 11:15 - 4" (was "HTF Flip Long") in 3 columns + last column "Setup HH:mm"
+       (time the setup was drawn), matching CBC v9.25.
      v107: fix -- if loading a symbol's candles fails (server restarting: Render answers with an HTML error page), the chart
        no longer keeps showing the previous symbol under the new name: it clears and retries every 5 s (up to 12 times).
      v106: "Beep: On/Off" + "Beep for ▾": browser beep on new Trade Setups, chosen by trigger (HTF CBC Flip, LTF EMA20
@@ -2423,7 +2426,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v107</footer>
+<footer>tv-webhook-dashboard · v109</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4964,12 +4967,13 @@
     ['short', 'SHORT setups', null],
     ['ended', 'Setup Ended (one low tone)', null]
   ];
-  let beepOn = false, beepSel = {};
+  let beepOn = false, beepSel = {}, beepOffSyms = new Set(); // v109: symbols NOT to beep for (new symbols beep by default)
   BEEP_KEYS.forEach(([k]) => { beepSel[k] = k !== 'ended'; });
   try {
     beepOn = localStorage.getItem('beepOn') === '1';
     const st = JSON.parse(localStorage.getItem('beepSel') || 'null');
     if (st) Object.assign(beepSel, st);
+    beepOffSyms = new Set(JSON.parse(localStorage.getItem('beepOffSyms') || '[]'));
   } catch (e) {}
   const beepToggleBtn = document.getElementById('beepToggleBtn');
   const beepFilterBtn = document.getElementById('beepFilterBtn');
@@ -5000,19 +5004,22 @@
   const BEEP_LONG = [[660, 0, 0.18], [880, 0.22, 0.18], [1100, 0.44, 0.25]];
   const BEEP_SHORT = [[1100, 0, 0.18], [880, 0.22, 0.18], [660, 0.44, 0.25]];
   const BEEP_END = [[440, 0, 0.35]];
-  function beepSave() { try { localStorage.setItem('beepOn', beepOn ? '1' : '0'); localStorage.setItem('beepSel', JSON.stringify(beepSel)); } catch (e) {} }
+  function beepSave() { try { localStorage.setItem('beepOn', beepOn ? '1' : '0'); localStorage.setItem('beepSel', JSON.stringify(beepSel)); localStorage.setItem('beepOffSyms', JSON.stringify([...beepOffSyms])); } catch (e) {} }
   function beepSyncBtn() { beepToggleBtn.textContent = beepOn ? 'Beep: On' : 'Beep: Off'; }
   function renderBeepPanel() {
     const row = ([k, label]) => `<label class="type-filter-row"><input type="checkbox" data-beep="${k}" ${beepSel[k] ? 'checked' : ''}> ${escapeHtml(label)}</label>`;
     beepFilterPanel.innerHTML = '<div class="type-filter-row" style="opacity:.7;cursor:default;">Trigger (any checked)</div>' +
       BEEP_KEYS.slice(0, 8).map(row).join('') +
       '<div class="type-filter-row" style="opacity:.7;cursor:default;">Direction</div>' + BEEP_KEYS.slice(8, 10).map(row).join('') +
+      '<div class="type-filter-row" style="opacity:.7;cursor:default;">Symbols</div>' +
+      Array.from(new Set(alerts.map((a) => getSymbol(a.raw)).filter(Boolean))).sort().map((sy) => `<label class="type-filter-row"><input type="checkbox" data-beep-sym="${encodeURIComponent(sy)}" ${beepOffSyms.has(sy) ? '' : 'checked'}> ${escapeHtml(sy)}</label>`).join('') +
       '<div class="type-filter-row" style="opacity:.7;cursor:default;">Also</div>' + row(BEEP_KEYS[10]) +
       '<div class="type-filter-actions"><button type="button" id="beepTestL">Test long</button><button type="button" id="beepTestS">Test short</button></div>';
   }
   // which beep (if any) a new alert gets
   function beepFor(a) {
     const raw = (a && a.raw) || '';
+    if (beepOffSyms.has(getSymbol(raw))) return null; // v109
     if (/•\s*(?:CH\d+\s+)?Setup Ended:/.test(raw)) return beepSel.ended ? BEEP_END : null;
     const st = parseTradeSetup(raw);
     if (!st) return null;
@@ -5032,6 +5039,7 @@
     const opening = !beepFilterPanel.classList.contains('open');
     beepFilterPanel.classList.toggle('open');
     if (opening) {
+      renderBeepPanel(); // v109: refresh the symbol list
       const r = beepFilterBtn.getBoundingClientRect(), w = beepFilterPanel.offsetWidth || 260;
       beepFilterPanel.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - 8 - w)) + 'px';
       beepFilterPanel.style.top = Math.min(r.bottom + 6, window.innerHeight - 48) + 'px';
@@ -5044,6 +5052,7 @@
     if (e.target.id === 'beepTestL') { beepPlay(BEEP_LONG); return; }
     if (e.target.id === 'beepTestS') { beepPlay(BEEP_SHORT); return; }
     if (e.target.matches('input[data-beep]')) { beepSel[e.target.dataset.beep] = e.target.checked; beepSave(); }
+    if (e.target.matches('input[data-beep-sym]')) { const sy = decodeURIComponent(e.target.dataset.beepSym); if (e.target.checked) beepOffSyms.delete(sy); else beepOffSyms.add(sy); beepSave(); }
   });
   // browsers only allow sound after the page was clicked / tapped once
   ['click', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, () => { if (beepOn) beepAudio(); }, { once: true, passive: true }));
@@ -5599,7 +5608,7 @@
   }
   function setupFlip(idx, sym, st) {
     const fm0 = st.flipText.match(/flip:\s*(LONG|SHORT)\s+(\d{1,2}:\d{2})\s*·\s*(\d+)/i);
-    let text = fm0 ? `HTF Flip ${fm0[1][0].toUpperCase()}${fm0[1].slice(1).toLowerCase()} ${fm0[2]} - ${fm0[3]}` : st.flipText;
+    let text = fm0 ? `HTF ${fm0[1][0].toUpperCase()}${fm0[1].slice(1).toLowerCase()} ${fm0[2]} - ${fm0[3]}` : st.flipText;
     let isShort = /\bSHORT\b/.test(st.flipText);
     if (st.flipTf) {
       const key = `CBC (${st.flipTf}) last flip:`;
@@ -5608,10 +5617,10 @@
         if (getSymbol(a.raw) !== sym) continue;
         const l = (a.raw || '').split('\n').map(x => x.trim()).find(x => x.startsWith(key));
         const m = l ? l.slice(key.length).trim().match(/^(LONG|SHORT)\s+\d{1,2}\/\d{1,2}\s+(\d{1,2}:\d{2})\s+ET\s+#(\d+)/i) : null;
-        if (m) { text = `HTF Flip ${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()} ${m[2]} - ${m[3]}`; isShort = m[1].toUpperCase() === 'SHORT'; break; }
+        if (m) { text = `HTF ${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()} ${m[2]} - ${m[3]}`; isShort = m[1].toUpperCase() === 'SHORT'; break; }
       }
     }
-    if (/\sCH\d+$/.test(sym)) text = text.replace(/^HTF Flip/, 'CBC Flip'); // v81: chart-timeframe flip
+    if (/\sCH\d+$/.test(sym)) text = text.replace(/^HTF (Flip )?/, 'CBC '); // v81: chart-timeframe flip
     return { text, isShort };
   }
   // v43: chart link for a setup -- its own "Chart:" line, else the closest same-symbol alert's.
@@ -5730,7 +5739,9 @@
       const act = /^(TP|SL)[12]$/.test(k) ? ' r-active' : '';
       return `<tr class="${cls}${act}"${act ? ' title="Active level: used for R:R, Max TP and the SL1-hit exit"' : ''}${/-alt$/.test(cls) ? ' title="Info only: the other method (Pine inputs SL/TP method: 3m ATR). Not the active level."' : ''}><td>${k}</td><td class="num">${escapeHtml(v.price)}</td><td class="num">${escapeHtml(v.pts)}</td><td>${escapeHtml(piv)}</td></tr>`;
     }).join('');
-    const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="4">${escapeHtml(flip.text)}</td></tr>` : '') +
+    // v108: "HTF Long 11:15 - 4" + last column = time the setup was drawn (its alert Time), like the Pine table
+    const drawnAt = ((st.time || '').match(/(\d{1,2}:\d{2})/) || [])[1] || '';
+    const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="3">${escapeHtml(flip.text)}</td><td style="text-align:right" title="Time (ET) this setup was drawn">${drawnAt ? 'Setup ' + escapeHtml(drawnAt) : ''}</td></tr>` : '') +
       (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
     // v63: reward:risk in its own small table under the levels (Entry row always; Now row while live).
     // v64: vertical R:R table -- 4 TP/SL combos x Entry / Now (Now only while the setup is live).
