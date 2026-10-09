@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v110 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v111 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,7 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v111: "Setup HH:mm" cell in the Trade Setup flip row left-aligned (was right-aligned and hidden under the status panel).
      v110: Setup Ended result with a TP1 partial (CBC v9.26: "+5.2 = 0.5×6.1(TP1) + 0.5×4.3(Trail)") shows the total in the
        green/red pill (pts and $) and the split in brackets.
      v109: "Beep for ▾" gets a Symbols section (one checkbox per symbol in the feed; new symbols beep until unticked).
@@ -2428,7 +2429,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v110</footer>
+<footer>tv-webhook-dashboard · v111</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5746,7 +5747,7 @@
     }).join('');
     // v108: "HTF Long 11:15 - 4" + last column = time the setup was drawn (its alert Time), like the Pine table
     const drawnAt = ((st.time || '').match(/(\d{1,2}:\d{2})/) || [])[1] || '';
-    const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="3">${escapeHtml(flip.text)}</td><td style="text-align:right" title="Time (ET) this setup was drawn">${drawnAt ? 'Setup ' + escapeHtml(drawnAt) : ''}</td></tr>` : '') +
+    const flipRow = (flip && flip.text ? `<tr class="${flip.isShort ? 'r-sl' : 'r-tp'}"><td colspan="3">${escapeHtml(flip.text)}</td><td style="text-align:left;white-space:nowrap" title="Time (ET) this setup was drawn">${drawnAt ? 'Setup ' + escapeHtml(drawnAt) : ''}</td></tr>` : '') +
       (st.flop ? `<tr class="r-flop"><td colspan="4">⚠ Flop? ${escapeHtml(st.flop.replace(/^crossed\s*/, '').replace(/,\s*/g, ' · '))}</td></tr>` : '');
     // v63: reward:risk in its own small table under the levels (Entry row always; Now row while live).
     // v64: vertical R:R table -- 4 TP/SL combos x Entry / Now (Now only while the setup is live).
