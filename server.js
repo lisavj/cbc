@@ -4,6 +4,7 @@
 // - GET  /                            <- live dashboard (auto-updates as alerts arrive)
 // - GET  /alerts                      <- raw JSON of stored alerts
 // - GET  /bars?sym=MES&days=5          <- BarFeed 3m bars for the Chart tab (stored under DATA_DIR/bars, kept 60 days)
+//   v6: keeps the last 5000 alerts (was 500; env MAX_ALERTS overrides).
 //   v5: Render log names each alert ("MES1! | LTF EMA20 Pierce - Entry: LONG") and logs every BarFeed candle
 //       ("bar MGC 3m 10:51 ET LIVE c=4161.7") so live 1-minute updates can be checked in the log.
 //   v4: BarFeed v1.01 re-sends the forming candle every minute ("live":1) -> replaced in place, appended to the file.
@@ -28,7 +29,7 @@ const SERVER_STARTED_AT = new Date().toISOString(); // used by GET /health to sh
 const PORT = process.env.PORT || 3000;
 const SECRET = process.env.WEBHOOK_SECRET || ''; // set this in your host's env vars
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || ''; // optional: paste a Discord channel webhook URL here to forward alerts
-const MAX_ALERTS = 500;
+const MAX_ALERTS = Number(process.env.MAX_ALERTS) || 5000; // v6: was 500
 const DATA_DIR = process.env.DATA_DIR || __dirname; // point this at a mounted Render Disk to survive deploys
 const DATA_FILE = path.join(DATA_DIR, 'alerts.json');
 
