@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v111 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v112 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,8 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v112: "Stats" button -> setup statistics per trigger (count L/S, win %, W/L, avg pts) for the last 100 / 500 / all stored
+       alerts, symbol filter. Restore keeps up to 5000 alerts (server v6 stores 5000).
      v111: "Setup HH:mm" cell in the Trade Setup flip row left-aligned (was right-aligned and hidden under the status panel).
      v110: Setup Ended result with a TP1 partial (CBC v9.26: "+5.2 = 0.5×6.1(TP1) + 0.5×4.3(Trail)") shows the total in the
        green/red pill (pts and $) and the split in brackets.
@@ -2033,11 +2035,24 @@
         <input type="file" id="backupUploadInput" accept="application/json,.json" style="display:none;">
       </div>
     </div>
+    <button id="statsBtn" title="Setup statistics: count, wins / losses and average result per trigger, for the last 100 / 500 / all stored alerts">Stats</button>
     <button id="clearBtn">Clear all</button>
   </div>
 </header>
 
 <div id="setupBox" style="display:none;"></div>
+<div id="statsModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,.7);overflow:auto;">
+  <div style="max-width:980px;margin:40px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:14px 16px;color:#e2e8f0;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <b style="font-size:15px;">Setup statistics</b>
+      <label style="font-size:12px;">Symbol <select id="statsSym"></select></label>
+      <span id="statsNote" style="font-size:11px;opacity:.7;"></span>
+      <button id="statsClose" style="margin-left:auto;">✕ Close</button>
+    </div>
+    <div style="overflow-x:auto;"><table id="statsTbl" style="border-collapse:collapse;font-size:12px;width:100%;"></table></div>
+    <div style="font-size:11px;opacity:.7;margin-top:8px;">Windows count back from the newest alert (all alert types). A setup counts as Win / Loss from its Setup Ended result (pts &gt; 0 / &lt; 0); setups with no Setup Ended yet are open. Trigger = first trigger named in the setup alert. Avg = average result in points of ended setups.</div>
+  </div>
+</div>
 
 <main>
   <div class="symbol-tabs" id="symbolTabs"></div>
@@ -2429,7 +2444,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v111</footer>
+<footer>tv-webhook-dashboard · v112</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5060,6 +5075,65 @@
   // browsers only allow sound after the page was clicked / tapped once
   ['click', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, () => { if (beepOn) beepAudio(); }, { once: true, passive: true }));
 
+
+  // v112: setup statistics -- per trigger, for the last 100 / 500 / all stored alerts.
+  const STATS_TRIG = [['HTF CBC Flip', /HTF CBC Flip/i], ['LTF EMA20 Pierce', /LTF EMA20 Pierce/i], ['LTF EMA20 Touch', /LTF EMA20 Touch/i], ['HTF EMA9 Pierce', /HTF EMA9 Pierce/i], ['HTF EMA20 Pierce', /HTF EMA20 Pierce/i], ['HTF Pullback', /Pullback Structure/i], ['Momentum break', /Momentum break/i]];
+  const statsModal = document.getElementById('statsModal');
+  const statsSymSel = document.getElementById('statsSym');
+  function statsTrig(t) { const f = (t || '').split(',')[0]; const h = STATS_TRIG.find(([, re]) => re.test(f)); return h ? h[0] : 'Other'; }
+  function statsCollect(n, symF) {
+    const rows = {};
+    const tot = { n: 0, l: 0, s: 0, w: 0, lo: 0, sum: 0, cnt: 0 };
+    const lim = Math.min(n, alerts.length);
+    for (let i = 0; i < lim; i++) {
+      const a = alerts[i];
+      const st = parseTradeSetup(a.raw);
+      if (!st) continue;
+      const sym = getSymbol(a.raw) || '';
+      if (symF !== 'all' && sym !== symF) continue;
+      const k = statsTrig(st.trigger);
+      const r = rows[k] || (rows[k] = { n: 0, l: 0, s: 0, w: 0, lo: 0, sum: 0, cnt: 0 });
+      const o = setupOutcome(i, sym, st);
+      const v = o ? parseFloat(o.res) : NaN;
+      [r, tot].forEach((x) => {
+        x.n++; if (st.dir === 'SHORT') x.s++; else x.l++;
+        if (!isNaN(v)) { x.cnt++; x.sum += v; if (v > 0) x.w++; else if (v < 0) x.lo++; }
+      });
+    }
+    return { rows, tot };
+  }
+  function renderStats() {
+    const symF = statsSymSel.value || 'all';
+    const wins = [['Last 100', 100], ['Last 500', 500], ['All stored', Infinity]];
+    const data = wins.map(([, n]) => statsCollect(n, symF));
+    const keys = STATS_TRIG.map(([k]) => k).concat(['Other']).filter((k) => data.some((d) => d.rows[k]));
+    const th = 'style="padding:4px 6px;border-bottom:1px solid #334155;text-align:right;white-space:nowrap;"';
+    const cell = (r) => {
+      if (!r || !r.n) return '<td ' + th + '>–</td><td ' + th + '>–</td><td ' + th + '>–</td>';
+      const wr = r.w + r.lo ? Math.round(r.w / (r.w + r.lo) * 100) + '%' : '–';
+      const avg = r.cnt ? (r.sum / r.cnt >= 0 ? '+' : '') + (r.sum / r.cnt).toFixed(2) : '–';
+      const col = r.cnt ? (r.sum >= 0 ? '#22C55E' : '#EF4444') : 'inherit';
+      return `<td ${th}><b>${r.n}</b> <span style="opacity:.7">(${r.l}L/${r.s}S)</span></td><td ${th}>${wr} <span style="opacity:.7">${r.w}W/${r.lo}L</span></td><td ${th}><span style="color:${col}">${avg}</span></td>`;
+    };
+    let h = '<tr><th ' + th.replace('right', 'left') + '>Trigger</th>' + wins.map(([lbl], j) => `<th colspan="3" ${th.replace('right', 'center')}>${lbl} <span style="opacity:.6;font-weight:400">(${Math.min(wins[j][1], alerts.length)} alerts)</span></th>`).join('') + '</tr>';
+    h += '<tr><th ' + th + '></th>' + wins.map(() => `<th ${th}>Setups</th><th ${th}>Win %</th><th ${th}>Avg pts</th>`).join('') + '</tr>';
+    keys.forEach((k) => { h += `<tr><td style="padding:4px 6px;border-bottom:1px solid #1e293b;">${escapeHtml(k)}</td>` + data.map((d) => cell(d.rows[k])).join('') + '</tr>'; });
+    h += '<tr style="font-weight:700;background:#1e293b;"><td style="padding:4px 6px;">Total</td>' + data.map((d) => cell(d.tot)).join('') + '</tr>';
+    document.getElementById('statsTbl').innerHTML = h;
+    document.getElementById('statsNote').textContent = alerts.length + ' alerts stored';
+  }
+  document.getElementById('statsBtn').addEventListener('click', () => {
+    const cur = statsSymSel.value || 'all';
+    const syms = Array.from(new Set(alerts.map((a) => getSymbol(a.raw)).filter(Boolean))).sort();
+    statsSymSel.innerHTML = '<option value="all">All</option>' + syms.map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join('');
+    statsSymSel.value = syms.includes(cur) ? cur : 'all';
+    statsModal.style.display = 'block';
+    renderStats();
+  });
+  statsSymSel.addEventListener('change', renderStats);
+  document.getElementById('statsClose').addEventListener('click', () => { statsModal.style.display = 'none'; });
+  statsModal.addEventListener('click', (e) => { if (e.target === statsModal) statsModal.style.display = 'none'; });
+
   // Speaks a short summary of a new alert via the browser's built-in text-to-speech, once voice is
   // on globally AND at least one of this alert's classified types is voice-enabled.
   function speakAlert(alertObj) {
@@ -6392,7 +6466,7 @@
       }).then(async (r) => {
         const msg = await r.text();
         if (r.ok) {
-          alerts = parsed.slice(0, 500);
+          alerts = parsed.slice(0, 5000);
           render();
           alert(msg);
         } else {
