@@ -1,4 +1,4 @@
-.1Xzs4f!db<!-- FRONTEND VERSION: v116 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v118 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,8 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v118: Chart (3m view) -- big CBC flip arrow per 15m flip box: green ▲ under LONG boxes, red ▼ above SHORT boxes.
+     v117: iPad/Safari -- Trade Setup box uses a 2-column grid (max-content) and max-content table widths so the status table can never overlap the levels table.
      v116: iPad -- Trade Setup box: levels column sizes to its table (was fixed 300px, so the status table overlapped the Pivot column); box scrolls sideways if wider than the screen.
      v115: Stats what-if exit-rule selector: opposite 15m flip / flip or 3m close past prior 15m low-high / flip or 15m close past prior 15m close.
      v114: Stats detail -- "What-if: stop = opposite 15m CBC flip" (optional 17:00 ET exit) computed from the BarFeed 3m bars,
@@ -1073,6 +1075,11 @@
   #setupBox { overflow-x: auto; }
   .sb-table td { white-space: nowrap; }
   #setupBox .sb-body .st-table { margin-top: 0; }
+  /* v117: Safari/iPad -- grid with content-sized columns + explicit content-width tables (percentage widths inside a shrink-to-fit box collapsed to 300px in WebKit) */
+  #setupBox .sb-body { display: grid; grid-template-columns: max-content max-content; column-gap: 6px; align-items: start; }
+  #setupBox .sb-main { min-width: 300px; }
+  #setupBox .sb-main .sb-table { width: max-content; min-width: 100%; }
+  #setupBox .sb-body .st-table { width: max-content; }
   .setup-card-table { padding: 6px 12px 10px; max-width: 420px; }
   #setupBox .sb-head .sb-out { flex-basis: 100%; font-weight: 500; font-size: 11px; color: #cbd5e1; }
   #setupBox .sb-out b, .card-outcome .sb-out b { color: #f1f5f9; }
@@ -2455,7 +2462,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v116</footer>
+<footer>tv-webhook-dashboard · v118</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -8436,6 +8443,14 @@
       ctx.strokeStyle = `rgba(${col},0.95)`; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.strokeRect(L, yh, W, yl - yh);
       ctx.fillStyle = `rgb(${col})`; ctx.font = 'bold 11px sans-serif';
       ctx.fillText((b.long ? chH() + 'm LONG' : chH() + 'm SHORT') + (b.flop ? ' ⚠ FLOP' : ''), L, b.long ? yl + 13 : yh - 4);
+      // v118: CBC flip arrow -- green ▲ under a LONG flip box, red ▼ above a SHORT one (like the TradingView triangles)
+      const cx = L + W / 2, hw = 5, th = 8;
+      const y0 = b.long ? yl + 19 : yh - 16;
+      ctx.fillStyle = `rgb(${col})`; ctx.beginPath();
+      if (b.long) { ctx.moveTo(cx, y0); ctx.lineTo(cx - hw, y0 + th); ctx.lineTo(cx + hw, y0 + th); }
+      else { ctx.moveTo(cx, y0); ctx.lineTo(cx - hw, y0 - th); ctx.lineTo(cx + hw, y0 - th); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = chState.theme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1; ctx.stroke();
     });
   }
   function chDrawBoxes(self, ctx) {
