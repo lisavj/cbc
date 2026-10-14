@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v118 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v119 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -222,6 +222,9 @@
      v73: HTF flip candle row shows "N× avg" (Pine v8.55 RangeX); amber at 1.5×, red at 2× (overextended, retrace risk).
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
+     v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+       first hit, else opposite 15m flip / 17:00), total pts per cell, best cell + its win %, PF, best / worst trade, max drawdown;
+       best / worst excursion (MFE / MAE) in pts and ATR; optional per-symbol min SL.
      v118: Chart (3m view) -- big CBC flip arrow per 15m flip box: green ▲ under LONG boxes, red ▼ above SHORT boxes.
      v117: iPad/Safari -- Trade Setup box uses a 2-column grid (max-content) and max-content table widths so the status table can never overlap the levels table.
      v116: iPad -- Trade Setup box: levels column sizes to its table (was fixed 300px, so the status table overlapped the Pivot column); box scrolls sideways if wider than the screen.
@@ -2462,7 +2465,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v118</footer>
+<footer>tv-webhook-dashboard · v119</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5135,7 +5138,7 @@
     }
     return out;
   }
-  let statsSel = { k: null, win: Infinity, eod: true, rule: 'flip' };
+  let statsSel = { k: null, win: Infinity, eod: true, rule: 'flip', minsl: true };
   // v115: what-if exit rules: 'flip' = opposite 15m CBC flip; 'pl3' = flip or 3m close beyond the prior 15m candle low (long) / high (short); 'pc15' = flip or 15m close below (long) / above (short) the prior 15m close.
   const WI_RULES = { flip: 'opposite 15m flip', pl3: 'flip or 3m close past prior 15m low/high', pc15: 'flip or 15m close past prior 15m close' };
   // v114: what-if -- exit only on the opposite 15m CBC flip (at the 15m close), optional 17:00 ET; from the BarFeed 3m bars.
@@ -5191,6 +5194,103 @@
       `<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:12px;margin-top:6px;">${hdr}${rows}</table></div>` +
       `<div style="font-size:11px;opacity:.7;margin-top:4px;">What-if ignores SL1 / TP / trail: entry = setup Entry, exit per the selected rule (flip = close of the 3m candle completing a 15m CBC flip against the trade; prior 15m low/high and prior close use the last completed 15m candle), rebuilt from the BarFeed 3m bars, same as the chart. Flops = setups whose alert carried "Flip flop: crossed …". Setups still open at the last bar are left out of the what-if.</div></div>`;
   }
+
+  // v119: ATR grid -- replay every setup from the BarFeed 3m bars with SL = m x ATR(14) and TP = n x ATR(14) (full exit at the
+  // first one hit; same 3m candle hitting both = SL), also exiting on the opposite 15m flip and (option) 17:00 ET. Points per setup;
+  // best cell highlighted. MFE / MAE (best / worst excursion until the flip / 17:00 exit) in ATR units too.
+  const ATR_SL = [1.0, 1.5, 1.7, 2.0, 2.5, 3.0], ATR_TP = [1.0, 1.5, 1.7, 2.0, 2.5, 3.0, 4.0];
+  const MIN_SL = { MGC: 5, GC: 5, MES: 5, ES: 5, MNQ: 25, NQ: 25, M2K: 3, RTY: 3, MCL: 0.3, CL: 0.3, BTC: 300, MBT: 300 };
+  function atrSeries(bars, n) {
+    const out = new Array(bars.length).fill(NaN);
+    let a = NaN;
+    for (let i = 1; i < bars.length; i++) {
+      const b = bars[i], p = bars[i - 1];
+      const tr = Math.max(b.h - b.l, Math.abs(b.h - p.c), Math.abs(b.l - p.c));
+      a = isNaN(a) ? tr : (a * (n - 1) + tr) / n;
+      if (i >= n) out[i] = a;
+    }
+    return out;
+  }
+  function atrPrep(r) {
+    const root = pierceRoot(r.sym);
+    if (!root || isNaN(r.entry)) return null;
+    const c = pierceEnsureBars(root, r.ms);
+    if (!c || !c.bars) return { pending: true };
+    const bars = c.bars;
+    if (!bars.length) return null;
+    if (!c.hc || c.hcLen !== bars.length) { c.hc = pierceHc(bars); c.hcLen = bars.length; }
+    if (!c.atr || c.atrLen !== bars.length) { c.atr = atrSeries(bars, 14); c.atrLen = bars.length; }
+    const t0 = r.ms - 60000;
+    const i0 = bars.findIndex((b) => b.t >= t0);
+    if (i0 < 1 || bars[i0].t - t0 > 10 * 60000) return null;
+    const atr = c.atr[i0 - 1];
+    if (!(atr > 0)) return null;
+    const long = r.dir !== 'SHORT';
+    const close17 = (ms) => { const d = new Date(ms + chNyOffsetMs(ms)); return d.getUTCHours() === 17 && d.getUTCMinutes() === 0; };
+    // last bar index of the trade window: opposite 15m flip or 17:00 (option); null = still open
+    let iEnd = null;
+    for (let i = i0; i < bars.length; i++) {
+      const hc = c.hc[i], prev = i > 0 ? c.hc[i - 1] : null;
+      if ((hc != null && prev != null && hc !== prev && hc !== long) || (statsSel.eod && close17(bars[i].t + 3 * 60000))) { iEnd = i; break; }
+    }
+    let mfe = 0, mae = 0;
+    const last = iEnd == null ? bars.length - 1 : iEnd;
+    for (let i = i0; i <= last; i++) {
+      const b = bars[i];
+      mfe = Math.max(mfe, long ? b.h - r.entry : r.entry - b.l);
+      mae = Math.max(mae, long ? r.entry - b.l : b.h - r.entry);
+    }
+    return { bars, i0, iEnd, atr, long, root, mfe, mae };
+  }
+  function atrSim(r, p, mSl, mTp) {
+    const sgn = p.long ? 1 : -1;
+    const dSl = Math.max(mSl * p.atr, statsSel.minsl ? (MIN_SL[p.root] || 0) : 0), dTp = mTp * p.atr;
+    const sl = r.entry - sgn * dSl, tp = r.entry + sgn * dTp;
+    const last = p.iEnd == null ? p.bars.length - 1 : p.iEnd;
+    for (let i = p.i0; i <= last; i++) {
+      const b = p.bars[i];
+      if (p.long ? b.l <= sl : b.h >= sl) return -dSl;
+      if (p.long ? b.h >= tp : b.l <= tp) return dTp;
+    }
+    if (p.iEnd == null) return null; // still open
+    return sgn * (p.bars[p.iEnd].c - r.entry);
+  }
+  function statsAtrGridHtml(recs, symF) {
+    const f = (x) => (isNaN(x) ? '–' : (x >= 0 ? '+' : '') + x.toFixed(2));
+    const roots = new Set(recs.map((r) => pierceRoot(r.sym)).filter(Boolean));
+    const head = `<div style="margin-top:10px;border-top:1px solid #334155;padding-top:8px;"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><b>ATR grid (SL × TP, total pts)</b><label style="font-size:12px;"><input type="checkbox" id="statsMinSl" ${statsSel.minsl ? 'checked' : ''}> apply min SL per symbol</label>`;
+    if (roots.size > 1) return head + `<span style="font-size:11px;opacity:.75;">Pick one symbol above -- points from different symbols can't be added.</span></div></div>`;
+    let pending = 0, nocover = 0;
+    const P = recs.map((r) => { const p = atrPrep(r); if (p && p.pending) { pending++; return null; } if (!p) nocover++; return p; });
+    const use = recs.map((r, i) => [r, P[i]]).filter(([, p]) => p).sort((a, b) => a[0].ms - b[0].ms);
+    if (!use.length) return head + `<span style="font-size:11px;opacity:.7;">${pending ? 'loading bars…' : 'no setups covered by the bar data'}</span></div></div>`;
+    const stat = (vs) => {
+      const w = vs.filter((x) => x > 0), l = vs.filter((x) => x < 0), tot = vs.reduce((a, b) => a + b, 0);
+      let eq = 0, peak = 0, dd = 0; vs.forEach((x) => { eq += x; peak = Math.max(peak, eq); dd = Math.min(dd, eq - peak); });
+      return { n: vs.length, w: w.length, l: l.length, wr: w.length + l.length ? Math.round(w.length / (w.length + l.length) * 100) : NaN, tot, avg: vs.length ? tot / vs.length : NaN, pf: l.length ? w.reduce((a, b) => a + b, 0) / Math.abs(l.reduce((a, b) => a + b, 0)) : NaN, best: vs.length ? Math.max(...vs) : NaN, worst: vs.length ? Math.min(...vs) : NaN, dd };
+    };
+    const grid = ATR_SL.map((ms) => ATR_TP.map((mt) => stat(use.map(([r, p]) => atrSim(r, p, ms, mt)).filter((x) => x != null))));
+    let bi = 0, bj = 0;
+    grid.forEach((row, i) => row.forEach((g, j) => { if (g.tot > grid[bi][bj].tot) { bi = i; bj = j; } }));
+    const td = 'padding:3px 6px;text-align:right;border-bottom:1px solid #1e293b;white-space:nowrap;';
+    let tbl = `<tr><th style="padding:3px 6px;opacity:.75;text-align:left;">SL ↓ / TP →</th>${ATR_TP.map((t) => `<th style="padding:3px 6px;opacity:.75;text-align:right;">${t}×</th>`).join('')}</tr>`;
+    grid.forEach((row, i) => {
+      tbl += `<tr><td style="padding:3px 6px;font-weight:700;border-bottom:1px solid #1e293b;">${ATR_SL[i]}×</td>` + row.map((g, j) => {
+        const best = i === bi && j === bj, cur = ATR_SL[i] === 1.7 && ATR_TP[j] === 1.7;
+        return `<td title="N ${g.n} | win ${isNaN(g.wr) ? '–' : g.wr + '%'} (${g.w}W/${g.l}L) | avg ${f(g.avg)} | PF ${isNaN(g.pf) ? '–' : g.pf.toFixed(2)} | best ${f(g.best)} | worst ${f(g.worst)} | max drawdown ${f(g.dd)}" style="${td}${best ? 'outline:2px solid #f59e0b;font-weight:700;' : ''}${cur ? 'background:#1e293b;' : ''}"><span style="color:${g.tot >= 0 ? '#22C55E' : '#EF4444'}">${f(g.tot)}</span> <span style="opacity:.6;font-size:10px;">${isNaN(g.wr) ? '' : g.wr + '%'}</span></td>`;
+      }).join('') + '</tr>';
+    });
+    const b = grid[bi][bj];
+    const med = (a) => { const s = a.slice().sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : NaN; };
+    const mfeA = use.map(([, p]) => p.mfe / p.atr), maeA = use.map(([, p]) => p.mae / p.atr);
+    const mfeP = use.map(([, p]) => p.mfe), maeP = use.map(([, p]) => p.mae);
+    const box = 'style="display:inline-block;vertical-align:top;margin:6px 16px 0 0;font-size:12px;line-height:1.5;"';
+    return head + `<span style="font-size:11px;opacity:.7;">${pending ? 'loading bars… ' : ''}${nocover ? nocover + ' setup(s) outside the bar data skipped' : ''}</span></div>` +
+      `<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:12px;margin-top:6px;">${tbl}</table></div>` +
+      `<div ${box}><b style="color:#f59e0b;">Best: SL ${ATR_SL[bi]}× / TP ${ATR_TP[bj]}× ATR</b><br>N ${b.n} · win ${isNaN(b.wr) ? '–' : b.wr + '%'} (${b.w}W/${b.l}L) · PF ${isNaN(b.pf) ? '–' : b.pf.toFixed(2)}<br>Total <b>${f(b.tot)}</b> · avg ${f(b.avg)} pts<br>Best trade <span style="color:#22C55E">${f(b.best)}</span> · worst trade <span style="color:#EF4444">${f(b.worst)}</span> · max drawdown <span style="color:#EF4444">${f(b.dd)}</span></div>` +
+      `<div ${box}><b>Best / worst excursion</b> (until the flip${statsSel.eod ? ' / 17:00' : ''} exit)<br>Best (MFE): median ${f(med(mfeP))} pts = ${med(mfeA).toFixed(2)} ATR · max ${f(Math.max(...mfeP))} pts<br>Worst (MAE): median ${f(-med(maeP))} pts = ${med(maeA).toFixed(2)} ATR · max ${f(-Math.max(...maeP))} pts<br>Median ATR(14) at entry: ${med(use.map(([, p]) => p.atr)).toFixed(2)} pts</div>` +
+      `<div style="font-size:11px;opacity:.7;margin-top:4px;">Replays every covered setup from the BarFeed 3m bars: entry = setup Entry, ATR(14) of the 3m bars before the setup, full exit at the first of SL / TP (a candle touching both counts as SL), else at the opposite 15m flip${statsSel.eod ? ' or 17:00 ET' : ''}. No TP1 partial / trail / BE, so it is a guide for the SL / TP multipliers, not the exact CBC result. Hover a cell for win %, PF, best / worst trade and max drawdown. Shaded cell = current 1.7 / 1.7. Prefer a cell whose neighbours are also good over a lone best cell (overfitting).</div></div>`;
+  }
   function renderStatsDetail() {
     const el = document.getElementById('statsDetail');
     if (!statsSel.k) { el.innerHTML = ''; return; }
@@ -5221,7 +5321,7 @@
     const list = recs.slice(0, 50).map((r) => `<tr><td style="padding:2px 6px;white-space:nowrap;">${escapeHtml(r.time)}</td><td style="padding:2px 6px;">${escapeHtml(r.sym)}</td><td style="padding:2px 6px;color:${r.dir === 'SHORT' ? '#EF4444' : '#22C55E'}">${r.dir}</td><td style="padding:2px 6px;">${escapeHtml(statsSel.k === 'Total' ? r.k : '')}</td><td style="padding:2px 6px;">${escapeHtml(r.o ? r.o.why : 'open')}</td><td style="padding:2px 6px;text-align:right;color:${isNaN(r.v) ? 'inherit' : r.v >= 0 ? '#22C55E' : '#EF4444'}">${f(r.v)}</td><td style="padding:2px 6px;">${escapeHtml(r.max || '')}</td><td style="padding:2px 6px;">${r.flop ? '<span style="color:#FB923C">flop</span>' : ''}</td><td style="padding:2px 6px;text-align:right;">${(() => { const x = simFlipExit(r); return x && !x.pending && !x.open ? '<span style="color:' + (x.v >= 0 ? '#22C55E' : '#EF4444') + '">' + f(x.v) + '</span>' : ''; })()}</td></tr>`).join('');
     const wbtn = (lbl, n) => `<button type="button" data-stats-win="${n}" style="${statsSel.win === n ? 'background:#f59e0b;color:#111;' : ''}">${lbl}</button>`;
     el.innerHTML = `<div style="border-top:1px solid #334155;padding-top:10px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><b style="font-size:14px;">${escapeHtml(statsSel.k)}</b>${wbtn('Last 100', 100)}${wbtn('Last 500', 500)}${wbtn('All stored', Infinity)}</div>` +
-      sum + `<div ${box}>${hd('How it ended')}${whyHtml || '–'}</div>` + `<div ${box}>${hd('Result distribution (pts)')}${bHtml}</div>` + `<div ${box}>${hd('Furthest target')}${mxHtml || '–'}</div>` + statsWhatIfHtml(recs) +
+      sum + `<div ${box}>${hd('How it ended')}${whyHtml || '–'}</div>` + `<div ${box}>${hd('Result distribution (pts)')}${bHtml}</div>` + `<div ${box}>${hd('Furthest target')}${mxHtml || '–'}</div>` + statsWhatIfHtml(recs) + statsAtrGridHtml(recs, symF) +
       `<div style="max-height:240px;overflow:auto;margin-top:4px;"><table style="border-collapse:collapse;font-size:11px;width:100%;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Time</th><th style="text-align:left;padding:2px 6px;">Symbol</th><th style="text-align:left;padding:2px 6px;">Dir</th><th style="text-align:left;padding:2px 6px;">${statsSel.k === 'Total' ? 'Trigger' : ''}</th><th style="text-align:left;padding:2px 6px;">Ended</th><th style="text-align:right;padding:2px 6px;">Pts</th><th style="text-align:left;padding:2px 6px;">Max</th><th style="text-align:left;padding:2px 6px;">Flop</th><th style="text-align:right;padding:2px 6px;">What-if</th></tr>${list}</table>${recs.length > 50 ? '<div style="font-size:11px;opacity:.7;padding:4px 6px;">Newest 50 of ' + recs.length + ' shown.</div>' : ''}</div></div>`;
   }
   function renderStats() {
@@ -5261,6 +5361,7 @@
   document.getElementById('statsDetail').addEventListener('change', (e) => {
     if (e.target && e.target.id === 'statsEod') { statsSel.eod = e.target.checked; renderStatsDetail(); }
     if (e.target && e.target.id === 'statsRule') { statsSel.rule = e.target.value; renderStatsDetail(); }
+    if (e.target && e.target.id === 'statsMinSl') { statsSel.minsl = e.target.checked; renderStatsDetail(); }
   });
   document.getElementById('statsBtn').addEventListener('click', () => {
     const cur = statsSymSel.value || 'all';
