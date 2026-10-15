@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v119 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v120 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,7 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v120: Stats detail -- "Efficiency Ratio at setup" buckets (ER parsed from the Trade Setup alert's Filters line "| ER 0.34"): N, win %, avg / total pts per ER band (< 0.18, 0.18-0.23, 0.23-0.30, 0.30-0.40, >= 0.40, no ER); trade list gets an ER column.
        first hit, else opposite 15m flip / 17:00), total pts per cell, best cell + its win %, PF, best / worst trade, max drawdown;
        best / worst excursion (MFE / MAE) in pts and ATR; optional per-symbol min SL.
      v118: Chart (3m view) -- big CBC flip arrow per 15m flip box: green ▲ under LONG boxes, red ▼ above SHORT boxes.
@@ -2465,7 +2466,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v119</footer>
+<footer>tv-webhook-dashboard · v120</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5134,7 +5135,7 @@
       const sym = getSymbol(a.raw) || '';
       if (symF !== 'all' && sym !== symF) continue;
       const o = setupOutcome(i, sym, st);
-      out.push({ ms: new Date(a.receivedAt).getTime(), entry: st.Entry ? parseFloat(String(st.Entry.price).replace(/,/g, '')) : NaN, flop: !!st.flop, k: statsTrig(st.trigger), dir: st.dir, sym, time: st.time || new Date(a.receivedAt).toLocaleString(), o, v: o ? parseFloat(o.res) : NaN, best: o ? parseFloat(o.best) : NaN, worst: o ? parseFloat(o.worst) : NaN, mins: o ? parseInt(o.mins, 10) : NaN, max: o ? o.max : '' });
+      out.push({ ms: new Date(a.receivedAt).getTime(), entry: st.Entry ? parseFloat(String(st.Entry.price).replace(/,/g, '')) : NaN, flop: !!st.flop, k: statsTrig(st.trigger), dir: st.dir, sym, time: st.time || new Date(a.receivedAt).toLocaleString(), o, v: o ? parseFloat(o.res) : NaN, best: o ? parseFloat(o.best) : NaN, worst: o ? parseFloat(o.worst) : NaN, mins: o ? parseInt(o.mins, 10) : NaN, max: o ? o.max : '', er: (() => { const m = /\|\s*ER\s+(-?[\d.]+)/.exec(a.raw || ''); return m ? parseFloat(m[1]) : NaN; })() });
     }
     return out;
   }
@@ -5313,16 +5314,20 @@
     const mx = {};
     ended.forEach((r) => { const m = r.max && r.max !== 'none' ? r.max : 'none'; mx[m] = (mx[m] || 0) + 1; });
     const mxHtml = ['none', 'TP1', 'TP2', 'TP3', 'TP4'].filter((m) => mx[m]).map((m) => bar(m === 'none' ? 'No TP reached' : m + ' reached', mx[m], ended.length, '#22C55E')).join('');
+    // v120: 3b) Efficiency Ratio at setup (from the alert's Filters line)
+    const ERB = [[-Infinity, 0.18, '< 0.18'], [0.18, 0.23, '0.18 – 0.23'], [0.23, 0.30, '0.23 – 0.30'], [0.30, 0.40, '0.30 – 0.40'], [0.40, Infinity, '≥ 0.40']];
+    const erRow = (lbl, rs) => { const vs = rs.map((r) => r.v).filter((x) => !isNaN(x)); const w = vs.filter((x) => x > 0).length, l = vs.filter((x) => x < 0).length; const tot = vs.reduce((a, b) => a + b, 0); return `<tr><td style="padding:2px 6px;white-space:nowrap;">${lbl}</td><td style="padding:2px 6px;text-align:right;">${rs.length}</td><td style="padding:2px 6px;text-align:right;">${w + l ? Math.round(w / (w + l) * 100) + '%' : '–'}</td><td style="padding:2px 6px;text-align:right;color:${tot >= 0 ? '#22C55E' : '#EF4444'}">${vs.length ? f(tot / vs.length) : '–'}</td><td style="padding:2px 6px;text-align:right;">${vs.length ? f(tot) : '–'}</td></tr>`; };
+    const erHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">ER</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` + ERB.map(([lo, hi, lbl]) => erRow(lbl, recs.filter((r) => !isNaN(r.er) && r.er >= lo && r.er < hi))).join('') + (recs.some((r) => isNaN(r.er)) ? erRow('no ER in alert', recs.filter((r) => isNaN(r.er))) : '') + '</table><div style="font-size:11px;opacity:.7;margin-top:3px;">ER = the Efficiency Ratio printed in each Trade Setup alert (chop length bars). Only setups that passed the ER filter can appear, so lower bands fill only with the filter relaxed or off.</div>';
     // 4) summary
     const wins = ended.filter((r) => r.v > 0), losses = ended.filter((r) => r.v < 0);
     const pf = losses.length ? wins.reduce((a, r) => a + r.v, 0) / Math.abs(losses.reduce((a, r) => a + r.v, 0)) : NaN;
     const sum = `<div ${box}>${hd('Summary')}<div style="font-size:12px;line-height:1.7;">Setups: <b>${recs.length}</b> (${recs.filter((r) => r.dir !== 'SHORT').length}L / ${recs.filter((r) => r.dir === 'SHORT').length}S) · ended ${ended.length}<br>Win %: <b>${wins.length + losses.length ? Math.round(wins.length / (wins.length + losses.length) * 100) + '%' : '–'}</b> (${wins.length}W / ${losses.length}L)<br>Avg result: <b>${f(avg(ended.map((r) => r.v)))}</b> pts · total ${f(ended.reduce((a, r) => a + r.v, 0))}<br>Avg win ${f(avg(wins.map((r) => r.v)))} · avg loss ${f(avg(losses.map((r) => r.v)))}<br>Profit factor: ${isNaN(pf) ? '–' : pf.toFixed(2)}<br>Avg best ${f(avg(ended.map((r) => r.best).filter((x) => !isNaN(x))))} · avg worst ${f(avg(ended.map((r) => r.worst).filter((x) => !isNaN(x))))}<br>Avg duration ${(() => { const m = avg(ended.map((r) => r.mins).filter((x) => !isNaN(x))); return isNaN(m) ? '–' : Math.round(m) + ' min'; })()}</div></div>`;
     // 5) trade list
-    const list = recs.slice(0, 50).map((r) => `<tr><td style="padding:2px 6px;white-space:nowrap;">${escapeHtml(r.time)}</td><td style="padding:2px 6px;">${escapeHtml(r.sym)}</td><td style="padding:2px 6px;color:${r.dir === 'SHORT' ? '#EF4444' : '#22C55E'}">${r.dir}</td><td style="padding:2px 6px;">${escapeHtml(statsSel.k === 'Total' ? r.k : '')}</td><td style="padding:2px 6px;">${escapeHtml(r.o ? r.o.why : 'open')}</td><td style="padding:2px 6px;text-align:right;color:${isNaN(r.v) ? 'inherit' : r.v >= 0 ? '#22C55E' : '#EF4444'}">${f(r.v)}</td><td style="padding:2px 6px;">${escapeHtml(r.max || '')}</td><td style="padding:2px 6px;">${r.flop ? '<span style="color:#FB923C">flop</span>' : ''}</td><td style="padding:2px 6px;text-align:right;">${(() => { const x = simFlipExit(r); return x && !x.pending && !x.open ? '<span style="color:' + (x.v >= 0 ? '#22C55E' : '#EF4444') + '">' + f(x.v) + '</span>' : ''; })()}</td></tr>`).join('');
+    const list = recs.slice(0, 50).map((r) => `<tr><td style="padding:2px 6px;white-space:nowrap;">${escapeHtml(r.time)}</td><td style="padding:2px 6px;">${escapeHtml(r.sym)}</td><td style="padding:2px 6px;color:${r.dir === 'SHORT' ? '#EF4444' : '#22C55E'}">${r.dir}</td><td style="padding:2px 6px;">${escapeHtml(statsSel.k === 'Total' ? r.k : '')}</td><td style="padding:2px 6px;">${escapeHtml(r.o ? r.o.why : 'open')}</td><td style="padding:2px 6px;text-align:right;color:${isNaN(r.v) ? 'inherit' : r.v >= 0 ? '#22C55E' : '#EF4444'}">${f(r.v)}</td><td style="padding:2px 6px;">${escapeHtml(r.max || '')}</td><td style="padding:2px 6px;">${r.flop ? '<span style="color:#FB923C">flop</span>' : ''}</td><td style="padding:2px 6px;text-align:right;">${isNaN(r.er) ? '' : r.er.toFixed(2)}</td><td style="padding:2px 6px;text-align:right;">${(() => { const x = simFlipExit(r); return x && !x.pending && !x.open ? '<span style="color:' + (x.v >= 0 ? '#22C55E' : '#EF4444') + '">' + f(x.v) + '</span>' : ''; })()}</td></tr>`).join('');
     const wbtn = (lbl, n) => `<button type="button" data-stats-win="${n}" style="${statsSel.win === n ? 'background:#f59e0b;color:#111;' : ''}">${lbl}</button>`;
     el.innerHTML = `<div style="border-top:1px solid #334155;padding-top:10px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><b style="font-size:14px;">${escapeHtml(statsSel.k)}</b>${wbtn('Last 100', 100)}${wbtn('Last 500', 500)}${wbtn('All stored', Infinity)}</div>` +
-      sum + `<div ${box}>${hd('How it ended')}${whyHtml || '–'}</div>` + `<div ${box}>${hd('Result distribution (pts)')}${bHtml}</div>` + `<div ${box}>${hd('Furthest target')}${mxHtml || '–'}</div>` + statsWhatIfHtml(recs) + statsAtrGridHtml(recs, symF) +
-      `<div style="max-height:240px;overflow:auto;margin-top:4px;"><table style="border-collapse:collapse;font-size:11px;width:100%;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Time</th><th style="text-align:left;padding:2px 6px;">Symbol</th><th style="text-align:left;padding:2px 6px;">Dir</th><th style="text-align:left;padding:2px 6px;">${statsSel.k === 'Total' ? 'Trigger' : ''}</th><th style="text-align:left;padding:2px 6px;">Ended</th><th style="text-align:right;padding:2px 6px;">Pts</th><th style="text-align:left;padding:2px 6px;">Max</th><th style="text-align:left;padding:2px 6px;">Flop</th><th style="text-align:right;padding:2px 6px;">What-if</th></tr>${list}</table>${recs.length > 50 ? '<div style="font-size:11px;opacity:.7;padding:4px 6px;">Newest 50 of ' + recs.length + ' shown.</div>' : ''}</div></div>`;
+      sum + `<div ${box}>${hd('How it ended')}${whyHtml || '–'}</div>` + `<div ${box}>${hd('Result distribution (pts)')}${bHtml}</div>` + `<div ${box}>${hd('Furthest target')}${mxHtml || '–'}</div>` + `<div ${box}>${hd('Efficiency Ratio at setup')}${erHtml}</div>` + statsWhatIfHtml(recs) + statsAtrGridHtml(recs, symF) +
+      `<div style="max-height:240px;overflow:auto;margin-top:4px;"><table style="border-collapse:collapse;font-size:11px;width:100%;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Time</th><th style="text-align:left;padding:2px 6px;">Symbol</th><th style="text-align:left;padding:2px 6px;">Dir</th><th style="text-align:left;padding:2px 6px;">${statsSel.k === 'Total' ? 'Trigger' : ''}</th><th style="text-align:left;padding:2px 6px;">Ended</th><th style="text-align:right;padding:2px 6px;">Pts</th><th style="text-align:left;padding:2px 6px;">Max</th><th style="text-align:left;padding:2px 6px;">Flop</th><th style="text-align:right;padding:2px 6px;">ER</th><th style="text-align:right;padding:2px 6px;">What-if</th></tr>${list}</table>${recs.length > 50 ? '<div style="font-size:11px;opacity:.7;padding:4px 6px;">Newest 50 of ' + recs.length + ' shown.</div>' : ''}</div></div>`;
   }
   function renderStats() {
     const symF = statsSymSel.value || 'all';
