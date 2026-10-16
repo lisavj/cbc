@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v127 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v128 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,7 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v128: alerts from a non-3m chart get their own symbol key, e.g. "MGC1! 2m" (from the alert's "Chart: MGC1!  2m" line), so the 2m (10-2) CBC alerts have their own symbol tab, latest-setup box, setup / ENDED matching and Stats symbol entry; 3m alerts stay "MGC1!". Bar lookups strip the suffix and use that chart timeframe's BarFeed (MGC_2).
      v127: Stats -- timeframe pairs: each Trade Setup is tagged HTF-LTF from its alert ("Chart: MGC1! 2m" + "HTF (10m) flip", e.g. 15-3, 10-2). New "TF" picker next to Symbol filters the stats table and the detail view; Setup Ended alerts are matched on the same chart timeframe; what-if / ATR grid use the BarFeed bars of that chart timeframe (MGC = 3m, MGC_2 = 2m) with the HTF candle length of the pair.
      v126: Stats detail -- near-OB band: the alert's "OB: none (nearest OB+ top-bot, X pts away)" (Pine CBC v10.09+) gives the distance to the nearest active block; setups within the "Near = within N pts" box (default 3) count as near a same-side / opposite OB. OB box gains the two near rows, filter buttons become All / In OB / Near OB / Neither, trade-list OB column shows ≈+ / ≈− for near.
      v125: Stats what-if -- new exit rule "flip or 3m close past the trailing SL line": the CBC SL line rebuilt from the BarFeed 3m bars, starting at the setup candle's low (long) / high (short) and ratcheting to each closed 3m candle's low / high in the trade's favour only; exit at the first 3m close beyond it (or the opposite 15m flip / 17:00, as the other rules).
@@ -2473,7 +2474,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v127</footer>
+<footer>tv-webhook-dashboard · v128</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -3823,7 +3824,9 @@
     // v81: CHT (chart-time) alerts get their own symbol key, e.g. "MES1! CH15", so their tabs, setups and
     // ENDED/outcome matching never mix with the 3m CBC alerts of the same ticker.
     const chTag = (raw || '').match(/\n•\s*(CH\d+)\s/);
-    if (tickerMatch) return tickerMatch[1].trim() + (chTag ? ' ' + chTag[1] : '');
+    // v128: non-3m chart (e.g. the 10-2 CBC on a 2m chart) -> "MGC1! 2m"
+    const tfTag = chTag ? null : (raw || '').match(/\nChart:\s*\S+\s+(\d+)m\b/);
+    if (tickerMatch) return tickerMatch[1].trim() + (chTag ? ' ' + chTag[1] : tfTag && tfTag[1] !== '3' ? ' ' + tfTag[1] + 'm' : '');
     return firstLine.replace(/[—\s]+$/, '').trim();
   }
 
@@ -5284,7 +5287,7 @@
   }
   function statsAtrGridHtml(recs, symF) {
     const f = (x) => (isNaN(x) ? '–' : (x >= 0 ? '+' : '') + x.toFixed(2));
-    const roots = new Set(recs.map((r) => pierceRoot(r.sym)).filter(Boolean));
+    const roots = new Set(recs.map((r) => pierceRoot(r.sym)).filter(Boolean)); // v128: "MGC1!" and "MGC1! 2m" are the same instrument
     const head = `<div style="margin-top:10px;border-top:1px solid #334155;padding-top:8px;"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><b>ATR grid (SL × TP, total pts)</b><label style="font-size:12px;"><input type="checkbox" id="statsMinSl" ${statsSel.minsl ? 'checked' : ''}> apply min SL per symbol</label>`;
     if (roots.size > 1) return head + `<span style="font-size:11px;opacity:.75;">Pick one symbol above -- points from different symbols can't be added.</span></div></div>`;
     let pending = 0, nocover = 0;
@@ -5904,6 +5907,7 @@
   const PIERCE_MAX_MS = 2 * 3600000;
   const pierceBars = new Map(); // root -> { bars, days, loading }
   function pierceRoot(sym) {
+    sym = String(sym || '').replace(/ \d+m$/, ''); // v128: "MGC1! 2m" -> "MGC1!"
     // v114: dated contracts too (MGCZ2026 -> MGC)
     const r = String(sym || '').replace(/^.*:/, '').replace(/[FGHJKMNQUVXZ]\d{2,4}$/, '').replace(/[0-9!]+$/, '').toUpperCase();
     return /\s/.test(sym || '') || !/^[A-Z][A-Z0-9]{1,6}$/.test(r) ? null : r;
@@ -5954,11 +5958,12 @@
     if (!p || isNaN(p.entry)) return null;
     const root = pierceRoot(getSymbol(a.raw));
     if (!root) return null;
+    const ptf = statsTfOf(a.raw); // v128: chart timeframe of the pierce alert
     const ra = new Date(a.receivedAt || Date.now()).getTime();
-    const c = pierceEnsureBars(root, ra);
+    const c = pierceEnsureBars(barKey(root, ptf.tf), ra);
     if (!c || !c.bars || !c.bars.length) return null;
     const bars = c.bars;
-    if (!c.hc || c.hcLen !== bars.length) { c.hc = pierceHc(bars); c.hcLen = bars.length; }
+    if (!c.hc || c.hcLen !== bars.length || c.hcH !== ptf.htf) { c.hc = pierceHc(bars, ptf.tf, ptf.htf); c.hcLen = bars.length; c.hcH = ptf.htf; }
     const t0 = ra - 60000; // first bar that opens after the pierce bar closed
     let i = bars.findIndex((b) => b.t >= t0);
     if (i < 0 || bars[i].t - t0 > 10 * 60000) return null; // no feed bars at the alert time
@@ -5971,12 +5976,12 @@
       worst = Math.min(worst, sgn > 0 ? b.l - p.entry : p.entry - b.h);
       const hc = c.hc[i], prev = i > 0 ? c.hc[i - 1] : null;
       if (hc != null && prev != null && hc !== prev && hc !== p.long) { end = b; why = '15m flip ' + (hc ? 'long' : 'short'); break; }
-      const tEnd = b.t + 3 * 60000;
+      const tEnd = b.t + ptf.tf * 60000;
       if (close17(tEnd)) { end = b; why = '17:00 ET'; break; }
       if (tEnd - start >= PIERCE_MAX_MS) { end = b; why = '2h cap'; break; }
     }
     const last = end || bars[bars.length - 1];
-    const tEnd = last.t + 3 * 60000;
+    const tEnd = last.t + ptf.tf * 60000;
     const fmt = (x) => (x >= 0 ? '+' : '') + x.toFixed(2);
     const at = new Date(tEnd).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
     return { ended: !!end, why: end ? why : 'Running', res: fmt(sgn * (last.c - p.entry)), max: '', best: fmt(Math.max(best, 0)), worst: fmt(Math.min(worst, 0)), mins: Math.round((tEnd - start) / 60000) + 'm', at };
