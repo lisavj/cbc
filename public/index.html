@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v124 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v125 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,7 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v125: Stats what-if -- new exit rule "flip or 3m close past the trailing SL line": the CBC SL line rebuilt from the BarFeed 3m bars, starting at the setup candle's low (long) / high (short) and ratcheting to each closed 3m candle's low / high in the trade's favour only; exit at the first 3m close beyond it (or the opposite 15m flip / 17:00, as the other rules).
      v124: Stats detail -- "Order block at setup" box (from the Trade Setup alert's "In OB+ / OB- ..." / "OB: none" line, Pine CBC v10.05+): N, win %, avg / total pts for setups inside a same-side OB (long in OB+, short in OB-), inside an opposite OB, not in an OB, and no OB data (older alerts / ⑨ Show off). "OB: All / In OB / Not in OB" filter buttons for the whole detail view, and an OB column in the trade list (+ same side, − opposite).
      v123: Stats detail -- "Time of day (ET)" box: N, win %, avg / total pts by session (Asia 18-03, London 03-09:30, NY open 09:30-11:30, NY midday 11:30-14, NY afternoon 14-17), by hour of the setup and by weekday (ET, from when the alert arrived). Rows with N >= 5 and a negative average are shaded red, positive average with N >= 5 green. Follows every detail filter (trigger, window, symbol, MTF).
      v122: Stats detail -- "MTF: All / With only / Against only" buttons next to Last 100 / 500 / All stored: filters the whole detail view (summary, how it ended, result buckets, furthest target, ER and MTF boxes, what-if, ATR grid, trade list) to setups with / against the MTF CBC direction (from the alert, CBC v10.01+). Setups without an MTF line are left out of With / Against.
@@ -2470,7 +2471,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v124</footer>
+<footer>tv-webhook-dashboard · v125</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5145,7 +5146,7 @@
   }
   let statsSel = { k: null, win: Infinity, eod: true, rule: 'flip', minsl: true, mtf: 'all', ob: 'all' };
   // v115: what-if exit rules: 'flip' = opposite 15m CBC flip; 'pl3' = flip or 3m close beyond the prior 15m candle low (long) / high (short); 'pc15' = flip or 15m close below (long) / above (short) the prior 15m close.
-  const WI_RULES = { flip: 'opposite 15m flip', pl3: 'flip or 3m close past prior 15m low/high', pc15: 'flip or 15m close past prior 15m close' };
+  const WI_RULES = { flip: 'opposite 15m flip', pl3: 'flip or 3m close past prior 15m low/high', pc15: 'flip or 15m close past prior 15m close', sl3: 'flip or 3m close past trailing SL line (prior 3m low/high)' };
   // v114: what-if -- exit only on the opposite 15m CBC flip (at the 15m close), optional 17:00 ET; from the BarFeed 3m bars.
   // Returns { v, mins, why } or { pending } while bars load, or null when the bars do not cover the setup.
   function simFlipExit(r) {
@@ -5160,6 +5161,7 @@
     let i = bars.findIndex((b) => b.t >= t0);
     if (i < 0 || bars[i].t - t0 > 10 * 60000) return null;
     const long = r.dir !== 'SHORT', sgn = long ? 1 : -1, start = bars[i].t;
+    let tr = i > 0 ? (long ? bars[i - 1].l : bars[i - 1].h) : null; // v125: trailing SL line (setup candle low / high, ratchets)
     const close17 = (ms) => { const d = new Date(ms + chNyOffsetMs(ms)); return d.getUTCHours() === 17 && d.getUTCMinutes() === 0; };
     for (; i < bars.length; i++) {
       const b = bars[i], hc = c.hc[i], prev = i > 0 ? c.hc[i - 1] : null;
@@ -5168,6 +5170,8 @@
       const H = c.hc, rule = statsSel.rule;
       if (rule === 'pl3' && H.pl[i] != null && (long ? b.c < H.pl[i] : b.c > H.ph[i])) return { v: sgn * (b.c - r.entry), mins: Math.round((tEnd - start) / 60000), why: '3m < prior 15m ' + (long ? 'low' : 'high') };
       if (rule === 'pc15' && H.cl[i] && H.pc[i] != null && (long ? H.gc[i] < H.pc[i] : H.gc[i] > H.pc[i])) return { v: sgn * (b.c - r.entry), mins: Math.round((tEnd - start) / 60000), why: '15m < prior close' };
+      if (rule === 'sl3' && tr != null && (long ? b.c < tr : b.c > tr)) return { v: sgn * (b.c - r.entry), mins: Math.round((tEnd - start) / 60000), why: '3m close past SL line ' + tr.toFixed(2) };
+      if (rule === 'sl3') tr = tr == null ? (long ? b.l : b.h) : (long ? Math.max(tr, b.l) : Math.min(tr, b.h));
       if (statsSel.eod && close17(tEnd)) return { v: sgn * (b.c - r.entry), mins: Math.round((tEnd - start) / 60000), why: '17:00' };
     }
     return { open: true, v: sgn * (bars[bars.length - 1].c - r.entry) };
@@ -5197,7 +5201,7 @@
     const hdr = `<tr><th></th><th colspan="5" ${th.replace('right', 'center')}>Actual (CBC rules)</th><th colspan="6" ${th.replace('right', 'center')}>What-if: ${WI_RULES[statsSel.rule]}${statsSel.eod ? ' / 17:00' : ''}</th></tr><tr><th style="text-align:left;padding:3px 6px;opacity:.75;">Group</th>` + ['N', 'Win %', 'Avg', 'Total', 'PF', 'N', 'Win %', 'Avg', 'Total', 'PF', 'Avg time'].map((h) => `<th ${th}>${h}</th>`).join('') + '</tr>';
     return `<div style="margin-top:10px;border-top:1px solid #334155;padding-top:8px;"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><b>What-if exit:</b><select id="statsRule" style="font-size:12px;">${Object.keys(WI_RULES).map((k) => `<option value="${k}" ${statsSel.rule === k ? 'selected' : ''}>${WI_RULES[k]}</option>`).join('')}</select><label style="font-size:12px;"><input type="checkbox" id="statsEod" ${statsSel.eod ? 'checked' : ''}> also exit at 17:00 ET</label><span style="font-size:11px;opacity:.7;">${pending ? 'loading bars… ' : ''}${nocover ? nocover + ' setup(s) outside the bar data skipped' : ''}</span></div>` +
       `<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:12px;margin-top:6px;">${hdr}${rows}</table></div>` +
-      `<div style="font-size:11px;opacity:.7;margin-top:4px;">What-if ignores SL1 / TP / trail: entry = setup Entry, exit per the selected rule (flip = close of the 3m candle completing a 15m CBC flip against the trade; prior 15m low/high and prior close use the last completed 15m candle), rebuilt from the BarFeed 3m bars, same as the chart. Flops = setups whose alert carried "Flip flop: crossed …". Setups still open at the last bar are left out of the what-if.</div></div>`;
+      `<div style="font-size:11px;opacity:.7;margin-top:4px;">What-if ignores SL1 / TP / trail: entry = setup Entry, exit per the selected rule (flip = close of the 3m candle completing a 15m CBC flip against the trade; prior 15m low/high and prior close use the last completed 15m candle; trailing SL line = the setup candle's low / high, then each closed 3m candle's low / high, moving only in the trade's favour, exit on a 3m close beyond it), rebuilt from the BarFeed 3m bars, same as the chart. Flops = setups whose alert carried "Flip flop: crossed …". Setups still open at the last bar are left out of the what-if.</div></div>`;
   }
 
   // v119: ATR grid -- replay every setup from the BarFeed 3m bars with SL = m x ATR(14) and TP = n x ATR(14) (full exit at the
