@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v131 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v135 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,10 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v135: Stats detail -- "Range position at setup" box: where the setup candle closed in the last 24 bars' high-low range, counted in the trade direction (100 % = at the top for a long / at the bottom for a short), split by range width (< 5 ATR tight vs wider), plus what the CBC v10.20 range gate (top/bottom 20 %, range under 4 / 5 / 6 ATR) would have removed. From the alert line "Range: 86% of 24-bar range · 4.3 ATR" (v10.20+) or computed from the BarFeed bars (ATR 14). "Rng: All / Gate hit / Not hit" filter (24 / 20 % / 5 ATR).
+     v134: Stats detail -- "VWAP extension at setup" box (from the Trade Setup alert "Filters: ... VWAP ext +x ATR", signed in the trade direction: + = long above / short below VWAP): buckets < 0, 0-2, 2-4, 4-6, 6-8, > 8 ATR, plus what a "Block when stretched" cap of 3 / 4 / 5 / 6 / 8 / 10 ATR would have removed (N, net of the removed setups, gain). "Ext: All / < 0 / 0-4 / > 4" filter.
+     v133: Stats detail -- "LTF pattern at setup" box + "Pat: All / With / Against / None" filter. Engulfing and tweezer top/bottom on the setup candle and the 2 before it, read from the Trade Setup alert line "Pattern: ..." (Pine CBC v10.17+) or, for older alerts, computed from the BarFeed bars (same rules: engulfing = body swallows the previous opposite-colour body; tweezer = green then red with highs within 2 ticks, mirror for bottoms). WITH = pattern pointing the trade way (bull engulfing / tweezer bottom for a long), AGAINST = the opposite.
+     v132: Stats detail -- "Opening range at setup" box with a session picker: Current session (the alert's own "Market" + "Opening range: Above / Inside / Below", split by New York / London / Asia) or a fixed session (NY / London / Asia OR high-low from the BarFeed bars at the setup candle, so e.g. London setups can be checked against the NY range too). Rows: beyond the range in the trade direction (WITH), inside, on the far side (AGAINST), range not set. "OR: All / With / Inside / Against" filter buttons (using the picked session) for the whole detail view.
      v131: Stats detail -- "Vol: All / With ≥55% / Against" filter buttons (flip-candle volume share in the trade direction, CBC v10.12+) for the whole detail view, and a Vol column in the trade list ("62%/1.4": share with the trade / RVOL; green >= 55 %, red < 45 %).
      v130: Stats detail -- "Flip volume at setup" box from the Trade Setup alert line "Flip volume: buy 62% · RVOL 1.40" (Pine CBC v10.12+): N, win %, avg / total pts by flip-candle volume share IN the trade direction (buy % for a long, sell % for a short: >= 55 / 45-55 / < 45), by RVOL (>= 1.2 / 0.8-1.2 / < 0.8) and the combination (with >= 55 % and RVOL >= 1.2).
      v129: end of day moved to 16:00 ET (Pine CBC v10.10): Stats what-if / ATR grid / pierce outcomes exit at the 16:00 ET close (was 17:00); checkbox "also exit at 16:00 ET".
@@ -2477,7 +2481,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v131</footer>
+<footer>tv-webhook-dashboard · v135</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5162,11 +5166,11 @@
       if (!statsTfOk(a.raw)) continue;
       const o = setupOutcome(i, sym, st);
       const tfo = statsTfOf(a.raw);
-      out.push({ tf: tfo.tf, htf: tfo.htf, tfk: tfo.key, ms: new Date(a.receivedAt).getTime(), entry: st.Entry ? parseFloat(String(st.Entry.price).replace(/,/g, '')) : NaN, flop: !!st.flop, k: statsTrig(st.trigger), dir: st.dir, sym, time: st.time || new Date(a.receivedAt).toLocaleString(), o, v: o ? parseFloat(o.res) : NaN, best: o ? parseFloat(o.best) : NaN, worst: o ? parseFloat(o.worst) : NaN, mins: o ? parseInt(o.mins, 10) : NaN, max: o ? o.max : '', er: (() => { const m = /\|\s*ER\s+(-?[\d.]+)/.exec(a.raw || ''); return m ? parseFloat(m[1]) : NaN; })(), mtf: (() => { const m = /MTF CBC \([^)]*\):\s*(Bullish|Bearish)/.exec(a.raw || ''); return m ? ((m[1] === 'Bullish') === (st.dir !== 'SHORT') ? 'with' : 'against') : ''; })(), ob: (() => { const raw = a.raw || ''; const ms = [...raw.matchAll(/In OB([+-]) /g)].map((x) => x[1]); if (ms.length) return ms.includes(st.dir !== 'SHORT' ? '+' : '-') ? 'same' : 'opp'; return /OB: none/.test(raw) ? 'none' : ''; })(), fv: (() => { const m = /\nFlip volume: buy (\d+)% · RVOL ([\d.]+)/.exec(a.raw || ''); return m ? { w: st.dir !== 'SHORT' ? parseFloat(m[1]) : 100 - parseFloat(m[1]), rv: parseFloat(m[2]) } : null; })(), obN: (() => { const m = /OB: none \(nearest OB([+-]) [^,]*, ([\d.]+) pts away\)/.exec(a.raw || ''); return m ? { same: m[1] === (st.dir !== 'SHORT' ? '+' : '-'), d: parseFloat(m[2]) } : null; })() });
+      out.push({ tf: tfo.tf, htf: tfo.htf, tfk: tfo.key, ms: new Date(a.receivedAt).getTime(), entry: st.Entry ? parseFloat(String(st.Entry.price).replace(/,/g, '')) : NaN, flop: !!st.flop, k: statsTrig(st.trigger), dir: st.dir, sym, time: st.time || new Date(a.receivedAt).toLocaleString(), o, v: o ? parseFloat(o.res) : NaN, best: o ? parseFloat(o.best) : NaN, worst: o ? parseFloat(o.worst) : NaN, mins: o ? parseInt(o.mins, 10) : NaN, max: o ? o.max : '', er: (() => { const m = /\|\s*ER\s+(-?[\d.]+)/.exec(a.raw || ''); return m ? parseFloat(m[1]) : NaN; })(), mtf: (() => { const m = /MTF CBC \([^)]*\):\s*(Bullish|Bearish)/.exec(a.raw || ''); return m ? ((m[1] === 'Bullish') === (st.dir !== 'SHORT') ? 'with' : 'against') : ''; })(), ob: (() => { const raw = a.raw || ''; const ms = [...raw.matchAll(/In OB([+-]) /g)].map((x) => x[1]); if (ms.length) return ms.includes(st.dir !== 'SHORT' ? '+' : '-') ? 'same' : 'opp'; return /OB: none/.test(raw) ? 'none' : ''; })(), orv: ((/\nOpening range: (\w+)/.exec(a.raw || '') || [])[1] || ''), mkt: ((/\nMarket: ([^\n]+)/.exec(a.raw || '') || [])[1] || '').trim(), fv: (() => { const m = /\nFlip volume: buy (\d+)% · RVOL ([\d.]+)/.exec(a.raw || ''); return m ? { w: st.dir !== 'SHORT' ? parseFloat(m[1]) : 100 - parseFloat(m[1]), rv: parseFloat(m[2]) } : null; })(), rngA: (() => { const m = /\nRange: (\d+)% of (\d+)-bar range · ([\d.]+) ATR/.exec(a.raw || ''); return m ? { p: parseFloat(m[1]) / 100, w: parseFloat(m[3]) } : null; })(), vx: (() => { const m = /VWAP ext ([+-]?[\d.]+) ATR/.exec(a.raw || ''); return m ? parseFloat(m[1]) : NaN; })(), pat: ((/\nPattern: ([^\n]+)/.exec(a.raw || '') || [])[1] || null), obN: (() => { const m = /OB: none \(nearest OB([+-]) [^,]*, ([\d.]+) pts away\)/.exec(a.raw || ''); return m ? { same: m[1] === (st.dir !== 'SHORT' ? '+' : '-'), d: parseFloat(m[2]) } : null; })() });
     }
     return out;
   }
-  let statsSel = { k: null, win: Infinity, eod: true, rule: 'flip', minsl: true, mtf: 'all', ob: 'all', obNear: 3, fv: 'all' };
+  let statsSel = { k: null, win: Infinity, eod: true, rule: 'flip', minsl: true, mtf: 'all', ob: 'all', obNear: 3, fv: 'all', orS: 'cur', orF: 'all', pat: 'all', vx: 'all', rg: 'all' };
   // v115: what-if exit rules: 'flip' = opposite 15m CBC flip; 'pl3' = flip or 3m close beyond the prior 15m candle low (long) / high (short); 'pc15' = flip or 15m close below (long) / above (short) the prior 15m close.
   const WI_RULES = { flip: 'opposite 15m flip', pl3: 'flip or 3m close past prior 15m low/high', pc15: 'flip or 15m close past prior 15m close', sl3: 'flip or 3m close past trailing SL line (prior 3m low/high)' };
   // v114: what-if -- exit only on the opposite 15m CBC flip (at the 15m close), optional 17:00 ET; from the BarFeed 3m bars.
@@ -5340,7 +5344,91 @@
     const recsO = recsM.filter((r) => statsSel.ob === 'all' || obF(statsSel.ob)(r));
     // v131: flip-volume filter (share of the flip candle's volume in the trade direction)
     const fvF = (v) => (r) => r.fv && (v === 'with' ? r.fv.w >= 55 : r.fv.w < 45);
-    const recs = recsO.filter((r) => statsSel.fv === 'all' || fvF(statsSel.fv)(r));
+    const recsV = recsO.filter((r) => statsSel.fv === 'all' || fvF(statsSel.fv)(r));
+    // v132: opening range at setup -- 'cur' = the alert's own session OR; 'ny' / 'ln' / 'as' = that session's OR from the bar feed
+    const OR_KEYS = { ny: ['nyh', 'nyl', 'NY'], ln: ['lnh', 'lnl', 'London'], as: ['ash', 'asl', 'Asia'] };
+    const orCls = (r) => {
+      const lg = r.dir !== 'SHORT';
+      if (statsSel.orS === 'cur') {
+        if (!r.orv) return '';
+        if (/^Inside/i.test(r.orv)) return 'in';
+        if (/^Above/i.test(r.orv)) return lg ? 'with' : 'against';
+        if (/^Below/i.test(r.orv)) return lg ? 'against' : 'with';
+        return '';
+      }
+      const root = pierceRoot(r.sym);
+      if (!root || isNaN(r.entry)) return '';
+      const c = pierceEnsureBars(barKey(root, r.tf || 3), r.ms);
+      if (!c || !c.bars || !c.bars.length) return 'pending';
+      const i = c.bars.findIndex((b) => b.t >= r.ms - 60000) - 1;
+      if (i < 0) return '';
+      const b = c.bars[i], [kh, kl] = OR_KEYS[statsSel.orS], h = b[kh], l = b[kl];
+      if (h == null || l == null) return 'unset';
+      if (r.entry > h) return lg ? 'with' : 'against';
+      if (r.entry < l) return lg ? 'against' : 'with';
+      return 'in';
+    };
+    recsV.forEach((r) => { r.orc = orCls(r); });
+    const recsR = recsV.filter((r) => statsSel.orF === 'all' || r.orc === statsSel.orF);
+    // v133: LTF candle pattern at setup (alert line "Pattern:" from CBC v10.17+, else computed from the bar feed)
+    const PAT_TOL = { MGC: 0.2, MES: 0.5, MNQ: 0.5, M2K: 0.2, MCL: 0.02, BTC: 10 };
+    const patBars = (r) => {
+      const root = pierceRoot(r.sym);
+      if (!root) return '';
+      const c = pierceEnsureBars(barKey(root, r.tf || 3), r.ms);
+      if (!c || !c.bars || !c.bars.length) return 'pending';
+      const B = c.bars, i = B.findIndex((b) => b.t >= r.ms - 60000) - 1;
+      if (i < 3) return '';
+      const tol = PAT_TOL[String(root).replace(/_\d+$/, '')] ?? 0.5, out = [];
+      for (let k = 0; k < 3; k++) {
+        const x = B[i - k], p = B[i - k - 1], g = ' (' + (k ? -k : 0) + ')';
+        if (p.c < p.o && x.c > x.o && x.o <= p.c && x.c >= p.o && x.c - x.o > p.o - p.c) out.push('bull engulfing' + g);
+        if (p.c > p.o && x.c < x.o && x.o >= p.c && x.c <= p.o && x.o - x.c > p.c - p.o) out.push('bear engulfing' + g);
+        if (Math.abs(x.h - p.h) <= tol && p.c > p.o && x.c < x.o) out.push('tweezer top' + g);
+        if (Math.abs(x.l - p.l) <= tol && p.c < p.o && x.c > x.o) out.push('tweezer bottom' + g);
+      }
+      return out.length ? out.join(', ') : 'none';
+    };
+    recsR.forEach((r) => {
+      const t = r.pat || patBars(r);
+      r.patTxt = t;
+      if (!t || t === 'pending') { r.pc = t ? 'pending' : ''; return; }
+      const lg = r.dir !== 'SHORT';
+      r.pwE = lg ? /bull engulfing/.test(t) : /bear engulfing/.test(t);
+      r.pwT = lg ? /tweezer bottom/.test(t) : /tweezer top/.test(t);
+      r.paE = lg ? /bear engulfing/.test(t) : /bull engulfing/.test(t);
+      r.paT = lg ? /tweezer top/.test(t) : /tweezer bottom/.test(t);
+      const w = r.pwE || r.pwT, ag = r.paE || r.paT;
+      r.pc = w && !ag ? 'with' : ag && !w ? 'against' : w && ag ? 'both' : 'none';
+    });
+    const recsP = recsR.filter((r) => statsSel.pat === 'all' || r.pc === statsSel.pat);
+    // v134: VWAP extension at setup filter
+    const vxF = (v) => (r) => !isNaN(r.vx) && (v === 'neg' ? r.vx < 0 : v === 'mid' ? r.vx >= 0 && r.vx <= 4 : r.vx > 4);
+    const recsX = recsP.filter((r) => statsSel.vx === 'all' || vxF(statsSel.vx)(r));
+    // v135: range position at setup (alert line from CBC v10.20+, else 24 bars + ATR 14 from the bar feed)
+    const rngBars = (r) => {
+      const root = pierceRoot(r.sym);
+      if (!root) return null;
+      const c = pierceEnsureBars(barKey(root, r.tf || 3), r.ms);
+      if (!c || !c.bars || !c.bars.length) return 'pending';
+      const B = c.bars, i = B.findIndex((b) => b.t >= r.ms - 60000) - 1;
+      if (i < 60) return null;
+      if (!c.atr || c.atrLen !== B.length) { const a = []; let v = null; B.forEach((b, j) => { const tr = j ? Math.max(b.h, B[j - 1].c) - Math.min(b.l, B[j - 1].c) : b.h - b.l; v = v == null ? tr : (v * 13 + tr) / 14; a.push(v); }); c.atr = a; c.atrLen = B.length; }
+      let hi = -Infinity, lo = Infinity;
+      for (let k = i - 23; k <= i; k++) { hi = Math.max(hi, B[k].h); lo = Math.min(lo, B[k].l); }
+      return { p: hi > lo ? (B[i].c - lo) / (hi - lo) : 0.5, w: (hi - lo) / c.atr[i] };
+    };
+    recsX.forEach((r) => {
+      const g = r.rngA || rngBars(r);
+      r.rg = g && g !== 'pending' ? { pd: r.dir !== 'SHORT' ? g.p : 1 - g.p, w: g.w } : null;
+      r.rgPend = g === 'pending';
+    });
+    const rgHit = (r, x, z) => r.rg && r.rg.w < x && r.rg.pd >= 1 - z;
+    const recs = recsX.filter((r) => statsSel.rg === 'all' || (r.rg && (statsSel.rg === 'hit' ? rgHit(r, 5, 0.2) : !rgHit(r, 5, 0.2))));
+    const gbtn = (lbl, v) => `<button type="button" data-stats-rg="${v}" title="Filter by the CBC v10.20 range gate at its defaults: close in the top 20 % (long) / bottom 20 % (short) of the last 24 bars and that range under 5 ATR" style="${statsSel.rg === v ? 'background:#f97316;color:#111;' : ''}">${lbl} (${v === 'all' ? recsX.length : recsX.filter((r) => r.rg && (v === 'hit' ? rgHit(r, 5, 0.2) : !rgHit(r, 5, 0.2))).length})</button>`;
+    const xbtn = (lbl, v) => `<button type="button" data-stats-vx="${v}" title="Filter by VWAP extension at setup (x ATR, + = in the trade direction)" style="${statsSel.vx === v ? 'background:#60a5fa;color:#111;' : ''}">${lbl} (${v === 'all' ? recsP.length : recsP.filter(vxF(v)).length})</button>`;
+    const pbtn = (lbl, v) => `<button type="button" data-stats-pat="${v}" title="Filter by engulfing / tweezer candles on the setup candle and the 2 before it (WITH = pointing the trade way)" style="${statsSel.pat === v ? 'background:#34d399;color:#111;' : ''}">${lbl} (${v === 'all' ? recsR.length : recsR.filter((r) => r.pc === v).length})</button>`;
+    const orbtn = (lbl, v) => `<button type="button" data-stats-or="${v}" title="Filter by where the setup Entry sat vs the opening range of the session picked in the Opening range box" style="${statsSel.orF === v ? 'background:#fbbf24;color:#111;' : ''}">${lbl} (${v === 'all' ? recsV.length : recsV.filter((r) => r.orc === v).length})</button>`;
     const vbtn = (lbl, v) => `<button type="button" data-stats-fv="${v}" title="Filter by flip-candle volume share in the trade direction (CBC v10.12+ alerts)" style="${statsSel.fv === v ? 'background:#f472b6;color:#111;' : ''}">${lbl} (${v === 'all' ? recsO.length : recsO.filter(fvF(v)).length})</button>`;
     const obtn = (lbl, v) => `<button type="button" data-stats-ob="${v}" title="Filter the whole detail view by order block at setup (CBC v10.05+ alerts)" style="${statsSel.ob === v ? 'background:#a78bfa;color:#111;' : ''}">${lbl} (${v === 'all' ? recsM.length : recsM.filter(obF(v)).length})</button>`;
     const mbtn = (lbl, v) => `<button type="button" data-stats-mtf="${v}" title="Filter the whole detail view by MTF CBC at setup (CBC v10.01+ alerts)" style="${statsSel.mtf === v ? 'background:#38bdf8;color:#111;' : ''}">${lbl} (${v === 'all' ? recsK.length : recsK.filter((r) => r.mtf === v).length})</button>`;
@@ -5367,6 +5455,39 @@
     const erHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">ER</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` + ERB.map(([lo, hi, lbl]) => erRow(lbl, recs.filter((r) => !isNaN(r.er) && r.er >= lo && r.er < hi))).join('') + (recs.some((r) => isNaN(r.er)) ? erRow('no ER in alert', recs.filter((r) => isNaN(r.er))) : '') + '</table><div style="font-size:11px;opacity:.7;margin-top:3px;">ER = the Efficiency Ratio printed in each Trade Setup alert (chop length bars). Only setups that passed the ER filter can appear, so lower bands fill only with the filter relaxed or off.</div>';
     // v121: 3c) MTF CBC at setup (with / against the setup direction)
     const mtfHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">MTF CBC</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` + erRow('With setup direction', recs.filter((r) => r.mtf === 'with')) + erRow('Against setup direction', recs.filter((r) => r.mtf === 'against')) + (recs.some((r) => !r.mtf) ? erRow('no MTF in alert', recs.filter((r) => !r.mtf)) : '') + '</table><div style="font-size:11px;opacity:.7;margin-top:3px;">MTF CBC = the last closed MTF (60m) candle\'s CBC printed in each Trade Setup alert (Pine CBC v10.01+; older alerts show as "no MTF in alert"). With = Bullish on a long / Bearish on a short. If "Skip setups against the MTF CBC direction" is on, the Against row stays empty.</div>';
+    // v132: 3g) opening range at setup (per session)
+    const orHead = (c) => `<tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">${c}</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>`;
+    const orRows = (rs) => erRow('Beyond the range, trade side (WITH)', rs.filter((r) => r.orc === 'with')) + erRow('Inside the range', rs.filter((r) => r.orc === 'in')) + erRow('Far side (AGAINST)', rs.filter((r) => r.orc === 'against')) + (rs.some((r) => r.orc === 'unset' || r.orc === '') ? erRow('range not set / no data', rs.filter((r) => r.orc === 'unset' || r.orc === '')) : '');
+    const orSel = `<select id="statsOrS" style="font-size:11px;margin-left:6px;">${[['cur', 'Current session (from alert)'], ['ny', 'NY range'], ['ln', 'London range'], ['as', 'Asia range']].map(([v, t]) => `<option value="${v}" ${statsSel.orS === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+    const orPend = recs.filter((r) => r.orc === 'pending').length;
+    const orHtml = `<div style="font-size:12px;margin-bottom:4px;">Session: ${orSel}${orPend ? ' <span style="opacity:.6">loading bars…</span>' : ''}</div><table style="border-collapse:collapse;font-size:12px;">${orHead(statsSel.orS === 'cur' ? 'All sessions' : OR_KEYS[statsSel.orS][2] + ' range')}${orRows(recs)}` +
+      (statsSel.orS === 'cur' ? [['New York', 'New York session (NY range)'], ['London', 'London session (London range)'], ['Asian', 'Asia session (Asia range)']].map(([m, t]) => { const rs = recs.filter((r) => r.mkt === m); return rs.length ? orHead(t) + orRows(rs) : ''; }).join('') : '') +
+      '</table><div style="font-size:11px;opacity:.7;margin-top:3px;">WITH = Entry beyond the range in the trade direction (long above the high, short below the low); AGAINST = on the far side (the range edge sits between Entry and the targets). Current session = the alert\'s own "Market" and "Opening range" lines; a fixed session = that session\'s OR high / low from the BarFeed bars on the setup candle (that day\'s range once formed).</div>';
+    // v135: 3j) range position at setup
+    const gR = recs.filter((r) => r.rg);
+    const gateRow = (x) => { const bl = gR.filter((r) => rgHit(r, x, 0.2)), vs = bl.map((r) => r.v).filter((v) => !isNaN(v)), t = vs.reduce((a, b) => a + b, 0), w = vs.filter((v) => v > 0).length; return `<tr><td style="padding:2px 6px;white-space:nowrap;">Gate 24 / 20 % / &lt; ${x} ATR</td><td style="padding:2px 6px;text-align:right;">${bl.length}</td><td style="padding:2px 6px;text-align:right;">${vs.length ? Math.round(w / vs.length * 100) + '%' : '–'}</td><td style="padding:2px 6px;text-align:right;">${vs.length ? f(t) : '–'}</td><td style="padding:2px 6px;text-align:right;color:${-t >= 0 ? '#22C55E' : '#EF4444'}">${vs.length ? f(-t) : '–'}</td></tr>`; };
+    const pb = (lo, hi, tight) => gR.filter((r) => r.rg.pd >= lo && r.rg.pd < hi && (tight === undefined || (tight ? r.rg.w < 5 : r.rg.w >= 5)));
+    const rgHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Position (trade side)</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` +
+      erRow('0 – 50 %', pb(0, 0.5)) + erRow('50 – 80 %', pb(0.5, 0.8)) + erRow('<b>80 – 100 %, tight (&lt; 5 ATR)</b>', pb(0.8, 1.01, true)) + erRow('80 – 100 %, wide (≥ 5 ATR)', pb(0.8, 1.01, false)) +
+      (recs.some((r) => !r.rg) ? erRow('no bars / loading', recs.filter((r) => !r.rg)) : '') +
+      `</table><table style="border-collapse:collapse;font-size:12px;margin-top:6px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Range gate</th><th style="padding:2px 6px;">Blocked</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Their net</th><th style="padding:2px 6px;">Gain</th></tr>` + [4, 5, 6].map(gateRow).join('') +
+      `</table><div style="font-size:11px;opacity:.7;margin-top:3px;">Where the setup candle closed in the last 24 bars' high-low range, in the trade direction (100 % = at the top for a long, at the bottom for a short); range width in ATR (14). From the alert line "Range: …" (CBC v10.20+: ${gR.filter((r) => r.rngA).length} of ${gR.length}), older alerts from the BarFeed bars. Gate rows = what the CBC range gate would have removed (Gain = minus their net).</div>`;
+    // v134: 3i) VWAP extension at setup + cap what-if
+    const xR = recs.filter((r) => !isNaN(r.vx));
+    const capRow = (c) => { const bl = xR.filter((r) => r.vx > c), vs = bl.map((r) => r.v).filter((x) => !isNaN(x)), t = vs.reduce((a, b) => a + b, 0); return `<tr><td style="padding:2px 6px;white-space:nowrap;">Block &gt; ${c} ATR</td><td style="padding:2px 6px;text-align:right;">${bl.length}</td><td style="padding:2px 6px;text-align:right;">${vs.length ? f(t) : '–'}</td><td style="padding:2px 6px;text-align:right;color:${-t >= 0 ? '#22C55E' : '#EF4444'}">${vs.length ? f(-t) : '–'}</td></tr>`; };
+    const vxHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Extension</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` +
+      erRow('&lt; 0 (against VWAP)', xR.filter((r) => r.vx < 0)) + erRow('0 – 2 ATR', xR.filter((r) => r.vx >= 0 && r.vx < 2)) + erRow('2 – 4 ATR', xR.filter((r) => r.vx >= 2 && r.vx < 4)) + erRow('4 – 6 ATR', xR.filter((r) => r.vx >= 4 && r.vx < 6)) + erRow('6 – 8 ATR', xR.filter((r) => r.vx >= 6 && r.vx < 8)) + erRow('&gt; 8 ATR', xR.filter((r) => r.vx >= 8)) +
+      (recs.some((r) => isNaN(r.vx)) ? erRow('no VWAP ext in alert', recs.filter((r) => isNaN(r.vx))) : '') +
+      `</table><table style="border-collapse:collapse;font-size:12px;margin-top:6px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Stretch cap</th><th style="padding:2px 6px;">Blocked</th><th style="padding:2px 6px;">Their net</th><th style="padding:2px 6px;">Gain</th></tr>` + [3, 4, 5, 6, 8, 10].map(capRow).join('') +
+      `</table><div style="font-size:11px;opacity:.7;margin-top:3px;">From the Trade Setup alert "VWAP ext x ATR" (close vs VWAP in setup ATRs, + = in the trade direction: long above / short below). Cap rows = setups a "Block when stretched from VWAP" of that size would have removed; Gain = minus their net (green = the cap would have helped). CBC v10.19: per-symbol caps, e.g. "MGC 4, MES 8".</div>`;
+    // v133: 3h) LTF pattern at setup
+    const pR = recs.filter((r) => r.pc && r.pc !== 'pending');
+    const patHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Last 3 candles</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` +
+      erRow('<b>WITH pattern (any)</b>', pR.filter((r) => r.pwE || r.pwT)) + erRow('&nbsp;↳ with engulfing', pR.filter((r) => r.pwE)) + erRow('&nbsp;↳ with tweezer', pR.filter((r) => r.pwT)) +
+      erRow('AGAINST pattern (any)', pR.filter((r) => r.paE || r.paT)) + erRow('&nbsp;↳ against engulfing', pR.filter((r) => r.paE)) + erRow('&nbsp;↳ against tweezer', pR.filter((r) => r.paT)) +
+      erRow('With only (no against)', pR.filter((r) => r.pc === 'with')) + erRow('No pattern', pR.filter((r) => r.pc === 'none')) +
+      (recs.some((r) => !r.pc || r.pc === 'pending') ? erRow('no bars / loading', recs.filter((r) => !r.pc || r.pc === 'pending')) : '') +
+      `</table><div style="font-size:11px;opacity:.7;margin-top:3px;">Setup candle + the 2 before it. From the alert line "Pattern:" (CBC v10.17+: ${pR.filter((r) => r.pat).length} of ${pR.length}); older alerts are computed from the BarFeed bars. Engulfing = body swallows the previous opposite-colour body; tweezer top = green then red with highs within 2 ticks (bottom mirrored). WITH = bull engulfing / tweezer bottom for a long (bear / top for a short). Rows overlap.</div>`;
     // v130: 3f) flip volume at setup (flip-candle volume share in the trade direction + RVOL)
     const fvR = recs.filter((r) => r.fv);
     const fvHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Flip volume</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` +
@@ -5397,8 +5518,8 @@
     // 5) trade list
     const list = recs.slice(0, 50).map((r) => `<tr><td style="padding:2px 6px;white-space:nowrap;">${escapeHtml(r.time)}</td><td style="padding:2px 6px;">${escapeHtml(r.sym)}</td><td style="padding:2px 6px;color:${r.dir === 'SHORT' ? '#EF4444' : '#22C55E'}">${r.dir}</td><td style="padding:2px 6px;">${escapeHtml(statsSel.k === 'Total' ? r.k : '')}</td><td style="padding:2px 6px;">${escapeHtml(r.o ? r.o.why : 'open')}</td><td style="padding:2px 6px;text-align:right;color:${isNaN(r.v) ? 'inherit' : r.v >= 0 ? '#22C55E' : '#EF4444'}">${f(r.v)}</td><td style="padding:2px 6px;">${escapeHtml(r.max || '')}</td><td style="padding:2px 6px;">${r.flop ? '<span style="color:#FB923C">flop</span>' : ''}</td><td style="padding:2px 6px;text-align:right;">${isNaN(r.er) ? '' : r.er.toFixed(2)}</td><td style="padding:2px 6px;text-align:center;">${r.mtf === 'with' ? '<span style="color:#22C55E">✓</span>' : r.mtf === 'against' ? '<span style="color:#EF4444">✗</span>' : ''}</td><td style="padding:2px 6px;text-align:center;">${r.ob === 'same' ? '<span style="color:#22C55E">+</span>' : r.ob === 'opp' ? '<span style="color:#EF4444">−</span>' : obNr(r) ? (r.obN.same ? '<span style="color:#22C55E;opacity:.8" title="' + r.obN.d + ' pts">≈+</span>' : '<span style="color:#EF4444;opacity:.8" title="' + r.obN.d + ' pts">≈−</span>') : r.ob === 'none' ? '<span style="opacity:.5">·</span>' : ''}</td><td style="padding:2px 6px;text-align:right;white-space:nowrap;">${r.fv ? '<span style="color:' + (r.fv.w >= 55 ? '#22C55E' : r.fv.w < 45 ? '#EF4444' : 'inherit') + '" title="flip-candle volume share with the trade / RVOL">' + Math.round(r.fv.w) + '%/' + r.fv.rv.toFixed(1) + '</span>' : ''}</td><td style="padding:2px 6px;text-align:right;">${(() => { const x = simFlipExit(r); return x && !x.pending && !x.open ? '<span style="color:' + (x.v >= 0 ? '#22C55E' : '#EF4444') + '">' + f(x.v) + '</span>' : ''; })()}</td></tr>`).join('');
     const wbtn = (lbl, n) => `<button type="button" data-stats-win="${n}" style="${statsSel.win === n ? 'background:#f59e0b;color:#111;' : ''}">${lbl}</button>`;
-    el.innerHTML = `<div style="border-top:1px solid #334155;padding-top:10px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><b style="font-size:14px;">${escapeHtml(statsSel.k)}</b>${wbtn('Last 100', 100)}${wbtn('Last 500', 500)}${wbtn('All stored', Infinity)}<span style="margin-left:8px;opacity:.7;">MTF:</span>${mbtn('All', 'all')}${mbtn('With only', 'with')}${mbtn('Against only', 'against')}<span style="margin-left:8px;opacity:.7;">OB:</span>${obtn('All', 'all')}${obtn('In OB', 'in')}${obtn('Near OB', 'near')}${obtn('Neither', 'none')}<span style="margin-left:8px;opacity:.7;">Vol:</span>${vbtn('All', 'all')}${vbtn('With ≥55%', 'with')}${vbtn('Against', 'against')}</div>` +
-      sum + `<div ${box}>${hd('How it ended')}${whyHtml || '–'}</div>` + `<div ${box}>${hd('Result distribution (pts)')}${bHtml}</div>` + `<div ${box}>${hd('Furthest target')}${mxHtml || '–'}</div>` + `<div ${box}>${hd('Efficiency Ratio at setup')}${erHtml}</div>` + `<div ${box}>${hd('MTF CBC at setup')}${mtfHtml}</div>` + `<div ${box}>${hd('Order block at setup')}${obHtml}</div>` + `<div ${box}>${hd('Flip volume at setup')}${fvHtml}</div>` + `<div ${box}>${hd('Time of day (ET)')}${tdHtml}</div>` + statsWhatIfHtml(recs) + statsAtrGridHtml(recs, symF) +
+    el.innerHTML = `<div style="border-top:1px solid #334155;padding-top:10px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><b style="font-size:14px;">${escapeHtml(statsSel.k)}</b>${wbtn('Last 100', 100)}${wbtn('Last 500', 500)}${wbtn('All stored', Infinity)}<span style="margin-left:8px;opacity:.7;">MTF:</span>${mbtn('All', 'all')}${mbtn('With only', 'with')}${mbtn('Against only', 'against')}<span style="margin-left:8px;opacity:.7;">OB:</span>${obtn('All', 'all')}${obtn('In OB', 'in')}${obtn('Near OB', 'near')}${obtn('Neither', 'none')}<span style="margin-left:8px;opacity:.7;">Vol:</span>${vbtn('All', 'all')}${vbtn('With ≥55%', 'with')}${vbtn('Against', 'against')}<span style="margin-left:8px;opacity:.7;">OR:</span>${orbtn('All', 'all')}${orbtn('With', 'with')}${orbtn('Inside', 'in')}${orbtn('Against', 'against')}<span style="margin-left:8px;opacity:.7;">Pat:</span>${pbtn('All', 'all')}${pbtn('With', 'with')}${pbtn('Against', 'against')}${pbtn('None', 'none')}<span style="margin-left:8px;opacity:.7;">Ext:</span>${xbtn('All', 'all')}${xbtn('< 0', 'neg')}${xbtn('0–4', 'mid')}${xbtn('> 4', 'hi')}<span style="margin-left:8px;opacity:.7;">Rng:</span>${gbtn('All', 'all')}${gbtn('Gate hit', 'hit')}${gbtn('Not hit', 'not')}</div>` +
+      sum + `<div ${box}>${hd('How it ended')}${whyHtml || '–'}</div>` + `<div ${box}>${hd('Result distribution (pts)')}${bHtml}</div>` + `<div ${box}>${hd('Furthest target')}${mxHtml || '–'}</div>` + `<div ${box}>${hd('Efficiency Ratio at setup')}${erHtml}</div>` + `<div ${box}>${hd('MTF CBC at setup')}${mtfHtml}</div>` + `<div ${box}>${hd('Order block at setup')}${obHtml}</div>` + `<div ${box}>${hd('Flip volume at setup')}${fvHtml}</div>` + `<div ${box}>${hd('LTF pattern at setup')}${patHtml}</div>` + `<div ${box}>${hd('VWAP extension at setup')}${vxHtml}</div>` + `<div ${box}>${hd('Range position at setup')}${rgHtml}</div>` + `<div ${box}>${hd('Opening range at setup')}${orHtml}</div>` + `<div ${box}>${hd('Time of day (ET)')}${tdHtml}</div>` + statsWhatIfHtml(recs) + statsAtrGridHtml(recs, symF) +
       `<div style="max-height:240px;overflow:auto;margin-top:4px;"><table style="border-collapse:collapse;font-size:11px;width:100%;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Time</th><th style="text-align:left;padding:2px 6px;">Symbol</th><th style="text-align:left;padding:2px 6px;">Dir</th><th style="text-align:left;padding:2px 6px;">${statsSel.k === 'Total' ? 'Trigger' : ''}</th><th style="text-align:left;padding:2px 6px;">Ended</th><th style="text-align:right;padding:2px 6px;">Pts</th><th style="text-align:left;padding:2px 6px;">Max</th><th style="text-align:left;padding:2px 6px;">Flop</th><th style="text-align:right;padding:2px 6px;">ER</th><th style="text-align:center;padding:2px 6px;" title="MTF CBC at setup: ✓ with the setup direction, ✗ against">MTF</th><th style="text-align:center;padding:2px 6px;" title="Order block at setup: + same side (long in OB+, short in OB-), − opposite, ≈+ / ≈− near (within the Near pts), · neither">OB</th><th style="text-align:right;padding:2px 6px;" title="Flip-candle volume share in the trade direction / RVOL">Vol</th><th style="text-align:right;padding:2px 6px;">What-if</th></tr>${list}</table>${recs.length > 50 ? '<div style="font-size:11px;opacity:.7;padding:4px 6px;">Newest 50 of ' + recs.length + ' shown.</div>' : ''}</div></div>`;
   }
   function renderStats() {
@@ -5430,6 +5551,14 @@
     renderStats();
   });
   document.getElementById('statsDetail').addEventListener('click', (e) => {
+    const rgb = e.target.closest && e.target.closest('[data-stats-rg]');
+    if (rgb) { statsSel.rg = rgb.dataset.statsRg; renderStatsDetail(); return; }
+    const vxb = e.target.closest && e.target.closest('[data-stats-vx]');
+    if (vxb) { statsSel.vx = vxb.dataset.statsVx; renderStatsDetail(); return; }
+    const pab = e.target.closest && e.target.closest('[data-stats-pat]');
+    if (pab) { statsSel.pat = pab.dataset.statsPat; renderStatsDetail(); return; }
+    const orb = e.target.closest && e.target.closest('[data-stats-or]');
+    if (orb) { statsSel.orF = orb.dataset.statsOr; renderStatsDetail(); return; }
     const fvb = e.target.closest && e.target.closest('[data-stats-fv]');
     if (fvb) { statsSel.fv = fvb.dataset.statsFv; renderStatsDetail(); return; }
     const ob = e.target.closest && e.target.closest('[data-stats-ob]');
@@ -5444,6 +5573,7 @@
   document.getElementById('statsDetail').addEventListener('change', (e) => {
     if (e.target && e.target.id === 'statsEod') { statsSel.eod = e.target.checked; renderStatsDetail(); }
     if (e.target && e.target.id === 'statsRule') { statsSel.rule = e.target.value; renderStatsDetail(); }
+    if (e.target && e.target.id === 'statsOrS') { statsSel.orS = e.target.value; renderStatsDetail(); }
     if (e.target && e.target.id === 'statsObNear') { const v = parseFloat(e.target.value); if (!isNaN(v) && v >= 0) { statsSel.obNear = v; renderStatsDetail(); } }
     if (e.target && e.target.id === 'statsMinSl') { statsSel.minsl = e.target.checked; renderStatsDetail(); }
   });
