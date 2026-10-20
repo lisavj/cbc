@@ -4,6 +4,8 @@
 // - GET  /                            <- live dashboard (auto-updates as alerts arrive)
 // - GET  /alerts                      <- raw JSON of stored alerts
 // - GET  /bars?sym=MES&days=5          <- BarFeed 3m bars for the Chart tab (stored under DATA_DIR/bars, kept 60 days)
+//   v7: POST /bars/import?...&replace=1 replaces candles that already exist (same time) instead of skipping them --
+//       to fix stored bars after a BarFeed setting change (e.g. 2m feed sent 15m HTF fields before BarFeed v1.03).
 //   v6: keeps the last 5000 alerts (was 500; env MAX_ALERTS overrides).
 //   v5: Render log names each alert ("MES1! | LTF EMA20 Pierce - Entry: LONG") and logs every BarFeed candle
 //       ("bar MGC 3m 10:51 ET LIVE c=4161.7") so live 1-minute updates can be checked in the log.
@@ -477,6 +479,7 @@ app.get('/bars', (req, res) => {
 // POST /bars/import?token=SECRET&sym=MES  -- history backfill from TradingView "Export chart data" (CSV, with
 // BarFeed on the chart so its Data Window columns e9, e20, h9 ... are included) or a JSON array of bars.
 // Candles that already exist (from the live feed) are kept; only missing ones are added.
+// v7: add &replace=1 to overwrite existing candles (same open time) with the file's values.
 function splitCsvLine(line) {
   const out = []; let cur = ''; let q = false;
   for (let i = 0; i < line.length; i++) {
@@ -513,7 +516,7 @@ function csvToBars(text) {
 app.post('/bars/import', (req, res) => {
   if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
   const sym = String(req.query.sym || '').toUpperCase();
-  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('Add ?sym=MES (or MGC, or MES_2 for a 2m feed)');
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('Add ?sym=MES (or MGC, or MES_2 / MGC_5 for a 2m / 5m feed)');
   let list;
   try {
     const body = typeof req.body === 'string' ? req.body : '';
@@ -522,15 +525,22 @@ app.post('/bars/import', (req, res) => {
     return res.status(400).send('Could not read the file: ' + e.message);
   }
   const cut = barCutoff();
+  const replace = req.query.replace === '1' || req.query.replace === 'true'; // v7
   const have = new Set((bars[sym] || []).map((b) => b.t));
-  let added = 0;
+  let added = 0, replaced = 0;
   list.forEach((raw) => {
     const b = cleanBar(raw);
-    if (!b || b.t < cut || have.has(b.t)) return;
+    if (!b || b.t < cut) return;
+    if (have.has(b.t)) {
+      if (!replace) return;
+      upsertBar(sym, b); replaced++;
+      return;
+    }
     upsertBar(sym, b); have.add(b.t); added++;
   });
-  if (added) rewriteBarFile(sym);
-  res.send(`Imported ${added} new candle(s) for ${sym} (${(bars[sym] || []).length} stored).`);
+  if (added || replaced) rewriteBarFile(sym);
+  console.log(`bars import ${sym}: ${added} added, ${replaced} replaced${replace ? ' (replace on)' : ''}`);
+  res.send(`Imported ${added} new candle(s)` + (replace ? ` and replaced ${replaced} existing candle(s)` : '') + ` for ${sym} (${(bars[sym] || []).length} stored).`);
 });
 
 // ---- Live stream for the dashboard ----
