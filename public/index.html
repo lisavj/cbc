@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v139 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v140 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,8 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v140: FIX -- the floating Trade Setup box (left) covered the left part of the feed when it got wide (MNQ prices,
+       9 symbol tabs). The feed now moves right of the box whenever they would overlap (re-checked on resize / box change).
      v139: Chart tab Import CSV asks "Replace candles already stored?" (OK = &replace=1, needs server.js v7) so a corrected
        BarFeed export (e.g. 2m feed after the BarFeed v1.03 HTF fix) overwrites the old candles; feed prompt lists _5 (5m).
      v138: Stats detail window buttons: Last 100 / 500 / 1000 / 2000 / 5000 / All stored (newest N alerts).
@@ -2486,7 +2488,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v139</footer>
+<footer>tv-webhook-dashboard · v140</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -6338,10 +6340,27 @@
     if (getComputedStyle(box).position !== 'fixed') { box.style.top = ''; return; }
     const hdr = document.querySelector('header');
     box.style.top = ((hdr ? hdr.getBoundingClientRect().bottom : 0) + 8) + 'px';
+    layoutMainBesideBox();
+  }
+  // v140: the floating Trade Setup box (fixed, left) could cover the left edge of the centred feed when it is wide
+  // (e.g. MNQ prices, two rows of symbol tabs). Move the feed to the right of the box whenever they would overlap.
+  function layoutMainBesideBox() {
+    const box = document.getElementById('setupBox');
+    const mainEl = document.querySelector('main');
+    if (!mainEl) return;
+    mainEl.style.marginLeft = ''; mainEl.style.marginRight = '';
+    if (!box || box.style.display === 'none' || getComputedStyle(box).position !== 'fixed' || box.offsetParent === null && getComputedStyle(box).display === 'none') return;
+    const right = box.getBoundingClientRect().right;
+    if (!right) return;
+    const mainLeft = mainEl.getBoundingClientRect().left;
+    if (right + 12 > mainLeft) { mainEl.style.marginLeft = (right + 12) + 'px'; mainEl.style.marginRight = '0'; }
   }
   try {
     const hdrEl = document.querySelector('header');
     if (hdrEl && window.ResizeObserver) new ResizeObserver(() => positionSetupBox()).observe(hdrEl);
+    const sbEl = document.getElementById('setupBox');
+    if (sbEl && window.ResizeObserver) new ResizeObserver(() => layoutMainBesideBox()).observe(sbEl);
+    window.addEventListener('resize', () => layoutMainBesideBox());
   } catch (e) {}
   function renderSetupBox() {
     const box = document.getElementById('setupBox');
@@ -6391,7 +6410,7 @@
       }).join('');
     };
     const mainHtml = section(false), chHtml = section(true);
-    if (!mainHtml && !chHtml) { box.style.display = 'none'; return; }
+    if (!mainHtml && !chHtml) { box.style.display = 'none'; layoutMainBesideBox(); return; }
     box.innerHTML = (chHtml && mainHtml ? '<div class="sb-sec">CBC setups</div>' : '') + mainHtml +
       (chHtml ? '<div class="sb-sec sb-sec-ch">Chart-TF setups (CHT)</div>' + chHtml : '');
     box.style.display = '';
