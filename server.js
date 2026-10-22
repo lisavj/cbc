@@ -2,8 +2,12 @@
 // -----------------------------
 // - POST /webhook?token=YOUR_SECRET   <- point your TradingView alert's webhook URL here
 // - GET  /                            <- live dashboard (auto-updates as alerts arrive)
-// - GET  /alerts                      <- raw JSON of stored alerts
+// - GET  /alerts                      <- raw JSON of stored alerts (v8: ?days=N or ?limit=N to fetch less; gzip)
 // - GET  /bars?sym=MES&days=5          <- BarFeed 3m bars for the Chart tab (stored under DATA_DIR/bars, kept 60 days)
+//   v8: keeps the last 100000 alerts (was 5000; env MAX_ALERTS overrides). At ~2,000 alerts/day 5000 held only
+//       ~2.5 days. To stay fast at that size: alerts.json is written compact (no indentation) and at most once
+//       every 10 s (debounced, flushed on shutdown) instead of a full pretty-printed rewrite on every alert;
+//       GET /alerts accepts ?days=N / ?limit=N and is gzip-compressed when the client accepts it (~10x smaller).
 //   v7: POST /bars/import?...&replace=1 replaces candles that already exist (same time) instead of skipping them --
 //       to fix stored bars after a BarFeed setting change (e.g. 2m feed sent 15m HTF fields before BarFeed v1.03).
 //   v6: keeps the last 5000 alerts (was 500; env MAX_ALERTS overrides).
@@ -25,13 +29,15 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib'); // v8: gzip for GET /alerts (built into Node, no new dependency)
 
 const app = express();
 const SERVER_STARTED_AT = new Date().toISOString(); // used by GET /health to show how recently this process (re)started
 const PORT = process.env.PORT || 3000;
 const SECRET = process.env.WEBHOOK_SECRET || ''; // set this in your host's env vars
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || ''; // optional: paste a Discord channel webhook URL here to forward alerts
-const MAX_ALERTS = Number(process.env.MAX_ALERTS) || 5000; // v6: was 500
+const MAX_ALERTS = Number(process.env.MAX_ALERTS) || 100000; // v8: was 5000 (v6), 500 before
+const ALERT_SAVE_DELAY_MS = 10000; // v8: debounce -- at 100000 alerts one write takes ~1 s, so at most one every 10 s
 const DATA_DIR = process.env.DATA_DIR || __dirname; // point this at a mounted Render Disk to survive deploys
 const DATA_FILE = path.join(DATA_DIR, 'alerts.json');
 
@@ -212,7 +218,8 @@ function saveAutopsy() {
 // Bumped from 1mb to 8mb at v5 to fit the Checklist's attached-image upload
 // (a base64 data URL, resized/compressed client-side before it's sent, but
 // still comfortably bigger than every other route's small JSON/text body).
-app.use(express.text({ type: '*/*', limit: '8mb' }));
+// v8: 200mb so POST /restore can take a full 100000-alert backup (~160 MB).
+app.use(express.text({ type: '*/*', limit: '200mb' }));
 
 // ---- Load any alerts saved from a previous run ----
 let alerts = [];
@@ -223,16 +230,32 @@ try {
 } catch (e) {
   console.error('Could not read alerts.json, starting fresh:', e.message);
 }
+console.log(`alerts.json: loaded ${alerts.length} alerts (MAX_ALERTS ${MAX_ALERTS})`);
 
+// v8: compact JSON, written to a temp file then renamed (a crash mid-write can't leave a half-written alerts.json).
 function saveAlerts() {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(alerts.slice(0, MAX_ALERTS), null, 2));
+    const tmp = DATA_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(alerts.slice(0, MAX_ALERTS)));
+    fs.renameSync(tmp, DATA_FILE);
     return true;
   } catch (e) {
     console.error('Could not write alerts.json:', e.message);
     return false;
   }
 }
+
+// v8: debounced save -- a burst of alerts in the same second costs one write, not one per alert.
+let alertSaveTimer = null;
+function scheduleSaveAlerts() {
+  if (alertSaveTimer) return;
+  alertSaveTimer = setTimeout(() => { alertSaveTimer = null; saveAlerts(); }, ALERT_SAVE_DELAY_MS);
+}
+function flushAlerts() {
+  if (alertSaveTimer) { clearTimeout(alertSaveTimer); alertSaveTimer = null; saveAlerts(); }
+}
+// Render sends SIGTERM before stopping the old container on a deploy -- write any pending alerts first.
+['SIGTERM', 'SIGINT'].forEach((sig) => process.on(sig, () => { flushAlerts(); process.exit(0); }));
 
 // ---- Live-update clients (Server-Sent Events) ----
 let sseClients = [];
@@ -442,8 +465,8 @@ app.post('/webhook', (req, res) => {
   };
 
   alerts.unshift(alert);
-  if (alerts.length > MAX_ALERTS) alerts = alerts.slice(0, MAX_ALERTS);
-  saveAlerts();
+  if (alerts.length > MAX_ALERTS) alerts.length = MAX_ALERTS; // v8: trim in place (no 100k-element copy per alert)
+  scheduleSaveAlerts(); // v8: debounced
   broadcast(alert);
   sendToDiscord(alert.raw);
 
@@ -454,8 +477,31 @@ app.post('/webhook', (req, res) => {
 });
 
 // ---- JSON list of stored alerts (used by the dashboard on load) ----
+// v8: optional ?days=N (only alerts received in the last N days) and ?limit=N (newest N); no params = all,
+// same as before. Sent gzip-compressed when the client accepts it (browsers and urllib with the header do).
 app.get('/alerts', (req, res) => {
-  res.json(alerts);
+  let list = alerts;
+  const days = Number(req.query.days);
+  if (Number.isFinite(days) && days > 0) {
+    const cut = new Date(Date.now() - days * 86400000).toISOString();
+    let n = 0;
+    while (n < list.length && list[n].receivedAt >= cut) n++; // newest first, so stop at the first older one
+    list = list.slice(0, n);
+  }
+  const limit = Number(req.query.limit);
+  if (Number.isFinite(limit) && limit > 0) list = list.slice(0, Math.floor(limit));
+  const body = JSON.stringify(list);
+  res.set('Content-Type', 'application/json; charset=utf-8');
+  if (/\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+    zlib.gzip(body, { level: 6 }, (err, gz) => {
+      if (err) return res.send(body);
+      res.set('Content-Encoding', 'gzip');
+      res.set('Vary', 'Accept-Encoding');
+      res.send(gz);
+    });
+  } else {
+    res.send(body);
+  }
 });
 
 // ---- v2: BarFeed bars for the Chart tab ----
@@ -572,6 +618,7 @@ app.post('/clear', (req, res) => {
     return res.status(401).send('Unauthorized');
   }
   alerts = [];
+  flushAlerts();
   saveAlerts();
   res.status(200).send('Cleared');
 });
@@ -597,6 +644,7 @@ app.post('/restore', (req, res) => {
     return res.status(400).send('Expected a JSON array of alerts (the same shape /alerts returns).');
   }
   alerts = parsed.slice(0, MAX_ALERTS);
+  flushAlerts();
   saveAlerts();
   res.status(200).send(`Restored ${alerts.length} alert(s).`);
 });
@@ -1030,6 +1078,7 @@ app.get('/health', (req, res) => {
   } catch (e) {
     dataDirWriteError = e.message;
   }
+  const mem = process.memoryUsage(); // v8: watch this once the alert store grows toward 100000
   res.json({
     serverStartedAt: SERVER_STARTED_AT,
     uptimeSeconds: Math.round(process.uptime()),
@@ -1038,6 +1087,9 @@ app.get('/health', (req, res) => {
     dataDirSource: process.env.DATA_DIR ? 'DATA_DIR env var' : 'default (__dirname — NOT persistent across redeploys unless this IS a mounted Disk path)',
     dataDirWritable,
     dataDirWriteError,
+    maxAlerts: MAX_ALERTS,
+    oldestAlertAt: alerts.length ? alerts[alerts.length - 1].receivedAt : null,
+    memoryMB: { rss: Math.round(mem.rss / 1048576), heapUsed: Math.round(mem.heapUsed / 1048576) },
     files: {
       'journal.json': Object.assign({ inMemoryEntryCount: Object.keys(journalEntries).length }, fileStatus(JOURNAL_FILE)),
       'rules.json': Object.assign({ inMemoryEntryCount: Object.keys(rulesEntries).length }, fileStatus(RULES_FILE)),
