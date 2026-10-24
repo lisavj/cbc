@@ -3,7 +3,19 @@
 // - POST /webhook?token=YOUR_SECRET   <- point your TradingView alert's webhook URL here
 // - GET  /                            <- live dashboard (auto-updates as alerts arrive)
 // - GET  /alerts                      <- raw JSON of stored alerts (v8: ?days=N or ?limit=N to fetch less; gzip)
-// - GET  /bars?sym=MES&days=5          <- BarFeed 3m bars for the Chart tab (stored under DATA_DIR/bars, kept 60 days)
+//                                        v9: ?from=YYYY-MM-DD[&to=YYYY-MM-DD] (ET dates) also reads the archive
+// - GET  /bars?sym=MES&days=5          <- BarFeed bars for the Chart tab (v9: &from=YYYY-MM-DD[&to=] reads the archive)
+// - GET  /archive                      <- v9: list of archived alert days and bar months
+//   v9: LONG-TERM ARCHIVE on the Render Disk (DATA_DIR/archive). Nothing is thrown away any more:
+//       - Alerts: every completed ET day is written to archive/alerts/YYYY-MM-DD.ndjson.gz (hourly + at startup).
+//         RAM keeps only the last MEM_ALERT_DAYS (env, default 30) days; older alerts are dropped from RAM
+//         only after they are in the archive. Alerts pushed out by MAX_ALERTS are archived first as well.
+//       - Bars: candles older than BAR_KEEP_DAYS (env, default 60) are moved to
+//         archive/bars/<SYM>/YYYY-MM.ndjson.gz instead of being deleted. POST /bars/import now also accepts
+//         candles older than BAR_KEEP_DAYS (they go straight to the archive), so old CSV history can be backfilled.
+//       - GET /alerts and GET /bars without from/to behave exactly as before (RAM only), so the dashboard is
+//         unchanged; ?from= (or ?days= larger than the RAM window) merges archive + RAM, deduplicated.
+//       - gzip files are small (~10x smaller than JSON), so a 1 GB Disk holds years of alerts and 3m bars.
 //   v8: keeps the last 100000 alerts (was 5000; env MAX_ALERTS overrides). At ~2,000 alerts/day 5000 held only
 //       ~2.5 days. To stay fast at that size: alerts.json is written compact (no indentation) and at most once
 //       every 10 s (debounced, flushed on shutdown) instead of a full pretty-printed rewrite on every alert;
@@ -17,7 +29,7 @@
 //   v3: one store per symbol AND chart timeframe -- key "MES" = 3m (unchanged), "MES_2" = 2m, "MGC_5" = 5m ...
 //
 // Alerts are kept in memory (fast, instant dashboard updates) and mirrored to alerts.json
-// on disk so they survive a restart/redeploy. Only the most recent MAX_ALERTS are kept.
+// on disk so they survive a restart/redeploy. Only the most recent MAX_ALERTS are kept in RAM.
 //
 // PERSISTENCE ACROSS DEPLOYS (Render): Render's default web service disk is ephemeral —
 // every new deploy (e.g. a git push) spins up a brand-new container, wiping any files not
@@ -47,6 +59,106 @@ try {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 } catch (e) {
   console.error('Could not create DATA_DIR', DATA_DIR, e.message);
+}
+
+// ============================================================================
+// v9: long-term archive (see header). One gzip NDJSON file per ET day (alerts) or per
+// symbol + ET month (bars). Files are rewritten atomically (temp file + rename) when merged.
+// ============================================================================
+const ARCHIVE_DIR = path.join(DATA_DIR, 'archive');
+const ALERT_ARCH_DIR = path.join(ARCHIVE_DIR, 'alerts');
+const BAR_ARCH_DIR = path.join(ARCHIVE_DIR, 'bars');
+const MEM_ALERT_DAYS = Number(process.env.MEM_ALERT_DAYS || 30);
+[ALERT_ARCH_DIR, BAR_ARCH_DIR].forEach((d) => {
+  try { fs.mkdirSync(d, { recursive: true }); } catch (e) { console.error('Could not create', d, e.message); }
+});
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ET_FMT = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' });
+function etDay(x) { return ET_FMT.format(new Date(x)); } // "YYYY-MM-DD" in New York time
+
+function readGzLines(file) {
+  let buf;
+  try { buf = fs.readFileSync(file); } catch (e) { if (e.code !== 'ENOENT') console.error('Could not read', file, e.message); return []; }
+  let text;
+  try { text = zlib.gunzipSync(buf).toString('utf8'); } catch (e) { console.error('Could not unzip', file, e.message); return []; }
+  const out = [];
+  text.split('\n').forEach((l) => { if (!l.trim()) return; try { out.push(JSON.parse(l)); } catch (e) { /* skip a bad line */ } });
+  return out;
+}
+function writeGzLines(file, list) {
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, zlib.gzipSync(list.map((x) => JSON.stringify(x)).join('\n') + '\n'));
+  fs.renameSync(tmp, file);
+}
+function alertDayFile(day) { return path.join(ALERT_ARCH_DIR, day + '.ndjson.gz'); }
+function listAlertArchiveDays() {
+  try {
+    return fs.readdirSync(ALERT_ARCH_DIR).filter((f) => f.endsWith('.ndjson.gz')).map((f) => f.slice(0, 10)).filter((d) => DAY_RE.test(d)).sort();
+  } catch (e) { return []; }
+}
+
+// Merge a list of alerts into their ET-day archive files (dedup by id). Returns how many were new.
+function mergeAlertsIntoArchive(list, failed) {
+  const byDay = {};
+  list.forEach((a) => { if (a && a.id && a.receivedAt) (byDay[etDay(a.receivedAt)] || (byDay[etDay(a.receivedAt)] = [])).push(a); });
+  let added = 0;
+  Object.keys(byDay).forEach((day) => {
+    try {
+      const file = alertDayFile(day);
+      const old = readGzLines(file);
+      const seen = new Set(old.map((a) => a.id));
+      const add = byDay[day].filter((a) => !seen.has(a.id));
+      if (!add.length) return;
+      const all = old.concat(add).sort((x, y) => (x.receivedAt < y.receivedAt ? 1 : x.receivedAt > y.receivedAt ? -1 : 0)); // newest first, like /alerts
+      writeGzLines(file, all);
+      added += add.length;
+    } catch (e) {
+      console.error('Could not archive alerts for', day, e.message);
+      if (failed) failed.add(day);
+    }
+  });
+  return added;
+}
+
+// Read archived + in-RAM alerts whose ET day is in [from, to]; newest first, dedup by id.
+function readAlertRange(from, to) {
+  const seen = new Set();
+  const out = [];
+  alerts.forEach((a) => { const d = etDay(a.receivedAt); if (d >= from && d <= to && !seen.has(a.id)) { seen.add(a.id); out.push(a); } });
+  listAlertArchiveDays().filter((d) => d >= from && d <= to).forEach((d) => {
+    readGzLines(alertDayFile(d)).forEach((a) => { if (!seen.has(a.id)) { seen.add(a.id); out.push(a); } });
+  });
+  out.sort((x, y) => (x.receivedAt < y.receivedAt ? 1 : x.receivedAt > y.receivedAt ? -1 : 0));
+  return out;
+}
+
+function barArchDir(sym) { return path.join(BAR_ARCH_DIR, sym); }
+function listBarArchiveMonths(sym) {
+  try {
+    return fs.readdirSync(barArchDir(sym)).filter((f) => /^\d{4}-\d{2}\.ndjson\.gz$/.test(f)).map((f) => f.slice(0, 7)).sort();
+  } catch (e) { return []; }
+}
+// Merge candles into archive/bars/<SYM>/YYYY-MM.ndjson.gz (dedup by t; replace=true overwrites). Returns new count.
+function mergeBarsIntoArchive(sym, list, replace) {
+  const byMonth = {};
+  list.forEach((b) => { const m = etDay(b.t).slice(0, 7); (byMonth[m] || (byMonth[m] = [])).push(b); });
+  let added = 0;
+  if (!Object.keys(byMonth).length) return 0;
+  try { fs.mkdirSync(barArchDir(sym), { recursive: true }); } catch (e) { /* reported by the write below */ }
+  Object.keys(byMonth).forEach((m) => {
+    try {
+      const file = path.join(barArchDir(sym), m + '.ndjson.gz');
+      const map = new Map(readGzLines(file).map((b) => [b.t, b]));
+      let changed = false;
+      byMonth[m].forEach((b) => {
+        if (!map.has(b.t)) { map.set(b.t, b); added++; changed = true; } else if (replace) { map.set(b.t, b); changed = true; }
+      });
+      if (changed) writeGzLines(file, Array.from(map.values()).sort((x, y) => x.t - y.t));
+    } catch (e) {
+      console.error('Could not archive bars', sym, m, e.message);
+    }
+  });
+  return added;
 }
 
 // Checklist attached-image storage: one file per date, so re-attaching for
@@ -230,7 +342,7 @@ try {
 } catch (e) {
   console.error('Could not read alerts.json, starting fresh:', e.message);
 }
-console.log(`alerts.json: loaded ${alerts.length} alerts (MAX_ALERTS ${MAX_ALERTS})`);
+console.log(`alerts.json: loaded ${alerts.length} alerts (MAX_ALERTS ${MAX_ALERTS}, MEM_ALERT_DAYS ${MEM_ALERT_DAYS})`);
 
 // v8: compact JSON, written to a temp file then renamed (a crash mid-write can't leave a half-written alerts.json).
 function saveAlerts() {
@@ -257,6 +369,31 @@ function flushAlerts() {
 // Render sends SIGTERM before stopping the old container on a deploy -- write any pending alerts first.
 ['SIGTERM', 'SIGINT'].forEach((sig) => process.on(sig, () => { flushAlerts(); process.exit(0); }));
 
+// v9: archive every completed ET day that is in RAM, then drop alerts older than MEM_ALERT_DAYS from RAM.
+// archivedCount remembers how many alerts of each day were archived, so unchanged days are not re-read.
+const archivedCount = {};
+let lastArchiveRun = null;
+function archiveAlerts() {
+  const today = etDay(Date.now());
+  const byDay = {};
+  alerts.forEach((a) => { const d = etDay(a.receivedAt); if (d < today) (byDay[d] || (byDay[d] = [])).push(a); });
+  let added = 0;
+  const failed = new Set();
+  Object.keys(byDay).forEach((d) => {
+    if (archivedCount[d] === byDay[d].length) return;
+    added += mergeAlertsIntoArchive(byDay[d], failed);
+    if (!failed.has(d) && fs.existsSync(alertDayFile(d))) archivedCount[d] = byDay[d].length; else failed.add(d);
+  });
+  const cut = new Date(Date.now() - MEM_ALERT_DAYS * 86400000).toISOString();
+  const n0 = alerts.length;
+  // only drop an alert from RAM if its day is safely in the archive
+  alerts = alerts.filter((a) => a.receivedAt >= cut || failed.has(etDay(a.receivedAt)) || etDay(a.receivedAt) >= today);
+  const dropped = n0 - alerts.length;
+  if (dropped) scheduleSaveAlerts();
+  lastArchiveRun = new Date().toISOString();
+  if (added || dropped || failed.size) console.log(`archive: ${added} alert(s) archived, ${dropped} dropped from RAM (older than ${MEM_ALERT_DAYS} d)${failed.size ? ', FAILED days: ' + Array.from(failed).join(' ') : ''}`);
+}
+
 // ---- Live-update clients (Server-Sent Events) ----
 let sseClients = [];
 
@@ -279,6 +416,7 @@ function broadcastEvent(name, obj) {
 // These are NOT added to the alert list (no feed spam, no Discord). They go to
 // DATA_DIR/bars/<SYM>.ndjson (one JSON line per bar, appended), are kept in
 // memory per symbol sorted by time, and are trimmed to BAR_KEEP_DAYS (60).
+// v9: trimmed candles are moved to archive/bars/<SYM>/YYYY-MM.ndjson.gz, not deleted.
 // A re-sent candle (same t) replaces the old one (last line wins on reload).
 // ============================================================================
 const BARS_DIR = path.join(DATA_DIR, 'bars');
@@ -335,7 +473,12 @@ function trimBars(rewrite) {
     const arr = bars[sym];
     let i = 0;
     while (i < arr.length && arr[i].t < cut) i++;
-    if (i > 0) { bars[sym] = arr.slice(i); if (rewrite) rewriteBarFile(sym); }
+    if (i > 0) {
+      const n = mergeBarsIntoArchive(sym, arr.slice(0, i), true); // v9: archive (RAM copy is the newest) before trimming
+      console.log(`bars archive ${sym}: ${i} candle(s) moved to archive (${n} new)`);
+      bars[sym] = arr.slice(i);
+      if (rewrite) rewriteBarFile(sym);
+    }
   });
 }
 
@@ -360,7 +503,11 @@ function loadBars() {
   console.log('bars: loaded ' + Object.keys(bars).map((s) => s + '=' + bars[s].length).join(', '));
 }
 loadBars();
-setInterval(() => trimBars(true), 3600000); // hourly: drop candles older than BAR_KEEP_DAYS
+setInterval(() => trimBars(true), 3600000); // hourly: move candles older than BAR_KEEP_DAYS to the archive
+
+// v9: archive alerts shortly after startup and then hourly.
+setTimeout(archiveAlerts, 5000);
+setInterval(archiveAlerts, 3600000);
 
 function handleBar(parsed) {
   const root = String(parsed.sym || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -465,7 +612,10 @@ app.post('/webhook', (req, res) => {
   };
 
   alerts.unshift(alert);
-  if (alerts.length > MAX_ALERTS) alerts.length = MAX_ALERTS; // v8: trim in place (no 100k-element copy per alert)
+  if (alerts.length > MAX_ALERTS) {
+    mergeAlertsIntoArchive(alerts.slice(MAX_ALERTS)); // v9: archive before the RAM cap drops them
+    alerts.length = MAX_ALERTS; // v8: trim in place (no 100k-element copy per alert)
+  }
   scheduleSaveAlerts(); // v8: debounced
   broadcast(alert);
   sendToDiscord(alert.raw);
@@ -476,21 +626,8 @@ app.post('/webhook', (req, res) => {
   res.status(200).send('OK');
 });
 
-// ---- JSON list of stored alerts (used by the dashboard on load) ----
-// v8: optional ?days=N (only alerts received in the last N days) and ?limit=N (newest N); no params = all,
-// same as before. Sent gzip-compressed when the client accepts it (browsers and urllib with the header do).
-app.get('/alerts', (req, res) => {
-  let list = alerts;
-  const days = Number(req.query.days);
-  if (Number.isFinite(days) && days > 0) {
-    const cut = new Date(Date.now() - days * 86400000).toISOString();
-    let n = 0;
-    while (n < list.length && list[n].receivedAt >= cut) n++; // newest first, so stop at the first older one
-    list = list.slice(0, n);
-  }
-  const limit = Number(req.query.limit);
-  if (Number.isFinite(limit) && limit > 0) list = list.slice(0, Math.floor(limit));
-  const body = JSON.stringify(list);
+function sendJsonMaybeGzip(req, res, obj) {
+  const body = JSON.stringify(obj);
   res.set('Content-Type', 'application/json; charset=utf-8');
   if (/\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
     zlib.gzip(body, { level: 6 }, (err, gz) => {
@@ -502,11 +639,55 @@ app.get('/alerts', (req, res) => {
   } else {
     res.send(body);
   }
+}
+
+// ---- JSON list of stored alerts (used by the dashboard on load) ----
+// v8: optional ?days=N (only alerts received in the last N days) and ?limit=N (newest N); no params = all
+// in RAM, same as before. Sent gzip-compressed when the client accepts it (browsers and urllib with the header do).
+// v9: ?from=YYYY-MM-DD[&to=YYYY-MM-DD] (ET days, inclusive) reads archive + RAM. ?days=N larger than
+// MEM_ALERT_DAYS also reads the archive.
+app.get('/alerts', (req, res) => {
+  let list = alerts;
+  const days = Number(req.query.days);
+  const from = String(req.query.from || '');
+  const to = String(req.query.to || '');
+  if ((from && !DAY_RE.test(from)) || (to && !DAY_RE.test(to))) return res.status(400).send('from / to must be YYYY-MM-DD');
+  if (from || to) {
+    list = readAlertRange(from || '0000-00-00', to || '9999-99-99');
+  } else if (Number.isFinite(days) && days > 0) {
+    const cut = new Date(Date.now() - days * 86400000).toISOString();
+    if (days > MEM_ALERT_DAYS) list = readAlertRange(etDay(Date.now() - days * 86400000), '9999-99-99');
+    let n = 0;
+    while (n < list.length && list[n].receivedAt >= cut) n++; // newest first, so stop at the first older one
+    list = list.slice(0, n);
+  }
+  const limit = Number(req.query.limit);
+  if (Number.isFinite(limit) && limit > 0) list = list.slice(0, Math.floor(limit));
+  sendJsonMaybeGzip(req, res, list);
+});
+
+// ---- v9: what is in the archive ----
+app.get('/archive', (req, res) => {
+  const fsz = (f) => { try { return fs.statSync(f).size; } catch (e) { return 0; } };
+  const days = listAlertArchiveDays();
+  let barSyms = [];
+  try { barSyms = fs.readdirSync(BAR_ARCH_DIR).filter((s) => BAR_SYM_RE.test(s)).sort(); } catch (e) { /* none yet */ }
+  res.json({
+    memAlertDays: MEM_ALERT_DAYS,
+    barKeepDays: BAR_KEEP_DAYS,
+    lastArchiveRun,
+    alerts: { days: days.length, first: days[0] || null, last: days[days.length - 1] || null, bytes: days.reduce((s, d) => s + fsz(alertDayFile(d)), 0), list: days },
+    bars: barSyms.map((s) => {
+      const months = listBarArchiveMonths(s);
+      return { sym: s, months, bytes: months.reduce((t, m) => t + fsz(path.join(barArchDir(s), m + '.ndjson.gz')), 0) };
+    }),
+  });
 });
 
 // ---- v2: BarFeed bars for the Chart tab ----
-// GET /bars                     -> [{ sym, count, first, last }]
-// GET /bars?sym=MES&days=5      -> { sym, bars: [...] } (last N days, max BAR_KEEP_DAYS)
+// GET /bars                     -> [{ sym, count, first, last, archivedMonths }]
+// GET /bars?sym=MES&days=5      -> { sym, bars: [...] } (last N days; v9: N > BAR_KEEP_DAYS reads the archive)
+// GET /bars?sym=MES&from=2026-08-01[&to=2026-09-30]  -> v9: ET days, inclusive, archive + RAM
 app.get('/bars', (req, res) => {
   const sym = String(req.query.sym || '').toUpperCase();
   if (!sym) {
@@ -514,18 +695,37 @@ app.get('/bars', (req, res) => {
       sym: s, tf: s.includes('_') ? Number(s.split('_')[1]) : 3, count: bars[s].length,
       first: bars[s].length ? bars[s][0].t : null,
       last: bars[s].length ? bars[s][bars[s].length - 1].t : null,
+      archivedMonths: listBarArchiveMonths(s).length,
     })));
   }
   if (!BAR_SYM_RE.test(sym)) return res.status(400).send('bad symbol');
-  const days = Math.min(BAR_KEEP_DAYS, Math.max(1, Number(req.query.days) || 5));
-  const cut = Date.now() - days * 86400000;
-  res.json({ sym, bars: (bars[sym] || []).filter((b) => b.t >= cut) });
+  const from = String(req.query.from || '');
+  const to = String(req.query.to || '');
+  if ((from && !DAY_RE.test(from)) || (to && !DAY_RE.test(to))) return res.status(400).send('from / to must be YYYY-MM-DD');
+  const mem = bars[sym] || [];
+  let lo, hi;
+  if (from || to) {
+    lo = from || '0000-00-00'; hi = to || '9999-99-99';
+  } else {
+    const days = Math.max(1, Number(req.query.days) || 5);
+    const cut = Date.now() - days * 86400000;
+    if (cut >= barCutoff() || days <= BAR_KEEP_DAYS) return res.json({ sym, bars: mem.filter((b) => b.t >= cut) }); // unchanged fast path
+    lo = etDay(cut); hi = '9999-99-99';
+  }
+  const map = new Map();
+  listBarArchiveMonths(sym).filter((m) => m >= lo.slice(0, 7) && m <= hi.slice(0, 7)).forEach((m) => {
+    readGzLines(path.join(barArchDir(sym), m + '.ndjson.gz')).forEach((b) => map.set(b.t, b));
+  });
+  mem.forEach((b) => map.set(b.t, b)); // RAM copy wins
+  const out = Array.from(map.values()).filter((b) => { const d = etDay(b.t); return d >= lo && d <= hi; }).sort((x, y) => x.t - y.t);
+  sendJsonMaybeGzip(req, res, { sym, bars: out });
 });
 
 // POST /bars/import?token=SECRET&sym=MES  -- history backfill from TradingView "Export chart data" (CSV, with
 // BarFeed on the chart so its Data Window columns e9, e20, h9 ... are included) or a JSON array of bars.
 // Candles that already exist (from the live feed) are kept; only missing ones are added.
 // v7: add &replace=1 to overwrite existing candles (same open time) with the file's values.
+// v9: candles older than BAR_KEEP_DAYS go straight to the archive (before v9 they were silently skipped).
 function splitCsvLine(line) {
   const out = []; let cur = ''; let q = false;
   for (let i = 0; i < line.length; i++) {
@@ -562,7 +762,7 @@ function csvToBars(text) {
 app.post('/bars/import', (req, res) => {
   if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
   const sym = String(req.query.sym || '').toUpperCase();
-  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('Add ?sym=MES (or MGC, or MES_2 / MGC_5 for a 2m / 5m feed)');
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('Add ?sym=MES (or MGC, or MES_2 / MGC_5 / MES_1 for a 2m / 5m / 1m feed)');
   let list;
   try {
     const body = typeof req.body === 'string' ? req.body : '';
@@ -574,9 +774,11 @@ app.post('/bars/import', (req, res) => {
   const replace = req.query.replace === '1' || req.query.replace === 'true'; // v7
   const have = new Set((bars[sym] || []).map((b) => b.t));
   let added = 0, replaced = 0;
+  const old = []; // v9: older than BAR_KEEP_DAYS -> archive
   list.forEach((raw) => {
     const b = cleanBar(raw);
-    if (!b || b.t < cut) return;
+    if (!b) return;
+    if (b.t < cut) { old.push(b); return; }
     if (have.has(b.t)) {
       if (!replace) return;
       upsertBar(sym, b); replaced++;
@@ -585,8 +787,10 @@ app.post('/bars/import', (req, res) => {
     upsertBar(sym, b); have.add(b.t); added++;
   });
   if (added || replaced) rewriteBarFile(sym);
-  console.log(`bars import ${sym}: ${added} added, ${replaced} replaced${replace ? ' (replace on)' : ''}`);
-  res.send(`Imported ${added} new candle(s)` + (replace ? ` and replaced ${replaced} existing candle(s)` : '') + ` for ${sym} (${(bars[sym] || []).length} stored).`);
+  const archived = old.length ? mergeBarsIntoArchive(sym, old, replace) : 0;
+  console.log(`bars import ${sym}: ${added} added, ${replaced} replaced${replace ? ' (replace on)' : ''}, ${old.length} older than ${BAR_KEEP_DAYS} d -> archive (${archived} new)`);
+  res.send(`Imported ${added} new candle(s)` + (replace ? ` and replaced ${replaced} existing candle(s)` : '') + ` for ${sym} (${(bars[sym] || []).length} stored)` +
+    (old.length ? `; ${old.length} older candle(s) went to the archive (${archived} new).` : '.'));
 });
 
 // ---- Live stream for the dashboard ----
@@ -613,6 +817,7 @@ app.get('/', (req, res) => {
 app.use('/checklist-uploads', express.static(CHECKLIST_UPLOADS_DIR));
 
 // ---- Clear all stored alerts ----
+// v9: clears the alerts in RAM / alerts.json only; the archive on disk is left alone.
 app.post('/clear', (req, res) => {
   if (SECRET && req.query.token !== SECRET) {
     return res.status(401).send('Unauthorized');
@@ -630,6 +835,7 @@ app.post('/clear', (req, res) => {
 //   curl -X POST "https://YOUR-APP.onrender.com/restore?token=YOUR_SECRET" \
 //        -H "Content-Type: application/json" --data-binary @alerts.json
 // Replaces whatever alerts are currently stored (same "last MAX_ALERTS win" trimming as normal).
+// v9: also merged into the archive, so older backups (e.g. a saved 10/12-10/18 /alerts file) land there.
 app.post('/restore', (req, res) => {
   if (SECRET && req.query.token !== SECRET) {
     return res.status(401).send('Unauthorized');
@@ -643,10 +849,12 @@ app.post('/restore', (req, res) => {
   if (!Array.isArray(parsed)) {
     return res.status(400).send('Expected a JSON array of alerts (the same shape /alerts returns).');
   }
+  const archived = mergeAlertsIntoArchive(parsed.filter((a) => a && a.receivedAt && etDay(a.receivedAt) < etDay(Date.now())));
   alerts = parsed.slice(0, MAX_ALERTS);
   flushAlerts();
   saveAlerts();
-  res.status(200).send(`Restored ${alerts.length} alert(s).`);
+  archiveAlerts(); // drop anything older than MEM_ALERT_DAYS from RAM (now safely archived)
+  res.status(200).send(`Restored ${parsed.length} alert(s); ${archived} new in the archive; ${alerts.length} kept in RAM.`);
 });
 
 // ============================================================================
@@ -1079,7 +1287,9 @@ app.get('/health', (req, res) => {
     dataDirWriteError = e.message;
   }
   const mem = process.memoryUsage(); // v8: watch this once the alert store grows toward 100000
+  const archDays = listAlertArchiveDays();
   res.json({
+    serverVersion: 9,
     serverStartedAt: SERVER_STARTED_AT,
     uptimeSeconds: Math.round(process.uptime()),
     pid: process.pid,
@@ -1088,7 +1298,10 @@ app.get('/health', (req, res) => {
     dataDirWritable,
     dataDirWriteError,
     maxAlerts: MAX_ALERTS,
+    memAlertDays: MEM_ALERT_DAYS,
+    barKeepDays: BAR_KEEP_DAYS,
     oldestAlertAt: alerts.length ? alerts[alerts.length - 1].receivedAt : null,
+    archive: { alertDays: archDays.length, firstAlertDay: archDays[0] || null, lastAlertDay: archDays[archDays.length - 1] || null, lastArchiveRun },
     memoryMB: { rss: Math.round(mem.rss / 1048576), heapUsed: Math.round(mem.heapUsed / 1048576) },
     files: {
       'journal.json': Object.assign({ inMemoryEntryCount: Object.keys(journalEntries).length }, fileStatus(JOURNAL_FILE)),
@@ -1097,12 +1310,12 @@ app.get('/health', (req, res) => {
       'autopsy.json': Object.assign({ inMemoryEntryCount: Object.keys(autopsyEntries).length }, fileStatus(AUTOPSY_FILE)),
       'alerts.json': Object.assign({ inMemoryEntryCount: alerts.length }, fileStatus(DATA_FILE)),
     },
-    bars: Object.keys(bars).map((s) => Object.assign({ sym: s, inMemoryCount: bars[s].length }, fileStatus(barFile(s)))),
+    bars: Object.keys(bars).map((s) => Object.assign({ sym: s, inMemoryCount: bars[s].length, archivedMonths: listBarArchiveMonths(s).length }, fileStatus(barFile(s)))),
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`TradingView webhook dashboard running on port ${PORT}`);
+  console.log(`TradingView webhook dashboard v9 running on port ${PORT}`);
   console.log(`Webhook URL path: /webhook${SECRET ? '?token=' + SECRET : ''}`);
   console.log(`DATA_DIR: ${DATA_DIR} (${process.env.DATA_DIR ? 'from DATA_DIR env var' : 'default __dirname — set DATA_DIR to a mounted Disk to persist across redeploys'})`);
 });
