@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v140 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v141 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,9 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v141: Stats -- checkbox in front of each trigger row: unticked triggers are left out of Total (all three windows and the
+       Total detail view; remembered in this browser). CHART button now on 2m / 5m (and any "SYM 2m") setups and alerts too,
+       and it opens that chart timeframe's bar feed (MES_2, MGC_5 ...), falling back to the 3m feed.
      v140: FIX -- the floating Trade Setup box (left) covered the left part of the feed when it got wide (MNQ prices,
        9 symbol tabs). The feed now moves right of the box whenever they would overlap (re-checked on resize / box change).
      v139: Chart tab Import CSV asks "Replace candles already stored?" (OK = &replace=1, needs server.js v7) so a corrected
@@ -2488,7 +2491,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v140</footer>
+<footer>tv-webhook-dashboard · v141</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -5352,7 +5355,7 @@
     const el = document.getElementById('statsDetail');
     if (!statsSel.k) { el.innerHTML = ''; return; }
     const symF = statsSymSel.value || 'all';
-    const recsK = statsRecords(statsSel.win, symF).filter((r) => statsSel.k === 'Total' || r.k === statsSel.k);
+    const recsK = statsRecords(statsSel.win, symF).filter((r) => (statsSel.k === 'Total' ? !statsExcl.has(r.k) : r.k === statsSel.k));
     // v122: MTF filter (all / with / against)
     const obIn = (r) => r.ob === 'same' || r.ob === 'opp';
     // v126: near = not inside a block, nearest active block within statsSel.obNear pts
@@ -5553,6 +5556,9 @@
       sum + `<div ${box}>${hd('How it ended')}${whyHtml || '–'}</div>` + `<div ${box}>${hd('Result distribution (pts)')}${bHtml}</div>` + `<div ${box}>${hd('Furthest target')}${mxHtml || '–'}</div>` + `<div ${box}>${hd('Efficiency Ratio at setup')}${erHtml}</div>` + `<div ${box}>${hd('MTF CBC at setup')}${mtfHtml}</div>` + `<div ${box}>${hd('Order block at setup')}${obHtml}</div>` + `<div ${box}>${hd('Flip volume at setup')}${fvHtml}</div>` + `<div ${box}>${hd('LTF pattern at setup')}${patHtml}</div>` + `<div ${box}>${hd('VWAP extension at setup')}${vxHtml}</div>` + `<div ${box}>${hd('Range position at setup')}${rgHtml}</div>` + `<div ${box}>${hd('Stop method at setup')}${slHtml}</div>` + `<div ${box}>${hd('Opening range at setup')}${orHtml}</div>` + `<div ${box}>${hd('Time of day (ET)')}${tdHtml}</div>` + statsWhatIfHtml(recs) + statsAtrGridHtml(recs, symF) +
       `<div style="max-height:240px;overflow:auto;margin-top:4px;"><table style="border-collapse:collapse;font-size:11px;width:100%;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Time</th><th style="text-align:left;padding:2px 6px;">Symbol</th><th style="text-align:left;padding:2px 6px;">Dir</th><th style="text-align:left;padding:2px 6px;">${statsSel.k === 'Total' ? 'Trigger' : ''}</th><th style="text-align:left;padding:2px 6px;">Ended</th><th style="text-align:right;padding:2px 6px;">Pts</th><th style="text-align:left;padding:2px 6px;">Max</th><th style="text-align:left;padding:2px 6px;">Flop</th><th style="text-align:right;padding:2px 6px;">ER</th><th style="text-align:center;padding:2px 6px;" title="MTF CBC at setup: ✓ with the setup direction, ✗ against">MTF</th><th style="text-align:center;padding:2px 6px;" title="Order block at setup: + same side (long in OB+, short in OB-), − opposite, ≈+ / ≈− near (within the Near pts), · neither">OB</th><th style="text-align:right;padding:2px 6px;" title="Flip-candle volume share in the trade direction / RVOL">Vol</th><th style="text-align:right;padding:2px 6px;">What-if</th></tr>${list}</table>${recs.length > 50 ? '<div style="font-size:11px;opacity:.7;padding:4px 6px;">Newest 50 of ' + recs.length + ' shown.</div>' : ''}</div></div>`;
   }
+  // v141: triggers left out of Total (remembered in this browser)
+  let statsExcl = new Set();
+  try { statsExcl = new Set(JSON.parse(localStorage.getItem('statsExcl') || '[]')); } catch (e) { statsExcl = new Set(); }
   function renderStats() {
     const symF = statsSymSel.value || 'all';
     const wins = [['Last 100', 100], ['Last 500', 500], ['All stored', Infinity]];
@@ -5569,13 +5575,31 @@
     let h = '<tr><th ' + th.replace('right', 'left') + '>Trigger</th>' + wins.map(([lbl], j) => `<th colspan="3" ${th.replace('right', 'center')}>${lbl} <span style="opacity:.6;font-weight:400">(${Math.min(wins[j][1], alerts.length)} alerts)</span></th>`).join('') + '</tr>';
     h += '<tr><th ' + th + '></th>' + wins.map(() => `<th ${th}>Setups</th><th ${th}>Win %</th><th ${th}>Avg pts</th>`).join('') + '</tr>';
     const sel = (k) => (statsSel.k === k ? 'background:#334155;' : '');
-    keys.forEach((k) => { h += `<tr data-stats-k="${escapeHtml(k)}" style="cursor:pointer;${sel(k)}" title="Click for the distribution of outcomes"><td style="padding:4px 6px;border-bottom:1px solid #1e293b;text-decoration:underline dotted;">${escapeHtml(k)}</td>` + data.map((d) => cell(d.rows[k])).join('') + '</tr>'; });
-    h += `<tr data-stats-k="Total" style="font-weight:700;background:#1e293b;cursor:pointer;${sel('Total')}" title="Click for the distribution of outcomes"><td style="padding:4px 6px;text-decoration:underline dotted;">Total</td>` + data.map((d) => cell(d.tot)).join('') + '</tr>';
+    // v141: checkbox per trigger -- unticked triggers are left out of Total (and of the Total detail view)
+    keys.forEach((k) => {
+      const inc = !statsExcl.has(k);
+      h += `<tr data-stats-k="${escapeHtml(k)}" style="cursor:pointer;${sel(k)}${inc ? '' : 'opacity:.45;'}" title="Click for the distribution of outcomes"><td style="padding:4px 6px;border-bottom:1px solid #1e293b;"><input type="checkbox" class="stats-inc" data-k="${escapeHtml(k)}" ${inc ? 'checked' : ''} title="Include this trigger in Total" style="margin:0 6px 0 0;vertical-align:middle;cursor:pointer;"><span style="text-decoration:underline dotted;">${escapeHtml(k)}</span></td>` + data.map((d) => cell(d.rows[k])).join('') + '</tr>';
+    });
+    const totOf = (d) => {
+      const t = { n: 0, l: 0, s: 0, w: 0, lo: 0, sum: 0, cnt: 0 };
+      keys.forEach((k) => { const r = d.rows[k]; if (!r || statsExcl.has(k)) return; Object.keys(t).forEach((f) => { t[f] += r[f] || 0; }); });
+      return t;
+    };
+    const nEx = keys.filter((k) => statsExcl.has(k)).length;
+    h += `<tr data-stats-k="Total" style="font-weight:700;background:#1e293b;cursor:pointer;${sel('Total')}" title="Click for the distribution of outcomes"><td style="padding:4px 6px;"><span style="text-decoration:underline dotted;">Total</span>${nEx ? ` <span style="font-weight:400;opacity:.75;font-size:11px;">(${keys.length - nEx} of ${keys.length} triggers)</span>` : ''}</td>` + data.map((d) => cell(totOf(d))).join('') + '</tr>';
     document.getElementById('statsTbl').innerHTML = h;
     document.getElementById('statsNote').textContent = alerts.length + ' alerts stored';
     renderStatsDetail();
   }
   document.getElementById('statsTbl').addEventListener('click', (e) => {
+    const cb = e.target.closest && e.target.closest('.stats-inc');
+    if (cb) {
+      e.stopPropagation();
+      if (cb.checked) statsExcl.delete(cb.dataset.k); else statsExcl.add(cb.dataset.k);
+      try { localStorage.setItem('statsExcl', JSON.stringify([...statsExcl])); } catch (err) {}
+      renderStats();
+      return;
+    }
     const tr = e.target.closest && e.target.closest('tr[data-stats-k]');
     if (!tr) return;
     statsSel.k = statsSel.k === tr.dataset.statsK ? null : tr.dataset.statsK;
@@ -8635,12 +8659,13 @@
   function chGotoBtn(a) {
     if (!a || !a.raw) return '';
     // v101: any alert with a real ticker (e.g. "MES1!"), not only Trade Setups
-    const r0 = (getSymbol(a.raw) || '').replace(/\s+CH\d+$/, '').replace(/^.*:/, '').replace(/[0-9!]+$/, '').toUpperCase();
+    // v141: also strip the chart-timeframe suffix ("MES1! 2m") so 2m / 5m setups and alerts get the button too
+    const r0 = (getSymbol(a.raw) || '').replace(/\s+CH\d+$/, '').replace(/\s+\d+m$/i, '').replace(/^.*:/, '').replace(/[0-9!]+$/, '').toUpperCase();
     if (!/^[A-Z][A-Z0-9]{1,6}$/.test(r0)) return '';
     const isSetup = /•\s*(?:CH\d+\s+)?Trade Setup:/.test(a.raw);
     return `<button type="button" class="ch-goto" data-ch-id="${escapeHtml(String(a.id))}" title="Show this ${isSetup ? 'setup' : 'alert'} on the chart">CHART</button>`;
   }
-  const chRootSym = (s) => (s || '').replace(/\s+CH\d+$/, '').replace(/^.*:/, '').replace(/[0-9!]+$/, '').toUpperCase();
+  const chRootSym = (s) => (s || '').replace(/\s+CH\d+$/, '').replace(/\s+\d+m$/i, '').replace(/^.*:/, '').replace(/[0-9!]+$/, '').toUpperCase();
   document.addEventListener('click', (e) => {
     const btn = e.target && e.target.closest ? e.target.closest('.ch-goto') : null;
     if (!btn) return;
@@ -8655,7 +8680,9 @@
     const days = [2, 5, 10, 20, 60].find((d) => d >= need) || 60;
     if ((parseInt(chDaysSel.value, 10) || 0) < days) chDaysSel.value = String(days);
     const r0 = chRootSym(getSymbol(a.raw));
-    chState.sym = chKeyRoot(chSymSel.value || chState.sym) === r0 ? (chSymSel.value || chState.sym) : r0;
+    // v141: open the feed of the alert's own chart timeframe (MES = 3m, MES_2 = 2m, MES_5 = 5m), falling back to the 3m feed
+    const tfA = statsTfOf(a.raw).tf;
+    chState.sym = tfA && tfA !== 3 ? r0 + '_' + tfA : r0;
     chState.focusMs = ms;
     const built = !!chState.chart;
     if (tabAlertsBtn.classList.contains('active')) {
@@ -8670,6 +8697,7 @@
     }
     if (built) {
       if (![...chSymSel.options].some((o) => o.value === chState.sym)) await chLoadSymbols();
+      if (![...chSymSel.options].some((o) => o.value === chState.sym)) chState.sym = r0;
       chSymSel.value = chState.sym;
       chSavePrefs();
       chRetry = 0;
