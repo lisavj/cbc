@@ -6,6 +6,11 @@
 //                                        v9: ?from=YYYY-MM-DD[&to=YYYY-MM-DD] (ET dates) also reads the archive
 // - GET  /bars?sym=MES&days=5          <- BarFeed bars for the Chart tab (v9: &from=YYYY-MM-DD[&to=] reads the archive)
 // - GET  /archive                      <- v9: list of archived alert days and bar months
+//   v10: DUPLICATE ALERTS. (1) A webhook alert whose text is identical to one stored within the last DUP_WINDOW_SEC
+//        seconds (env, default 60) is ignored (answered 200 "Duplicate ignored"; counted in /health).
+//        (2) GET /dedupe?token=SECRET = dry run over RAM + the whole archive; POST /dedupe?token=SECRET&apply=1
+//        removes identical copies within the window (first copy kept). &mode=near also removes near duplicates
+//        (same first line, Chart, Time and alert names, different text; the longest copy is kept). &window=SEC.
 //   v9: LONG-TERM ARCHIVE on the Render Disk (DATA_DIR/archive). Nothing is thrown away any more:
 //       - Alerts: every completed ET day is written to archive/alerts/YYYY-MM-DD.ndjson.gz (hourly + at startup).
 //         RAM keeps only the last MEM_ALERT_DAYS (env, default 30) days; older alerts are dropped from RAM
@@ -394,6 +399,119 @@ function archiveAlerts() {
   if (added || dropped || failed.size) console.log(`archive: ${added} alert(s) archived, ${dropped} dropped from RAM (older than ${MEM_ALERT_DAYS} d)${failed.size ? ', FAILED days: ' + Array.from(failed).join(' ') : ''}`);
 }
 
+// ============================================================================
+// v10: duplicate alerts.
+//   (1) LIVE GUARD: an alert whose text is IDENTICAL to one received within the last DUP_WINDOW_SEC seconds
+//       (env, default 60) is ignored -- not stored, not broadcast, not sent to Discord. The webhook still
+//       answers 200 ("Duplicate ignored") so TradingView does not retry. BarFeed candles are not affected
+//       (they already replace each other by candle time).
+//   (2) CLEAN-UP of what is already stored (RAM + every archive day file):
+//         GET  /dedupe?token=SECRET                 -> dry run: what would be removed (nothing changes)
+//         POST /dedupe?token=SECRET&apply=1         -> removes them
+//       Add &mode=near to also remove NEAR duplicates: same first line, same "Chart:" and "Time:" lines and the
+//       same set of "•" alert names within the window, but slightly different text (e.g. two alerts on the same
+//       chart). For near duplicates the LONGEST text is kept (the fuller snapshot); for identical ones the first.
+//       &window=SEC overrides the window for the clean-up only. Alerts are compared across day boundaries.
+// ============================================================================
+const DUP_WINDOW_MS = Math.max(1, Number(process.env.DUP_WINDOW_SEC || 60)) * 1000;
+const recentRaw = new Map(); // raw text -> last receivedAt (ms) of a STORED alert with that text
+let duplicatesIgnored = 0;
+let lastDedupe = null;
+
+function isLiveDuplicate(raw, nowMs) {
+  // prune old entries (Map keeps insertion order, oldest first)
+  for (const [k, t] of recentRaw) { if (nowMs - t > DUP_WINDOW_MS) recentRaw.delete(k); else break; }
+  const t = recentRaw.get(raw);
+  return t !== undefined && nowMs - t <= DUP_WINDOW_MS;
+}
+function rememberRaw(raw, nowMs) { recentRaw.delete(raw); recentRaw.set(raw, nowMs); }
+
+function alertRawText(a) { return typeof a.raw === 'string' ? a.raw : JSON.stringify(a.raw); }
+function nearKey(raw) {
+  const lines = raw.split('\n');
+  const ch = /Chart: ([^\n]*)/.exec(raw);
+  const tm = /Time: ([^\n]*)/.exec(raw);
+  if (!ch || !tm) return null; // only alerts with a chart + time line can be near duplicates
+  const names = lines.filter((l) => l.trim().startsWith('•')).map((l) => l.trim().split(':')[0]).sort().join('|');
+  return [(lines[0] || '').trim(), ch[1].trim(), tm[1].trim(), names].join('##');
+}
+
+// Finds duplicate ids over RAM + archive. Reads one day file at a time and keeps only small summaries.
+function findDuplicates(mode, windowMs) {
+  const days = new Set(listAlertArchiveDays());
+  const ramByDay = {};
+  alerts.forEach((a) => { const d = etDay(a.receivedAt); days.add(d); (ramByDay[d] || (ramByDay[d] = [])).push(a); });
+  const remove = new Map(); // id -> { day, kind }
+  const lastExact = new Map(); // raw -> ms of the kept copy
+  const lastNear = new Map(); // nearKey -> { id, ms, len, day }
+  let scanned = 0;
+  Array.from(days).sort().forEach((day) => {
+    const seen = new Set();
+    const list = [];
+    (ramByDay[day] || []).concat(readGzLines(alertDayFile(day))).forEach((a) => {
+      if (!a || !a.id || seen.has(a.id)) return;
+      seen.add(a.id);
+      const raw = alertRawText(a);
+      list.push({ id: a.id, ms: Date.parse(a.receivedAt), raw, len: raw.length, day });
+    });
+    list.sort((x, y) => x.ms - y.ms || (x.id < y.id ? -1 : 1));
+    scanned += list.length;
+    list.forEach((x) => {
+      const t = lastExact.get(x.raw);
+      if (t !== undefined && x.ms - t <= windowMs) { remove.set(x.id, { day, kind: 'identical' }); return; }
+      lastExact.set(x.raw, x.ms);
+      if (mode !== 'near') return;
+      const k = nearKey(x.raw);
+      if (!k) return;
+      const p = lastNear.get(k);
+      if (p && x.ms - p.ms <= windowMs) {
+        if (x.len > p.len) { remove.set(p.id, { day: p.day, kind: 'near' }); lastNear.set(k, { id: x.id, ms: p.ms, len: x.len, day }); }
+        else remove.set(x.id, { day, kind: 'near' });
+        return;
+      }
+      lastNear.set(k, { id: x.id, ms: x.ms, len: x.len, day });
+    });
+    // forget entries that can no longer match (keeps memory small over a long archive)
+    const lastMs = list.length ? list[list.length - 1].ms : 0;
+    for (const [k, t] of lastExact) if (lastMs - t > windowMs) lastExact.delete(k);
+    for (const [k, p] of lastNear) if (lastMs - p.ms > windowMs) lastNear.delete(k);
+  });
+  return { scanned, remove };
+}
+
+function dedupeHandler(req, res) {
+  if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
+  const mode = req.query.mode === 'near' ? 'near' : 'identical';
+  const windowMs = Number(req.query.window) > 0 ? Number(req.query.window) * 1000 : DUP_WINDOW_MS;
+  const apply = req.method === 'POST' && (req.query.apply === '1' || req.query.apply === 'true');
+  flushAlerts();
+  const { scanned, remove } = findDuplicates(mode, windowMs);
+  const perDay = {};
+  let identical = 0, near = 0;
+  remove.forEach((v) => { perDay[v.day] = (perDay[v.day] || 0) + 1; if (v.kind === 'near') near++; else identical++; });
+  let filesRewritten = 0, ramRemoved = 0;
+  const errors = [];
+  if (apply && remove.size) {
+    Object.keys(perDay).forEach((day) => {
+      const file = alertDayFile(day);
+      if (!fs.existsSync(file)) return;
+      try {
+        const old = readGzLines(file);
+        const keep = old.filter((a) => !remove.has(a.id));
+        if (keep.length !== old.length) { writeGzLines(file, keep); filesRewritten++; }
+      } catch (e) { errors.push(day + ': ' + e.message); }
+    });
+    const n0 = alerts.length;
+    alerts = alerts.filter((a) => !remove.has(a.id));
+    ramRemoved = n0 - alerts.length;
+    Object.keys(archivedCount).forEach((d) => { delete archivedCount[d]; }); // recount on the next archive run
+    saveAlerts();
+  }
+  lastDedupe = { at: new Date().toISOString(), mode, windowSec: windowMs / 1000, applied: apply, scanned, found: remove.size, identical, near, filesRewritten, ramRemoved };
+  console.log(`dedupe (${mode}, ${windowMs / 1000} s, ${apply ? 'APPLIED' : 'dry run'}): scanned ${scanned}, duplicates ${remove.size} (identical ${identical}, near ${near}), files rewritten ${filesRewritten}, RAM removed ${ramRemoved}${errors.length ? ', errors: ' + errors.join('; ') : ''}`);
+  res.json(Object.assign({}, lastDedupe, { perDay, errors, note: apply ? 'Removed.' : 'Dry run -- nothing changed. POST with &apply=1 to remove.' }));
+}
+
 // ---- Live-update clients (Server-Sent Events) ----
 let sseClients = [];
 
@@ -604,6 +722,16 @@ app.post('/webhook', (req, res) => {
     return res.status(200).send('OK');
   }
 
+  // v10: ignore an alert identical to one stored within the last DUP_WINDOW_SEC seconds (TradingView double-send,
+  // or the same alert set up twice). Answer 200 so TradingView does not retry.
+  const rawText = typeof body === 'string' ? body : JSON.stringify(body);
+  const nowMs = Date.now();
+  if (isLiveDuplicate(rawText, nowMs)) {
+    duplicatesIgnored++;
+    console.log(`alert DUPLICATE ignored (identical within ${DUP_WINDOW_MS / 1000} s): ${(rawText.split('\n')[0] || '').slice(0, 60)}`);
+    return res.status(200).send('Duplicate ignored');
+  }
+  rememberRaw(rawText, nowMs);
   const alert = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
     receivedAt: new Date().toISOString(),
@@ -683,6 +811,10 @@ app.get('/archive', (req, res) => {
     }),
   });
 });
+
+// ---- v10: remove duplicate alerts already stored (see the v10 block near the top) ----
+app.get('/dedupe', dedupeHandler);   // dry run only
+app.post('/dedupe', dedupeHandler);  // &apply=1 removes
 
 // ---- v2: BarFeed bars for the Chart tab ----
 // GET /bars                     -> [{ sym, count, first, last, archivedMonths }]
@@ -1289,7 +1421,8 @@ app.get('/health', (req, res) => {
   const mem = process.memoryUsage(); // v8: watch this once the alert store grows toward 100000
   const archDays = listAlertArchiveDays();
   res.json({
-    serverVersion: 9,
+    serverVersion: 10,
+    duplicates: { windowSec: DUP_WINDOW_MS / 1000, ignoredSinceStart: duplicatesIgnored, lastDedupe },
     serverStartedAt: SERVER_STARTED_AT,
     uptimeSeconds: Math.round(process.uptime()),
     pid: process.pid,
@@ -1315,7 +1448,7 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`TradingView webhook dashboard v9 running on port ${PORT}`);
+  console.log(`TradingView webhook dashboard v10 running on port ${PORT}`);
   console.log(`Webhook URL path: /webhook${SECRET ? '?token=' + SECRET : ''}`);
   console.log(`DATA_DIR: ${DATA_DIR} (${process.env.DATA_DIR ? 'from DATA_DIR env var' : 'default __dirname — set DATA_DIR to a mounted Disk to persist across redeploys'})`);
 });
