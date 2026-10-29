@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v141 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v142 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,10 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v142: FASTER LOAD (iPhone): the page now loads only the newest 1000 alerts (/alerts?limit=1000; ~3,000 alerts arrive per
+       day) instead of every stored alert (13,000-18,000). The full store is fetched only when it is needed: opening Stats, the Chart tab when its day range reaches past the oldest loaded alert,
+       Backup > Download, or the new "Load all" link next to the alert count. Live alerts keep arriving as before; alerts
+       that arrive while the full list loads are kept (merged by id). Simple Mode shows the newest 300 rows (link to show all).
      v141: Stats -- checkbox in front of each trigger row: unticked triggers are left out of Total (all three windows and the
        Total detail view; remembered in this browser). CHART button now on 2m / 5m (and any "SYM 2m") setups and alerts too,
        and it opens that chart timeframe's bar feed (MES_2, MGC_5 ...), falling back to the 3m feed.
@@ -1996,7 +2000,7 @@
     <span>Alert Feed <b id="conn">connecting…</b></span>
   </div>
   <div class="stats">
-    <span><strong id="count">0</strong> received</span>
+    <span><strong id="count">0</strong> received <a href="#" id="loadAllLink" style="font-size:11px;opacity:.8;margin-left:4px;">(newest 1000 · load all)</a></span>
   </div>
   <div class="ext-links">
     <a href="https://www.forexfactory.com/" target="_blank" rel="noopener">forex</a>
@@ -2491,7 +2495,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v141</footer>
+<footer>tv-webhook-dashboard · v142</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -3810,6 +3814,7 @@
   });
 
   let alerts = [];
+  let simpleShowAll = false; // v142
   let activeFilter = 'all';
   const expandedIds = new Set();
   // Tracks which (symbol :: tier) sections are collapsed — e.g. "MES1!::forming" — so the state
@@ -3822,7 +3827,7 @@
   // Caps how many cards render inside an EXPANDED tier (Actionable/Forming/Context all share this
   // one setting) — the tier's count badge always shows the true total regardless of this cap.
   const tierLimitEl = document.getElementById('tierLimitSelect');
-  tierLimitEl.value = localStorage.getItem('tierLimit') || '25';
+  tierLimitEl.value = localStorage.getItem('tierLimit') || (window.innerWidth < 700 ? '10' : '25'); // v142: phones default to 10 per tier
   tierLimitEl.addEventListener('change', () => {
     localStorage.setItem('tierLimit', tierLimitEl.value);
     render();
@@ -3842,7 +3847,19 @@
   // CBC Wire messages (a separate companion script — see parseCbcWireAlert below) didn't carry a
   // symbol at all before v0.67; older messages fall back to a generic "CBC Wire" filter bucket so
   // they at least don't pollute the dropdown with garbage (the whole raw string as a "symbol").
+  // v142: getSymbol is called several times per alert on every render -- cache the result per raw text.
+  const getSymbolCache = new Map();
   function getSymbol(raw) {
+    const key = raw || '';
+    let v = getSymbolCache.get(key);
+    if (v === undefined) {
+      v = getSymbolUncached(key);
+      if (getSymbolCache.size > 50000) getSymbolCache.clear();
+      getSymbolCache.set(key, v);
+    }
+    return v;
+  }
+  function getSymbolUncached(raw) {
     const wireAlert = parseCbcWireAlert(raw);
     if (wireAlert) return wireAlert.symbol || 'CBC Wire';
     const firstLine = (raw || '').split('\n')[0] || '';
@@ -5635,6 +5652,16 @@
     if (e.target && e.target.id === 'statsMinSl') { statsSel.minsl = e.target.checked; renderStatsDetail(); }
   });
   document.getElementById('statsBtn').addEventListener('click', () => {
+    // v142: Stats needs every stored alert -- load them first (only once per page load)
+    if (typeof allAlertsLoaded !== 'undefined' && !allAlertsLoaded) {
+      statsModal.style.display = 'block';
+      document.getElementById('statsTbl').innerHTML = '';
+      document.getElementById('statsNote').textContent = 'Loading all stored alerts…';
+      ensureAllAlerts().then(() => document.getElementById('statsBtn').click()).catch(() => {
+        document.getElementById('statsNote').textContent = 'Could not load all alerts – close and try again.';
+      });
+      return;
+    }
     const cur = statsSymSel.value || 'all';
     const syms = Array.from(new Set(alerts.map((a) => getSymbol(a.raw)).filter(Boolean))).sort();
     statsSymSel.innerHTML = '<option value="all">All</option>' + syms.map((x) => `<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join('');
@@ -6528,7 +6555,8 @@
     }
     if (simpleMode) {
       let lastDayKey = null;
-      const rowsHtml = filtered.map(a => {
+      const simpleCap = simpleShowAll ? Infinity : 300; // v142
+      const rowsHtml = filtered.slice(0, simpleCap).map(a => {
         const d = new Date(a.receivedAt);
         const dayKey = d.toDateString();
         const dividerHtml = dayKey !== lastDayKey
@@ -6537,7 +6565,9 @@
         lastDayKey = dayKey;
         return dividerHtml + renderSimpleRow(a);
       }).join('');
-      listEl.innerHTML = rowsHtml;
+      listEl.innerHTML = rowsHtml + (filtered.length > simpleCap ? `<div class="tier-truncated-note">Showing the newest ${simpleCap} of ${filtered.length} — <a href="#" id="simpleShowAllLink">show all</a></div>` : '');
+      const sal = document.getElementById('simpleShowAllLink');
+      if (sal) sal.addEventListener('click', (e) => { e.preventDefault(); simpleShowAll = true; render(); });
       return;
     }
 
@@ -6912,9 +6942,35 @@
     setTimeout(() => pulseEl.classList.remove('live'), 1500);
   }
 
-  // Initial load
-  fetch('/alerts').then(r => r.json()).then(data => {
-    alerts = data;
+  // Initial load -- v142: only the newest FEED_LIMIT alerts; the full store is loaded on demand (ensureAllAlerts)
+  const FEED_LIMIT = 1000;
+  let allAlertsLoaded = false;
+  let allAlertsPromise = null;
+  const loadAllLink = document.getElementById('loadAllLink');
+  function mergeById(full) {
+    // full = every stored alert, newest first; keep anything already here that the server list doesn't have yet
+    const ids = new Set(full.map(a => a.id));
+    return alerts.filter(a => !ids.has(a.id)).concat(full);
+  }
+  function ensureAllAlerts() {
+    if (allAlertsLoaded) return Promise.resolve();
+    if (allAlertsPromise) return allAlertsPromise;
+    if (loadAllLink) loadAllLink.textContent = '(loading all…)';
+    allAlertsPromise = fetch('/alerts').then(r => r.json()).then(data => {
+      alerts = mergeById(data);
+      allAlertsLoaded = true;
+      if (loadAllLink) loadAllLink.style.display = 'none';
+      render();
+    }).catch(err => {
+      allAlertsPromise = null;
+      if (loadAllLink) loadAllLink.textContent = '(load all failed – tap to retry)';
+      throw err;
+    });
+    return allAlertsPromise;
+  }
+  if (loadAllLink) loadAllLink.addEventListener('click', (e) => { e.preventDefault(); ensureAllAlerts().catch(() => {}); });
+  fetch('/alerts?limit=' + FEED_LIMIT).then(r => r.json()).then(data => {
+    alerts = mergeById(data);
     render();
   });
 
@@ -6961,6 +7017,7 @@
 
   backupDownloadRow.addEventListener('click', () => {
     backupPanel.classList.remove('open');
+    if (!allAlertsLoaded) { ensureAllAlerts().then(() => backupDownloadRow.click()).catch(() => alert('Could not load all alerts.')); return; } // v142
     const toExport = activeFilter === 'all' ? alerts : alerts.filter(a => getSymbol(a.raw) === activeFilter);
     if (!toExport.length) { alert('No alerts to download.'); return; }
     const blob = new Blob([JSON.stringify(toExport, null, 2)], { type: 'application/json' });
@@ -9152,6 +9209,8 @@
     const key = chState.sym + '|' + chDaysSel.value;
     if (quiet && key !== chState.loadedKey) return;
     if (!quiet) { chTfOptions(); chRenderLayers(); chStatusEl.textContent = 'Loading ' + chState.sym + '…'; }
+    // v142: setup markers older than the feed window need the full alert store
+    if (!allAlertsLoaded && (!alerts.length || Date.parse(alerts[alerts.length - 1].receivedAt) > Date.now() - (parseInt(chDaysSel.value, 10) || 0) * 86400000)) { try { await ensureAllAlerts(); } catch (e) {} }
     try {
       const data = await fetch('/bars?sym=' + encodeURIComponent(chState.sym) + '&days=' + encodeURIComponent(chDaysSel.value), { cache: 'no-store' }).then((r) => {
         if (!r.ok || !/json/i.test(r.headers.get('content-type') || '')) throw new Error('server not ready (HTTP ' + r.status + ')');
