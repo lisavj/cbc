@@ -1,0 +1,148 @@
+// ===== BarFeed CHANGELOG =====
+// v1.03 (10/20/2026): HTF = 5x the chart timeframe by default, same as CBC ("HTF timeframe" left blank): 2m chart -> 10m,
+//   3m -> 15m, 5m -> 25m. Before, it was fixed at 15, so a 2m or 5m feed sent 15m flips (hc/hf/h9/h20/fl) instead of the
+//   10m / 25m CBC that chart's CBC uses. Typing a timeframe still overrides it. Re-create the alert after updating.
+// v1.02 (10/08/2026): FIX -- the per-minute live candle never fired: last_min started as na and "cur_min != na" is never
+//   true, so it stayed na forever. Now starts at 0. Re-create the alert after updating.
+// v1.01 (10/07/2026): "Also send the forming candle every minute" (ON). While a candle is still open, the first price tick
+//   of each new minute sends the candle so far (same JSON + "live":1, alert.freq_all); the server replaces it in place and
+//   the Alert Feed chart redraws, so a 3m candle updates at 1 and 2 minutes and is final at its close as before.
+//   At most 3 alerts per 3m candle per symbol. Re-create the alert after updating (same settings).
+// v1.00 (10/07/2026): new small indicator for the Alert Feed Chart tab. On every closed chart candle (built for 3m)
+//   it sends ONE alert() with a JSON line: {"type":"bar","sym":"MES","tf":3,"t":<open ms>,"o","h","l","c","v",
+//   "e9","e20" (chart EMA9/20), "h9","h20" (HTF EMA9/20, same request as CBC), "e200","vw" (EMA200, VWAP),
+//   "pp","r1","s1" (daily pivots), "ydh","ydl" (prior NY RTH H/L), "nyh","nyl","lnh","lnl","ash","asl" (opening ranges,
+//   30 min like CBC), "hc" (HTF CBC direction 1/0, taken at the HTF candle close like CBC v9.00+ "act on HTF flip at the
+//   HTF candle close"), "hf" (1 = HTF flip long on this candle, -1 = short, 0), "fl" (flop text: levels the HTF flip candle
+//   crossed, "" if none; held until the next HTF flip)}. The server stores these on its disk instead of the alert list.
+//   The same values are plotted to the Data Window only (titles = the JSON keys), so "Export chart data" gives a CSV the
+//   Chart tab can import for history.
+//   Setup: add to a MES / MGC chart -> Create Alert -> Condition "BarFeed" / "Any alert() function call" ->
+//   Webhook URL = the same /webhook?token=... as CBC. One alert per symbol per chart timeframe.
+//@version=6
+indicator("BarFeed v1.03", overlay = true)
+import samuelsuss8/ESLib/23 as obLib
+
+const string ny_tz = "America/New_York"
+htf_in = input.timeframe("", "HTF timeframe", tooltip = "v1.03: leave blank (default) = 5x the chart timeframe, same as CBC: 2m -> 10m, 3m -> 15m, 5m -> 25m. Type a timeframe only if that chart's CBC uses a different HTF.")
+htf_tf = htf_in == "" ? timeframe.from_seconds(timeframe.in_seconds() * 5) : htf_in
+or_minutes = input.int(30, "Opening range minutes", minval = 1)
+feed_on = input.bool(true, "Send bar alerts")
+live_on = input.bool(true, "Also send the forming candle every minute", tooltip = "v1.01: while the candle is open, its current OHLC is sent at the first tick of each new minute (the chart page redraws it). The final candle is still sent at the close.")
+
+s_tks = ticker.standard(syminfo.tickerid)
+
+// ---- chart-timeframe series (same as CBC) ----
+e9 = ta.ema(close, 9)
+e20 = ta.ema(close, 20)
+e200 = ta.ema(close, 200)
+vw = ta.vwap(hlc3)
+
+// ---- HTF: EMA9/20, CBC state, candle range and close time (same requests as CBC) ----
+f_cbc_state() =>
+    var bool state = false
+    state := state[1]
+    if state and close < low[1]
+        state := false
+    if not state and close > high[1]
+        state := true
+    state
+[h9, h20, h_cbc, h_hi, h_lo, h_tc] = request.security(s_tks, htf_tf, [ta.ema(close, 9), ta.ema(close, 20), f_cbc_state(), high, low, time_close], lookahead = barmerge.lookahead_on)
+
+// HTF CBC taken on the chart candle that closes the HTF candle (CBC v9.00+ default)
+var float hc = na
+float hf = 0.0
+if barstate.isconfirmed and not na(h_tc) and time_close >= h_tc
+    float nv = h_cbc ? 1.0 : 0.0
+    if not na(hc) and nv != hc
+        hf := nv == 1.0 ? 1.0 : -1.0
+    hc := nv
+
+// ---- daily pivots ----
+[pv_h, pv_l, pv_c] = request.security(s_tks, "D", [high[1], low[1], close[1]], lookahead = barmerge.lookahead_on)
+float pp = (pv_h + pv_l + pv_c) / 3
+float r1 = 2 * pp - pv_l
+float s1 = 2 * pp - pv_h
+float r2 = pp + (pv_h - pv_l)
+float s2 = pp - (pv_h - pv_l)
+float r3 = pv_h + 2 * (pp - pv_l)
+float s3 = pv_l - 2 * (pv_h - pp)
+
+// ---- prior NY RTH high / low ----
+bool is_rth = not na(time(timeframe.period, "0930-1600", ny_tz))
+var float rth_hi = na
+var float rth_lo = na
+var float ydh = na
+var float ydl = na
+if not is_rth and is_rth[1]
+    ydh := rth_hi
+    ydl := rth_lo
+if is_rth and not is_rth[1]
+    rth_hi := high
+    rth_lo := low
+else if is_rth
+    rth_hi := na(rth_hi) ? high : math.max(rth_hi, high)
+    rth_lo := na(rth_lo) ? low : math.min(rth_lo, low)
+
+// ---- opening ranges (first N minutes after 9:30 / 3:00 / 20:00 ET, same as CBC) ----
+int or_ms = or_minutes * 60000
+int ny_open = timestamp(ny_tz, year(time, ny_tz), month(time, ny_tz), dayofmonth(time, ny_tz), 9, 30)
+int ln_open = timestamp(ny_tz, year(time, ny_tz), month(time, ny_tz), dayofmonth(time, ny_tz), 3, 0)
+int as_open = obLib.f_asia_or_open_ms()
+bool ny_act = time >= ny_open and time < ny_open + or_ms
+bool ln_act = time >= ln_open and time < ln_open + or_ms
+bool as_act = time >= as_open and time < as_open + or_ms
+var float nyh = na
+var float nyl = na
+var float lnh = na
+var float lnl = na
+var float ash = na
+var float asl = na
+if ny_act
+    nyh := ny_act[1] ? math.max(nyh, high) : high
+    nyl := ny_act[1] ? math.min(nyl, low) : low
+if ln_act
+    lnh := ln_act[1] ? math.max(lnh, high) : high
+    lnl := ln_act[1] ? math.min(lnl, low) : low
+if as_act
+    ash := as_act[1] ? math.max(ash, high) : high
+    asl := as_act[1] ? math.min(asl, low) : low
+
+// ---- flop: levels inside the HTF flip candle's range (ESLib f_flop, no label) ----
+string fl = obLib.f_flop(hf != 0, hf > 0, false, h_lo, h_hi, e200, vw, pp, r1, r2, r3, s1, s2, s3)
+
+// ---- Data Window plots (for "Export chart data" -> Chart tab history import) ----
+plot(e9, "e9", display = display.data_window)
+plot(e20, "e20", display = display.data_window)
+plot(h9, "h9", display = display.data_window)
+plot(h20, "h20", display = display.data_window)
+plot(e200, "e200", display = display.data_window)
+plot(vw, "vw", display = display.data_window)
+plot(pp, "pp", display = display.data_window)
+plot(r1, "r1", display = display.data_window)
+plot(s1, "s1", display = display.data_window)
+plot(ydh, "ydh", display = display.data_window)
+plot(ydl, "ydl", display = display.data_window)
+plot(nyh, "nyh", display = display.data_window)
+plot(nyl, "nyl", display = display.data_window)
+plot(lnh, "lnh", display = display.data_window)
+plot(lnl, "lnl", display = display.data_window)
+plot(ash, "ash", display = display.data_window)
+plot(asl, "asl", display = display.data_window)
+plot(hc, "hc", display = display.data_window)
+plot(hf, "hf", display = display.data_window)
+plot(fl != "" ? 1 : 0, "fl", display = display.data_window)
+
+// ---- the bar alert ----
+f_j(string k, float x) =>
+    ",\"" + k + "\":" + (na(x) ? "null" : str.tostring(x, "#.#####"))
+
+string m = "{\"type\":\"bar\",\"sym\":\"" + syminfo.root + "\",\"tf\":" + timeframe.period + ",\"t\":" + str.tostring(time, "#") + f_j("o", open) + f_j("h", high) + f_j("l", low) + f_j("c", close) + f_j("v", volume) + f_j("e9", e9) + f_j("e20", e20) + f_j("h9", h9) + f_j("h20", h20) + f_j("e200", e200) + f_j("vw", vw) + f_j("pp", pp) + f_j("r1", r1) + f_j("s1", s1) + f_j("ydh", ydh) + f_j("ydl", ydl) + f_j("nyh", nyh) + f_j("nyl", nyl) + f_j("lnh", lnh) + f_j("lnl", lnl) + f_j("ash", ash) + f_j("asl", asl) + f_j("hc", hc) + f_j("hf", hf) + ",\"fl\":\"" + fl + "\""
+if feed_on and barstate.isconfirmed
+    alert(m + "}", alert.freq_once_per_bar_close)
+// v1.01: forming candle, once per new minute (skips the candle's first minute; the close alert sends the final values)
+varip int last_min = 0
+int cur_min = int(timenow / 60000)
+if feed_on and live_on and barstate.isrealtime and not barstate.isconfirmed and timenow - time >= 60000 and cur_min != last_min
+    last_min := cur_min
+    alert(m + ",\"live\":1}", alert.freq_all)

@@ -1,0 +1,48 @@
+// This Pine Script code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//@version=6
+// ESLib3 v1 (10/29/2026, CBC v10.47): "room to the first opposing level" helpers, kept in a new small library so
+// ESLib / ESLib2 do not need a republish. Publish once (Library), then set the import number in CBC.
+library("ESLib3", overlay = true)
+
+// Nearest opposing level beyond en in the trade direction (lg = long: above en; short: below en).
+// cand = the Trade Setup level pool (pivots, YD H/L, PMH/PML, HTF/LTF pivots, EQH/EQL, EMA200, VWAP, ORs ...).
+// lv = ESLib2 f_ob2_manage output (6 values per active order block: code, top, code, bottom, code, mid; 1 = OB+, 4 = OB-).
+// An opposing OB is OB- for a long (its bottom edge counts; 0 when en is inside it), OB+ for a short.
+// Returns float[3]: [distance in pts (na = nothing beyond en), kind (0 = pool level, 1 = opposing OB), index].
+export f_room(float[] cand, float[] lv, bool lg, float en) =>
+    float best = na
+    float kind = na
+    float idx = -1
+    int n = array.size(cand)
+    if n > 0 and not na(en)
+        for i = 0 to n - 1
+            float v = array.get(cand, i)
+            float d = na(v) ? na : lg ? v - en : en - v
+            if not na(d) and d > 0 and (na(best) or d < best)
+                best := d
+                kind := 0
+                idx := i
+    int m = array.size(lv)
+    if m >= 6 and not na(en)
+        for i = 0 to m - 6 by 6
+            if lg ? array.get(lv, i) == 4.0 : array.get(lv, i) == 1.0
+                float t = array.get(lv, i + 1)
+                float b = array.get(lv, i + 3)
+                float d = en >= b and en <= t ? 0.0 : lg ? b - en : en - t
+                if d >= 0 and (na(best) or d < best)
+                    best := d
+                    kind := 1
+                    idx := i
+    array.from(best, kind, idx)
+
+// Alert / tooltip line, e.g. "\nRoom: OB- 7769.75-7766.75 at +1.25 pts = 0.22 x TP1 (0.4 ATR)" or
+// "\nRoom: HTF EQH 4037.1 at +5.1 pts = 1.02 x TP1 (1.7 ATR)". r = f_room result, names parallel to cand,
+// dtp = TP1 distance from Entry (pts), atr = ATR at the setup.
+export f_room_txt(float[] r, float[] cand, string[] names, float[] lv, bool lg, float dtp, float atr) =>
+    float d = array.get(r, 0)
+    string s = "\nRoom: no opposing level"
+    if not na(d)
+        int k = int(array.get(r, 2))
+        string nm = array.get(r, 1) == 1.0 ? "OB" + (lg ? "- " : "+ ") + str.tostring(array.get(lv, k + 1), format.mintick) + "-" + str.tostring(array.get(lv, k + 3), format.mintick) : (k < array.size(names) ? array.get(names, k) + " " : "") + str.tostring(array.get(cand, k), format.mintick)
+        s := "\nRoom: " + nm + " at +" + str.tostring(d, "#.##") + " pts = " + (dtp > 0 ? str.tostring(d / dtp, "0.00") : "—") + " x TP1" + (atr > 0 ? " (" + str.tostring(d / atr, "0.0") + " ATR)" : "")
+    s
