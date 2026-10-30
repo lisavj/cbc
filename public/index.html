@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v144 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v145 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,12 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v145: Stats table -- the "Avg pts" number in every trigger row and Total (Last 100 / Last 500 / All stored) is now a link:
+       click it to open the list of those setups, each with its mini candle chart (same pop-up as v144), newest first.
+       Each setup in the list now has the setup alert's status table (Market, Price, CBC, EMA cloud, VWAP, EMA 200, Structure,
+       Opening range, Fib Zone, HTF flip candle) to the right of its chart.
+       Mini charts now also show the HTF flip candle (blue band + its high/low box), TP2 / SL2, and the exit point (circle at the
+       Setup Ended time, trade span tinted by the result); the window widens to include the flip and the exit.
      v144: Stats detail -- every row label in the small tables (ER, MTF, OB, flip volume, LTF pattern, VWAP extension,
        range position, stop method, opening range ...) is now a link: click it to open a list of exactly those setups,
        each with a mini candle chart around the setup (40 bars before / 40 after from the BarFeed bars of the setup's
@@ -2506,10 +2512,10 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v144</footer>
+<footer>tv-webhook-dashboard · v145</footer>
 
 <div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
-  <div style="max-width:900px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
+  <div style="max-width:1240px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><b id="setupListTitle" style="font-size:14px;"></b><button id="setupListClose" style="margin-left:auto;">✕ Close</button></div>
     <div id="setupListBody"></div>
   </div>
@@ -5607,12 +5613,12 @@
     const data = wins.map(([, n]) => statsCollect(n, symF));
     const keys = STATS_TRIG.map(([k]) => k).concat(['Other']).filter((k) => data.some((d) => d.rows[k]));
     const th = 'style="padding:4px 6px;border-bottom:1px solid #334155;text-align:right;white-space:nowrap;"';
-    const cell = (r) => {
+    const cell = (r, kk, n) => {
       if (!r || !r.n) return '<td ' + th + '>–</td><td ' + th + '>–</td><td ' + th + '>–</td>';
       const wr = r.w + r.lo ? Math.round(r.w / (r.w + r.lo) * 100) + '%' : '–';
       const avg = r.cnt ? (r.sum / r.cnt >= 0 ? '+' : '') + (r.sum / r.cnt).toFixed(2) : '–';
       const col = r.cnt ? (r.sum >= 0 ? '#22C55E' : '#EF4444') : 'inherit';
-      return `<td ${th}><b>${r.n}</b> <span style="opacity:.7">(${r.l}L/${r.s}S)</span></td><td ${th}>${wr} <span style="opacity:.7">${r.w}W/${r.lo}L</span></td><td ${th}><span style="color:${col}">${avg}</span></td>`;
+      return `<td ${th}><b>${r.n}</b> <span style="opacity:.7">(${r.l}L/${r.s}S)</span></td><td ${th}>${wr} <span style="opacity:.7">${r.w}W/${r.lo}L</span></td><td ${th}>${r.n && kk ? `<a href="#" data-stats-pts="${escapeHtml(kk)}" data-stats-n="${n}" title="Show these ${r.n} setups with a chart" style="color:${col};text-decoration:underline dotted;">${avg}</a>` : `<span style="color:${col}">${avg}</span>`}</td>`;
     };
     let h = '<tr><th ' + th.replace('right', 'left') + '>Trigger</th>' + wins.map(([lbl], j) => `<th colspan="3" ${th.replace('right', 'center')}>${lbl} <span style="opacity:.6;font-weight:400">(${Math.min(wins[j][1], alerts.length)} alerts)</span></th>`).join('') + '</tr>';
     h += '<tr><th ' + th + '></th>' + wins.map(() => `<th ${th}>Setups</th><th ${th}>Win %</th><th ${th}>Avg pts</th>`).join('') + '</tr>';
@@ -5620,7 +5626,7 @@
     // v141: checkbox per trigger -- unticked triggers are left out of Total (and of the Total detail view)
     keys.forEach((k) => {
       const inc = !statsExcl.has(k);
-      h += `<tr data-stats-k="${escapeHtml(k)}" style="cursor:pointer;${sel(k)}${inc ? '' : 'opacity:.45;'}" title="Click for the distribution of outcomes"><td style="padding:4px 6px;border-bottom:1px solid #1e293b;"><input type="checkbox" class="stats-inc" data-k="${escapeHtml(k)}" ${inc ? 'checked' : ''} title="Include this trigger in Total" style="margin:0 6px 0 0;vertical-align:middle;cursor:pointer;"><span style="text-decoration:underline dotted;">${escapeHtml(k)}</span></td>` + data.map((d) => cell(d.rows[k])).join('') + '</tr>';
+      h += `<tr data-stats-k="${escapeHtml(k)}" style="cursor:pointer;${sel(k)}${inc ? '' : 'opacity:.45;'}" title="Click for the distribution of outcomes"><td style="padding:4px 6px;border-bottom:1px solid #1e293b;"><input type="checkbox" class="stats-inc" data-k="${escapeHtml(k)}" ${inc ? 'checked' : ''} title="Include this trigger in Total" style="margin:0 6px 0 0;vertical-align:middle;cursor:pointer;"><span style="text-decoration:underline dotted;">${escapeHtml(k)}</span></td>` + data.map((d, j) => cell(d.rows[k], k, wins[j][1])).join('') + '</tr>';
     });
     const totOf = (d) => {
       const t = { n: 0, l: 0, s: 0, w: 0, lo: 0, sum: 0, cnt: 0 };
@@ -5628,7 +5634,7 @@
       return t;
     };
     const nEx = keys.filter((k) => statsExcl.has(k)).length;
-    h += `<tr data-stats-k="Total" style="font-weight:700;background:#1e293b;cursor:pointer;${sel('Total')}" title="Click for the distribution of outcomes"><td style="padding:4px 6px;"><span style="text-decoration:underline dotted;">Total</span>${nEx ? ` <span style="font-weight:400;opacity:.75;font-size:11px;">(${keys.length - nEx} of ${keys.length} triggers)</span>` : ''}</td>` + data.map((d) => cell(totOf(d))).join('') + '</tr>';
+    h += `<tr data-stats-k="Total" style="font-weight:700;background:#1e293b;cursor:pointer;${sel('Total')}" title="Click for the distribution of outcomes"><td style="padding:4px 6px;"><span style="text-decoration:underline dotted;">Total</span>${nEx ? ` <span style="font-weight:400;opacity:.75;font-size:11px;">(${keys.length - nEx} of ${keys.length} triggers)</span>` : ''}</td>` + data.map((d, j) => cell(totOf(d), 'Total', wins[j][1])).join('') + '</tr>';
     document.getElementById('statsTbl').innerHTML = h;
     document.getElementById('statsNote').textContent = alerts.length + ' alerts stored';
     renderStatsDetail();
@@ -5719,6 +5725,15 @@
       if (cb.checked) statsExcl.delete(cb.dataset.k); else statsExcl.add(cb.dataset.k);
       try { localStorage.setItem('statsExcl', JSON.stringify([...statsExcl])); } catch (err) {}
       renderStats();
+      return;
+    }
+    const pts = e.target.closest && e.target.closest('[data-stats-pts]'); // v145: Avg pts -> setups with charts
+    if (pts) {
+      e.preventDefault(); e.stopPropagation();
+      const k = pts.dataset.statsPts, n = pts.dataset.statsN === 'Infinity' ? Infinity : parseInt(pts.dataset.statsN, 10);
+      const rs = statsRecords(n, statsSymSel.value || 'all').filter((r) => (k === 'Total' ? !statsExcl.has(r.k) : r.k === k));
+      const wl = n === Infinity ? 'All stored' : 'Last ' + n;
+      openSetupList(`${k} · ${wl}${statsSymSel.value && statsSymSel.value !== 'all' ? ' · ' + statsSymSel.value : ''}`, rs);
       return;
     }
     const tr = e.target.closest && e.target.closest('tr[data-stats-k]');
@@ -8835,24 +8850,66 @@
     const root = pierceRoot(r.sym);
     if (!root) return { html: '<div style="opacity:.6;font-size:11px;">no bar feed for this symbol</div>' };
     const c = pierceEnsureBars(barKey(root, r.tf || 3), r.ms);
-    if (!c || !c.bars) return { pending: true, html: '<div style="opacity:.6;font-size:11px;">loading bars…</div>' };
-    const B = c.bars;
+    const c0 = pierceBars.get(barKey(root, r.tf || 3)); // v145: still (re)loading a longer history -> wait
+    if (!c || !c.bars || (c0 && c0.loading)) return { pending: true, html: '<div style="opacity:.6;font-size:11px;">loading bars…</div>' };
+    const B = c.bars, TFm = (r.tf || 3) * 60000;
     const j = B.findIndex((b) => b.t >= r.ms - 60000);
     const i = (j < 0 ? B.length : j) - 1; // setup candle = the bar that closed just before the alert
     if (i < 1 || (j >= 0 && B[j].t - (r.ms - 60000) > 10 * 60000) || (j < 0 && r.ms - B[B.length - 1].t > 15 * 60000)) return { html: '<div style="opacity:.6;font-size:11px;">no bars at this time in the feed</div>' };
-    const a = Math.max(0, i - 40), z = Math.min(B.length - 1, i + 40), S = B.slice(a, z + 1);
-    const lv = [r.entry, r.sl1, r.tp1].filter((x) => !isNaN(x));
+    const tl = (ms) => { const d = new Date(ms + chNyOffsetMs(ms)); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+    const num = (v) => { const p = parseFloat(String(v == null ? '' : v).replace(/,/g, '')); return isNaN(p) ? NaN : p; };
+    // v145: details from the setup alert itself -- HTF flip candle, TP2 / SL2
+    const al = r.id != null ? alerts.find((x) => String(x.id) === String(r.id)) : null;
+    const raw = (al && al.raw) || '';
+    const st = raw ? parseTradeSetup(raw) : null;
+    const tp2 = st && st.TP2 ? num(st.TP2.price) : NaN, sl2 = st && st.SL2 ? num(st.SL2.price) : NaN;
+    const fm = /\nHTF \((\d+)m\) flip:\s*(LONG|SHORT)\s+(\d{1,2}:\d{2})/.exec(raw);
+    const hcm = /HTF Candle \([^)]*\):\s*H=([-\d.,]+)\s+L=([-\d.,]+)/.exec(raw);
+    let flip = null;
+    if (fm) {
+      const hm = fm[3].padStart(5, '0'), HM = parseInt(fm[1], 10) * 60000;
+      const span = (k0) => { let k1 = k0; while (k1 + 1 < B.length && B[k1 + 1].t < B[k0].t + HM) k1++; let h = -Infinity, l = Infinity; for (let k = k0; k <= k1; k++) { h = Math.max(h, B[k].h); l = Math.min(l, B[k].l); } return { k0, k1, h, l }; };
+      let fk = -1;
+      for (let k = i; k >= Math.max(0, i - 600); k--) if (tl(B[k].t) === hm) { fk = k; break; }
+      if (fk >= 0) {
+        // the alert time may be the 15m candle's open or its close: take the span that matches the alert's H / L
+        const A = span(fk); let Bk = fk; while (Bk > 0 && B[Bk - 1].t >= B[fk].t - HM) Bk--; const Bs = span(Bk);
+        const aH = hcm ? num(hcm[1]) : NaN, aL = hcm ? num(hcm[2]) : NaN;
+        const err = (s) => (isNaN(aH) ? 0 : Math.abs(s.h - aH) + Math.abs(s.l - aL));
+        flip = Bk < fk && err(Bs) < err(A) ? Bs : A;
+        if (!isNaN(aH)) { flip.h = aH; flip.l = aL; }
+        flip.long = fm[2] === 'LONG'; flip.lbl = fm[1] + 'm flip ' + fm[3];
+      }
+    }
+    // exit bar from the Setup Ended "At: HH:mm"
+    let ei = -1;
+    const at = r.o && r.o.at ? String(r.o.at).trim().padStart(5, '0') : '';
+    if (at) for (let k = i + 1; k < Math.min(B.length, i + 600); k++) if (tl(B[k].t) === at) { ei = k; break; }
+    let a = Math.max(0, i - 40), z = Math.min(B.length - 1, i + 40);
+    if (flip) a = Math.max(0, Math.min(a, flip.k0 - 4), i - 160);
+    if (ei >= 0) z = Math.min(B.length - 1, Math.max(z, ei + 8), i + 200);
+    const S = B.slice(a, z + 1);
+    const lv = [r.entry, r.sl1, r.tp1, tp2, sl2].filter((v) => !isNaN(v));
     let hi = Math.max(...S.map((b) => b.h), ...lv), lo = Math.min(...S.map((b) => b.l), ...lv);
     const pad = (hi - lo) * 0.06 || 1; hi += pad; lo -= pad;
-    const W = 820, H = 230, L = 4, R = 78, T = 6, BT = 18, cw = (W - L - R) / S.length;
+    const W = 820, H = 250, L = 4, R = 84, T = 16, BT = 18, cw = (W - L - R) / S.length;
     const y = (p) => T + (hi - p) / (hi - lo) * (H - T - BT);
     const x = (k) => L + (k + 0.5) * cw;
+    const lg = r.dir !== 'SHORT', si = i - a;
     let g = '';
+    // trade span (setup -> exit), tinted by the result
+    if (ei >= 0 && ei <= z) g += `<rect x="${x(si).toFixed(1)}" y="${T}" width="${(x(ei - a) - x(si)).toFixed(1)}" height="${H - T - BT}" fill="${r.v >= 0 ? '#22C55E' : '#EF4444'}" opacity=".07"/>`;
+    // HTF flip candle: blue band over its LTF bars + its high / low box
+    if (flip && flip.k1 >= a) {
+      const f0 = Math.max(flip.k0, a) - a, f1 = flip.k1 - a, fx = x(f0) - cw / 2, fw = (f1 - f0 + 1) * cw;
+      g += `<rect x="${fx.toFixed(1)}" y="${T}" width="${fw.toFixed(1)}" height="${H - T - BT}" fill="#3B82F6" opacity=".14"/>`;
+      g += `<rect x="${fx.toFixed(1)}" y="${y(flip.h).toFixed(1)}" width="${fw.toFixed(1)}" height="${Math.max(1, y(flip.l) - y(flip.h)).toFixed(1)}" fill="none" stroke="#60A5FA" stroke-width="1.2"/>`;
+      g += `<text x="${(fx + fw / 2).toFixed(1)}" y="${T - 4}" font-size="10" text-anchor="middle" fill="#60A5FA">${flip.long ? '▲' : '▼'} ${escapeHtml(flip.lbl)}</text>`;
+    }
     // setup candle + the 2 before it (pattern window)
-    const si = i - a;
     g += `<rect x="${(x(si - 2) - cw / 2).toFixed(1)}" y="${T}" width="${(cw * 3).toFixed(1)}" height="${H - T - BT}" fill="#f59e0b" opacity=".12"/>`;
     g += `<line x1="${x(si).toFixed(1)}" x2="${x(si).toFixed(1)}" y1="${T}" y2="${H - BT}" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3,3"/>`;
-    // lines: 3m EMA20, VWAP, EMA200
+    // lines: EMA20, VWAP, EMA200
     [['e20', '#FB923C'], ['vw', '#A78BFA'], ['e200', '#94A3B8']].forEach(([k, col]) => {
       const pts = S.map((b, k2) => (b[k] != null && !isNaN(+b[k]) && +b[k] >= lo && +b[k] <= hi ? `${x(k2).toFixed(1)},${y(+b[k]).toFixed(1)}` : null));
       let seg = [], d = '';
@@ -8866,19 +8923,27 @@
       g += `<line x1="${x(k).toFixed(1)}" x2="${x(k).toFixed(1)}" y1="${y(b.h).toFixed(1)}" y2="${y(b.l).toFixed(1)}" stroke="${col}" stroke-width="1"/>`;
       g += `<rect x="${(x(k) - bw / 2).toFixed(1)}" y="${Math.min(yo, yc).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, Math.abs(yc - yo)).toFixed(1)}" fill="${col}"/>`;
     });
-    // Entry / SL1 / TP1 from the setup candle onwards
-    [[r.entry, '#E2E8F0', 'Entry'], [r.sl1, '#EF4444', 'SL1'], [r.tp1, '#22C55E', 'TP1']].forEach(([p, col, t]) => {
-      if (isNaN(p)) return;
-      g += `<line x1="${x(si).toFixed(1)}" x2="${W - R}" y1="${y(p).toFixed(1)}" y2="${y(p).toFixed(1)}" stroke="${col}" stroke-width="1" stroke-dasharray="5,3"/>`;
-      g += `<text x="${W - R + 3}" y="${(y(p) + 3).toFixed(1)}" font-size="10" fill="${col}">${t} ${p}</text>`;
-    });
+    // Entry / TP1 / TP2 / SL1 / SL2 from the setup candle onwards (labels pushed apart so they do not overlap)
+    const LV = [[r.entry, '#E2E8F0', 'Entry', 1], [r.tp1, '#22C55E', 'TP1', 1], [tp2, '#22C55E', 'TP2', 0.55], [r.sl1, '#EF4444', 'SL1', 1], [sl2, '#EF4444', 'SL2', 0.55]].filter(([p]) => !isNaN(p));
+    const xe = ei >= 0 && ei <= z ? x(ei - a) : W - R;
+    LV.forEach(([p, col, , op]) => { g += `<line x1="${x(si).toFixed(1)}" x2="${xe.toFixed(1)}" y1="${y(p).toFixed(1)}" y2="${y(p).toFixed(1)}" stroke="${col}" stroke-width="${op < 1 ? 1 : 1.3}" stroke-dasharray="${op < 1 ? '2,3' : '5,3'}" opacity="${op}"/>`; });
+    const lab = LV.map(([p, col, t, op]) => ({ y: y(p) + 3, col, t: t + ' ' + p, op })).sort((m, n) => m.y - n.y);
+    for (let k = 1; k < lab.length; k++) if (lab[k].y - lab[k - 1].y < 11) lab[k].y = lab[k - 1].y + 11;
+    lab.forEach((l) => { g += `<text x="${W - R + 3}" y="${l.y.toFixed(1)}" font-size="10" fill="${l.col}" opacity="${l.op < 1 ? .75 : 1}">${l.t}</text>`; });
     // entry arrow
-    const lg = r.dir !== 'SHORT';
     const ay = lg ? y(B[i].l) + 12 : y(B[i].h) - 12;
     g += `<text x="${x(si).toFixed(1)}" y="${ay.toFixed(1)}" font-size="12" text-anchor="middle" fill="${lg ? '#22C55E' : '#EF4444'}">${lg ? '▲' : '▼'}</text>`;
+    // exit marker
+    if (ei >= 0 && ei <= z) {
+      const why = (r.o && r.o.why) || '';
+      const px = /SL1/i.test(why) && !isNaN(r.sl1) ? r.sl1 : B[ei].c;
+      const col = isNaN(r.v) ? '#E2E8F0' : r.v >= 0 ? '#22C55E' : '#EF4444';
+      g += `<circle cx="${x(ei - a).toFixed(1)}" cy="${y(px).toFixed(1)}" r="4" fill="none" stroke="${col}" stroke-width="2"/>`;
+      g += `<text x="${x(ei - a).toFixed(1)}" y="${(y(px) + (y(px) > H / 2 ? -8 : 14)).toFixed(1)}" font-size="10" text-anchor="middle" fill="${col}">exit ${isNaN(r.v) ? '' : (r.v >= 0 ? '+' : '') + r.v.toFixed(2)}</text>`;
+    }
     // time labels (New York)
-    const tl = (ms) => { const d = new Date(ms + chNyOffsetMs(ms)); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
-    for (let k = 0; k < S.length; k += 10) g += `<text x="${x(k).toFixed(1)}" y="${H - 5}" font-size="10" fill="#94A3B8" text-anchor="${k ? 'middle' : 'start'}">${tl(S[k].t)}</text>`;
+    const step = Math.max(10, Math.round(S.length / 8 / 5) * 5);
+    for (let k = 0; k < S.length; k += step) g += `<text x="${x(k).toFixed(1)}" y="${H - 5}" font-size="10" fill="#94A3B8" text-anchor="${k ? 'middle' : 'start'}">${tl(S[k].t)}</text>`;
     return { html: `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;background:#020617;border-radius:6px;">${g}</svg>` };
   }
   function renderSetupList() {
@@ -8887,8 +8952,15 @@
     const f = (v) => (isNaN(v) ? '–' : (v >= 0 ? '+' : '') + v.toFixed(2));
     document.getElementById('setupListTitle').textContent = `${lbl} — ${rs.length} setup${rs.length === 1 ? '' : 's'}`;
     let pending = 0;
+    // v145: ask each bar feed once for the oldest shown setup, so it loads the whole range in one request
+    const oldest = {};
+    rs.slice(0, max).forEach((r) => { const root = pierceRoot(r.sym); if (!root) return; const k = barKey(root, r.tf || 3); oldest[k] = Math.min(oldest[k] || Infinity, r.ms); });
+    Object.keys(oldest).forEach((k) => pierceEnsureBars(k, oldest[k]));
     const cards = rs.slice(0, max).map((r) => {
       const ch = setupMiniChart(r);
+      // v145: the setup alert's status table (Market, Price, CBC, EMA cloud, VWAP, EMA 200, Structure, OR, Fib, HTF flip candle) beside the chart
+      let stHtml = '';
+      try { const ai = r.id != null ? alerts.findIndex((x) => String(x.id) === String(r.id)) : -1; if (ai >= 0) stHtml = setupStatusHtml(alerts[ai], ai, r.sym) || ''; } catch (e) { stHtml = ''; }
       if (ch.pending) pending++;
       const col = isNaN(r.v) ? '#94A3B8' : r.v >= 0 ? '#22C55E' : '#EF4444';
       const btn = r.id != null ? `<button type="button" class="ch-goto" data-ch-id="${escapeHtml(String(r.id))}" title="Open the full chart on this setup">CHART</button>` : '';
@@ -8897,13 +8969,13 @@
         `<b>${escapeHtml(r.time)}</b><span>${escapeHtml(r.sym)}</span><b style="color:${r.dir === 'SHORT' ? '#EF4444' : '#22C55E'}">${r.dir}</b>` +
         `<span style="opacity:.8">${escapeHtml(r.k || '')}</span><span style="opacity:.8">${escapeHtml(r.patTxt && r.patTxt !== 'pending' ? 'Pattern: ' + r.patTxt : '')}</span>` +
         `<span>${escapeHtml(r.o ? r.o.why : 'open')} <b style="color:${col}">${f(r.v)}</b>${r.max ? ' · max ' + escapeHtml(r.max) : ''}</span>` +
-        `<span style="margin-left:auto">${btn}</span></div>${ch.html}</div>`;
+        `<span style="margin-left:auto">${btn}</span></div><div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;"><div style="flex:1 1 520px;min-width:0;">${ch.html}</div>${stHtml ? `<div style="flex:0 0 auto;font-size:11px;">${stHtml}</div>` : ''}</div></div>`;
     }).join('');
     const more = rs.length > max ? `<div style="text-align:center;"><button type="button" data-sl-more="1">Show ${Math.min(30, rs.length - max)} more (${rs.length - max} left)</button></div>` : '';
     document.getElementById('setupListBody').innerHTML = (rs.length ? cards + more : '<div style="opacity:.7">No setups.</div>') +
-      '<div style="font-size:11px;opacity:.7;margin-top:6px;">Chart = the setup\'s own chart timeframe from the BarFeed bars, New York time: 40 bars before and 40 after the setup candle (dashed amber line; shaded = setup candle + the 2 before it, where the pattern is read). Orange = EMA20, purple = VWAP, grey = EMA200; Entry / SL1 / TP1 from the setup alert.</div>';
+      '<div style="font-size:11px;opacity:.7;margin-top:6px;">Chart = the setup\'s own chart timeframe from the BarFeed bars, New York time: 40 bars before and 40 after the setup candle (dashed amber line; shaded = setup candle + the 2 before it, where the pattern is read). Blue band + box = the HTF candle that flipped (from the alert\'s "HTF flip" line; the window widens to include it). Orange = EMA20, purple = VWAP, grey = EMA200; Entry / TP1 / SL1 (dashed) and TP2 / SL2 (dotted) from the setup alert; circle = where the setup ended (Setup Ended "At"), with the trade span tinted green / red.</div>';
     clearTimeout(setupListTimer);
-    if (pending && setupListState.tries++ < 30) setupListTimer = setTimeout(renderSetupList, 1000);
+    if (pending && setupListState.tries++ < 90) setupListTimer = setTimeout(renderSetupList, 1000);
   }
 
   // ============================================================================
