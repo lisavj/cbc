@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v143 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v144 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,12 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v144: Stats detail -- every row label in the small tables (ER, MTF, OB, flip volume, LTF pattern, VWAP extension,
+       range position, stop method, opening range ...) is now a link: click it to open a list of exactly those setups,
+       each with a mini candle chart around the setup (40 bars before / 40 after from the BarFeed bars of the setup's
+       chart timeframe: 3m EMA20 orange, VWAP purple, EMA200 grey, Entry / SL1 / TP1 lines, setup candle + the 2 before
+       it shaded) and a CHART button that opens the full chart on that setup. LTF pattern box gets two new rows:
+       "Tweezer top on setup" / "Tweezer bottom on setup" (any direction).
      v143: SHADOW SETUPS (CBC v10.48 "Show blocked setups"): new alert type "Setup Blocked (shadow)" for the
        "• Setup Blocked:" and "• Shadow Ended:" alerts (a Trade Setup trigger blocked only by the VWAP stretch filter, tracked
        with the base exits but not traded). Stats gets a "Blocked setups (shadow)" box under the detail view: count, win %,
@@ -2500,8 +2506,14 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v143</footer>
+<footer>tv-webhook-dashboard · v144</footer>
 
+<div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
+  <div style="max-width:900px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><b id="setupListTitle" style="font-size:14px;"></b><button id="setupListClose" style="margin-left:auto;">✕ Close</button></div>
+    <div id="setupListBody"></div>
+  </div>
+</div>
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
 </div>
@@ -5217,10 +5229,11 @@
       if (!statsTfOk(a.raw)) continue;
       const o = setupOutcome(i, sym, st);
       const tfo = statsTfOf(a.raw);
-      out.push({ tf: tfo.tf, htf: tfo.htf, tfk: tfo.key, ms: new Date(a.receivedAt).getTime(), entry: st.Entry ? parseFloat(String(st.Entry.price).replace(/,/g, '')) : NaN, flop: !!st.flop, k: statsTrig(st.trigger), dir: st.dir, sym, time: st.time || new Date(a.receivedAt).toLocaleString(), o, v: o ? parseFloat(o.res) : NaN, best: o ? parseFloat(o.best) : NaN, worst: o ? parseFloat(o.worst) : NaN, mins: o ? parseInt(o.mins, 10) : NaN, max: o ? o.max : '', er: (() => { const m = /\|\s*ER\s+(-?[\d.]+)/.exec(a.raw || ''); return m ? parseFloat(m[1]) : NaN; })(), mtf: (() => { const m = /MTF CBC \([^)]*\):\s*(Bullish|Bearish)/.exec(a.raw || ''); return m ? ((m[1] === 'Bullish') === (st.dir !== 'SHORT') ? 'with' : 'against') : ''; })(), ob: (() => { const raw = a.raw || ''; const ms = [...raw.matchAll(/In OB([+-]) /g)].map((x) => x[1]); if (ms.length) return ms.includes(st.dir !== 'SHORT' ? '+' : '-') ? 'same' : 'opp'; return /OB: none/.test(raw) ? 'none' : ''; })(), orv: ((/\nOpening range: (\w+)/.exec(a.raw || '') || [])[1] || ''), mkt: ((/\nMarket: ([^\n]+)/.exec(a.raw || '') || [])[1] || '').trim(), fv: (() => { const m = /\nFlip volume: buy (\d+)% · RVOL ([\d.]+)/.exec(a.raw || ''); return m ? { w: st.dir !== 'SHORT' ? parseFloat(m[1]) : 100 - parseFloat(m[1]), rv: parseFloat(m[2]) } : null; })(), sl: (() => { const m = /\nSL1: [\d.]+ \| (Min [\d.]+ \()?([\d.]+)×ATR[^|\n]*\| ([+-]?[\d.]+)/.exec(a.raw || ''); if (!m) { const p = /\nSL1: [\d.]+ \|[^|\n]*\| ([+-]?[\d.]+)/.exec(a.raw || ''); return p ? { k: 'other', d: Math.abs(parseFloat(p[1])) } : null; } return { k: m[1] ? 'min' : (m[2] === '1.3' ? '1.3' : m[2] === '1.7' ? '1.7' : 'x' + m[2]), d: Math.abs(parseFloat(m[3])) }; })(), rngA: (() => { const m = /\nRange: (\d+)% of (\d+)-bar range · ([\d.]+) ATR/.exec(a.raw || ''); return m ? { p: parseFloat(m[1]) / 100, w: parseFloat(m[3]) } : null; })(), vx: (() => { const m = /VWAP ext ([+-]?[\d.]+) ATR/.exec(a.raw || ''); return m ? parseFloat(m[1]) : NaN; })(), pat: ((/\nPattern: ([^\n]+)/.exec(a.raw || '') || [])[1] || null), obN: (() => { const m = /OB: none \(nearest OB([+-]) [^,]*, ([\d.]+) pts away\)/.exec(a.raw || ''); return m ? { same: m[1] === (st.dir !== 'SHORT' ? '+' : '-'), d: parseFloat(m[2]) } : null; })() });
+      out.push({ tf: tfo.tf, htf: tfo.htf, tfk: tfo.key, ms: new Date(a.receivedAt).getTime(), id: a.id, sl1: st.SL1 ? parseFloat(String(st.SL1.price).replace(/,/g, '')) : NaN, tp1: st.TP1 ? parseFloat(String(st.TP1.price).replace(/,/g, '')) : NaN, entry: st.Entry ? parseFloat(String(st.Entry.price).replace(/,/g, '')) : NaN, flop: !!st.flop, k: statsTrig(st.trigger), dir: st.dir, sym, time: st.time || new Date(a.receivedAt).toLocaleString(), o, v: o ? parseFloat(o.res) : NaN, best: o ? parseFloat(o.best) : NaN, worst: o ? parseFloat(o.worst) : NaN, mins: o ? parseInt(o.mins, 10) : NaN, max: o ? o.max : '', er: (() => { const m = /\|\s*ER\s+(-?[\d.]+)/.exec(a.raw || ''); return m ? parseFloat(m[1]) : NaN; })(), mtf: (() => { const m = /MTF CBC \([^)]*\):\s*(Bullish|Bearish)/.exec(a.raw || ''); return m ? ((m[1] === 'Bullish') === (st.dir !== 'SHORT') ? 'with' : 'against') : ''; })(), ob: (() => { const raw = a.raw || ''; const ms = [...raw.matchAll(/In OB([+-]) /g)].map((x) => x[1]); if (ms.length) return ms.includes(st.dir !== 'SHORT' ? '+' : '-') ? 'same' : 'opp'; return /OB: none/.test(raw) ? 'none' : ''; })(), orv: ((/\nOpening range: (\w+)/.exec(a.raw || '') || [])[1] || ''), mkt: ((/\nMarket: ([^\n]+)/.exec(a.raw || '') || [])[1] || '').trim(), fv: (() => { const m = /\nFlip volume: buy (\d+)% · RVOL ([\d.]+)/.exec(a.raw || ''); return m ? { w: st.dir !== 'SHORT' ? parseFloat(m[1]) : 100 - parseFloat(m[1]), rv: parseFloat(m[2]) } : null; })(), sl: (() => { const m = /\nSL1: [\d.]+ \| (Min [\d.]+ \()?([\d.]+)×ATR[^|\n]*\| ([+-]?[\d.]+)/.exec(a.raw || ''); if (!m) { const p = /\nSL1: [\d.]+ \|[^|\n]*\| ([+-]?[\d.]+)/.exec(a.raw || ''); return p ? { k: 'other', d: Math.abs(parseFloat(p[1])) } : null; } return { k: m[1] ? 'min' : (m[2] === '1.3' ? '1.3' : m[2] === '1.7' ? '1.7' : 'x' + m[2]), d: Math.abs(parseFloat(m[3])) }; })(), rngA: (() => { const m = /\nRange: (\d+)% of (\d+)-bar range · ([\d.]+) ATR/.exec(a.raw || ''); return m ? { p: parseFloat(m[1]) / 100, w: parseFloat(m[3]) } : null; })(), vx: (() => { const m = /VWAP ext ([+-]?[\d.]+) ATR/.exec(a.raw || ''); return m ? parseFloat(m[1]) : NaN; })(), pat: ((/\nPattern: ([^\n]+)/.exec(a.raw || '') || [])[1] || null), obN: (() => { const m = /OB: none \(nearest OB([+-]) [^,]*, ([\d.]+) pts away\)/.exec(a.raw || ''); return m ? { same: m[1] === (st.dir !== 'SHORT' ? '+' : '-'), d: parseFloat(m[2]) } : null; })() });
     }
     return out;
   }
+  const statsLists = []; // v144: setups behind each clickable Stats-detail row
   let statsSel = { k: null, win: Infinity, eod: true, rule: 'flip', minsl: true, mtf: 'all', ob: 'all', obNear: 3, fv: 'all', orS: 'cur', orF: 'all', pat: 'all', vx: 'all', rg: 'all', sl: 'all' };
   // v115: what-if exit rules: 'flip' = opposite 15m CBC flip; 'pl3' = flip or 3m close beyond the prior 15m candle low (long) / high (short); 'pc15' = flip or 15m close below (long) / above (short) the prior 15m close.
   const WI_RULES = { flip: 'opposite 15m flip', pl3: 'flip or 3m close past prior 15m low/high', pc15: 'flip or 15m close past prior 15m close', sl3: 'flip or 3m close past trailing SL line (prior 3m low/high)' };
@@ -5380,6 +5393,7 @@
       `<div style="font-size:11px;opacity:.7;margin-top:4px;">Replays every covered setup from the BarFeed 3m bars: entry = setup Entry, ATR(14) of the 3m bars before the setup, full exit at the first of SL / TP (a candle touching both counts as SL), else at the opposite 15m flip${statsSel.eod ? ' or 17:00 ET' : ''}. No TP1 partial / trail / BE, so it is a guide for the SL / TP multipliers, not the exact CBC result. Hover a cell for win %, PF, best / worst trade and max drawdown. Shaded cell = current 1.7 / 1.7. Prefer a cell whose neighbours are also good over a lone best cell (overfitting).</div></div>`;
   }
   function renderStatsDetail() {
+    statsLists.length = 0; // v144
     const el = document.getElementById('statsDetail');
     if (!statsSel.k) { el.innerHTML = ''; return; }
     const symF = statsSymSel.value || 'all';
@@ -5505,7 +5519,7 @@
     const mxHtml = ['none', 'TP1', 'TP2', 'TP3', 'TP4'].filter((m) => mx[m]).map((m) => bar(m === 'none' ? 'No TP reached' : m + ' reached', mx[m], ended.length, '#22C55E')).join('');
     // v120: 3b) Efficiency Ratio at setup (from the alert's Filters line)
     const ERB = [[-Infinity, 0.18, '< 0.18'], [0.18, 0.23, '0.18 – 0.23'], [0.23, 0.30, '0.23 – 0.30'], [0.30, 0.40, '0.30 – 0.40'], [0.40, Infinity, '≥ 0.40']];
-    const erRow = (lbl, rs) => { const vs = rs.map((r) => r.v).filter((x) => !isNaN(x)); const w = vs.filter((x) => x > 0).length, l = vs.filter((x) => x < 0).length; const tot = vs.reduce((a, b) => a + b, 0); return `<tr><td style="padding:2px 6px;white-space:nowrap;">${lbl}</td><td style="padding:2px 6px;text-align:right;">${rs.length}</td><td style="padding:2px 6px;text-align:right;">${w + l ? Math.round(w / (w + l) * 100) + '%' : '–'}</td><td style="padding:2px 6px;text-align:right;color:${tot >= 0 ? '#22C55E' : '#EF4444'}">${vs.length ? f(tot / vs.length) : '–'}</td><td style="padding:2px 6px;text-align:right;">${vs.length ? f(tot) : '–'}</td></tr>`; };
+    const erRow = (lbl, rs) => { const vs = rs.map((r) => r.v).filter((x) => !isNaN(x)); const w = vs.filter((x) => x > 0).length, l = vs.filter((x) => x < 0).length; const tot = vs.reduce((a, b) => a + b, 0); const li = rs.length ? statsLists.push({ lbl: String(lbl).replace(/<[^>]+>/g, '').replace(/&nbsp;|↳/g, ' ').trim(), rs }) - 1 : -1; return `<tr><td style="padding:2px 6px;white-space:nowrap;">${li >= 0 ? `<a href="#" data-stats-list="${li}" title="Show these ${rs.length} setups with a chart" style="color:inherit;text-decoration:underline dotted;">${lbl}</a>` : lbl}</td><td style="padding:2px 6px;text-align:right;">${rs.length}</td><td style="padding:2px 6px;text-align:right;">${w + l ? Math.round(w / (w + l) * 100) + '%' : '–'}</td><td style="padding:2px 6px;text-align:right;color:${tot >= 0 ? '#22C55E' : '#EF4444'}">${vs.length ? f(tot / vs.length) : '–'}</td><td style="padding:2px 6px;text-align:right;">${vs.length ? f(tot) : '–'}</td></tr>`; };
     const erHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">ER</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` + ERB.map(([lo, hi, lbl]) => erRow(lbl, recs.filter((r) => !isNaN(r.er) && r.er >= lo && r.er < hi))).join('') + (recs.some((r) => isNaN(r.er)) ? erRow('no ER in alert', recs.filter((r) => isNaN(r.er))) : '') + '</table><div style="font-size:11px;opacity:.7;margin-top:3px;">ER = the Efficiency Ratio printed in each Trade Setup alert (chop length bars). Only setups that passed the ER filter can appear, so lower bands fill only with the filter relaxed or off.</div>';
     // v121: 3c) MTF CBC at setup (with / against the setup direction)
     const mtfHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">MTF CBC</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` + erRow('With setup direction', recs.filter((r) => r.mtf === 'with')) + erRow('Against setup direction', recs.filter((r) => r.mtf === 'against')) + (recs.some((r) => !r.mtf) ? erRow('no MTF in alert', recs.filter((r) => !r.mtf)) : '') + '</table><div style="font-size:11px;opacity:.7;margin-top:3px;">MTF CBC = the last closed MTF (60m) candle\'s CBC printed in each Trade Setup alert (Pine CBC v10.01+; older alerts show as "no MTF in alert"). With = Bullish on a long / Bearish on a short. If "Skip setups against the MTF CBC direction" is on, the Against row stays empty.</div>';
@@ -5546,7 +5560,7 @@
     const pR = recs.filter((r) => r.pc && r.pc !== 'pending');
     const patHtml = `<table style="border-collapse:collapse;font-size:12px;"><tr style="opacity:.7;"><th style="text-align:left;padding:2px 6px;">Last 3 candles</th><th style="padding:2px 6px;">N</th><th style="padding:2px 6px;">Win %</th><th style="padding:2px 6px;">Avg</th><th style="padding:2px 6px;">Total</th></tr>` +
       erRow('<b>WITH pattern (any)</b>', pR.filter((r) => r.pwE || r.pwT)) + erRow('&nbsp;↳ with engulfing', pR.filter((r) => r.pwE)) + erRow('&nbsp;↳ with tweezer', pR.filter((r) => r.pwT)) +
-      erRow('AGAINST pattern (any)', pR.filter((r) => r.paE || r.paT)) + erRow('&nbsp;↳ against engulfing', pR.filter((r) => r.paE)) + erRow('&nbsp;↳ against tweezer', pR.filter((r) => r.paT)) +
+      erRow('AGAINST pattern (any)', pR.filter((r) => r.paE || r.paT)) + erRow('&nbsp;↳ against engulfing', pR.filter((r) => r.paE)) + erRow('&nbsp;↳ against tweezer', pR.filter((r) => r.paT)) + erRow('Tweezer top on setup (any dir)', pR.filter((r) => /tweezer top/.test(r.patTxt || ''))) + erRow('Tweezer bottom on setup (any dir)', pR.filter((r) => /tweezer bottom/.test(r.patTxt || ''))) +
       erRow('With only (no against)', pR.filter((r) => r.pc === 'with')) + erRow('No pattern', pR.filter((r) => r.pc === 'none')) +
       (recs.some((r) => !r.pc || r.pc === 'pending') ? erRow('no bars / loading', recs.filter((r) => !r.pc || r.pc === 'pending')) : '') +
       `</table><div style="font-size:11px;opacity:.7;margin-top:3px;">Setup candle + the 2 before it. From the alert line "Pattern:" (CBC v10.17+: ${pR.filter((r) => r.pat).length} of ${pR.length}); older alerts are computed from the BarFeed bars. Engulfing = body swallows the previous opposite-colour body; tweezer top = green then red with highs within 2 ticks (bottom mirrored). WITH = bull engulfing / tweezer bottom for a long (bear / top for a short). Rows overlap.</div>`;
@@ -5713,6 +5727,8 @@
     renderStats();
   });
   document.getElementById('statsDetail').addEventListener('click', (e) => {
+    const lsb = e.target.closest && e.target.closest('[data-stats-list]'); // v144
+    if (lsb) { e.preventDefault(); const L = statsLists[+lsb.dataset.statsList]; if (L) openSetupList(L.lbl, L.rs.slice()); return; }
     const slb = e.target.closest && e.target.closest('[data-stats-sl]');
     if (slb) { statsSel.sl = slb.dataset.statsSl; renderStatsDetail(); return; }
     const rgb = e.target.closest && e.target.closest('[data-stats-rg]');
@@ -8794,6 +8810,101 @@
     const params = new URLSearchParams(location.search);
     if (params.get('view') === 'checklist') setView('checklist');
   })();
+
+  // ============================================================================
+  // v144: Stats-detail row -> list of those setups, each with a mini candle chart around the setup
+  // ============================================================================
+  const setupListModal = document.getElementById('setupListModal');
+  let setupListState = null, setupListTimer = null;
+  function openSetupList(lbl, rs) {
+    setupListState = { lbl, rs: rs.slice().sort((a, b) => b.ms - a.ms), tries: 0, max: 30 };
+    setupListModal.style.display = 'block';
+    setupListModal.scrollTop = 0;
+    renderSetupList();
+  }
+  function closeSetupList() { setupListModal.style.display = 'none'; setupListState = null; clearTimeout(setupListTimer); }
+  document.getElementById('setupListClose').addEventListener('click', closeSetupList);
+  setupListModal.addEventListener('click', (e) => {
+    if (e.target === setupListModal) { closeSetupList(); return; }
+    const more = e.target.closest && e.target.closest('[data-sl-more]');
+    if (more) { setupListState.max += 30; renderSetupList(); return; }
+    // CHART button: the capture listener opens the chart; close the two pop-ups so it is visible
+    if (e.target.closest && e.target.closest('.ch-goto')) { closeSetupList(); statsModal.style.display = 'none'; }
+  });
+  function setupMiniChart(r) {
+    const root = pierceRoot(r.sym);
+    if (!root) return { html: '<div style="opacity:.6;font-size:11px;">no bar feed for this symbol</div>' };
+    const c = pierceEnsureBars(barKey(root, r.tf || 3), r.ms);
+    if (!c || !c.bars) return { pending: true, html: '<div style="opacity:.6;font-size:11px;">loading bars…</div>' };
+    const B = c.bars;
+    const j = B.findIndex((b) => b.t >= r.ms - 60000);
+    const i = (j < 0 ? B.length : j) - 1; // setup candle = the bar that closed just before the alert
+    if (i < 1 || (j >= 0 && B[j].t - (r.ms - 60000) > 10 * 60000) || (j < 0 && r.ms - B[B.length - 1].t > 15 * 60000)) return { html: '<div style="opacity:.6;font-size:11px;">no bars at this time in the feed</div>' };
+    const a = Math.max(0, i - 40), z = Math.min(B.length - 1, i + 40), S = B.slice(a, z + 1);
+    const lv = [r.entry, r.sl1, r.tp1].filter((x) => !isNaN(x));
+    let hi = Math.max(...S.map((b) => b.h), ...lv), lo = Math.min(...S.map((b) => b.l), ...lv);
+    const pad = (hi - lo) * 0.06 || 1; hi += pad; lo -= pad;
+    const W = 820, H = 230, L = 4, R = 78, T = 6, BT = 18, cw = (W - L - R) / S.length;
+    const y = (p) => T + (hi - p) / (hi - lo) * (H - T - BT);
+    const x = (k) => L + (k + 0.5) * cw;
+    let g = '';
+    // setup candle + the 2 before it (pattern window)
+    const si = i - a;
+    g += `<rect x="${(x(si - 2) - cw / 2).toFixed(1)}" y="${T}" width="${(cw * 3).toFixed(1)}" height="${H - T - BT}" fill="#f59e0b" opacity=".12"/>`;
+    g += `<line x1="${x(si).toFixed(1)}" x2="${x(si).toFixed(1)}" y1="${T}" y2="${H - BT}" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3,3"/>`;
+    // lines: 3m EMA20, VWAP, EMA200
+    [['e20', '#FB923C'], ['vw', '#A78BFA'], ['e200', '#94A3B8']].forEach(([k, col]) => {
+      const pts = S.map((b, k2) => (b[k] != null && !isNaN(+b[k]) && +b[k] >= lo && +b[k] <= hi ? `${x(k2).toFixed(1)},${y(+b[k]).toFixed(1)}` : null));
+      let seg = [], d = '';
+      pts.concat([null]).forEach((p) => { if (p) seg.push(p); else { if (seg.length > 1) d += `<polyline points="${seg.join(' ')}" fill="none" stroke="${col}" stroke-width="1.2" opacity=".9"/>`; seg = []; } });
+      g += d;
+    });
+    // candles
+    S.forEach((b, k) => {
+      const up = b.c >= b.o, col = up ? '#22C55E' : '#EF4444', bw = Math.max(1, cw * 0.65);
+      const yo = y(b.o), yc = y(b.c);
+      g += `<line x1="${x(k).toFixed(1)}" x2="${x(k).toFixed(1)}" y1="${y(b.h).toFixed(1)}" y2="${y(b.l).toFixed(1)}" stroke="${col}" stroke-width="1"/>`;
+      g += `<rect x="${(x(k) - bw / 2).toFixed(1)}" y="${Math.min(yo, yc).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, Math.abs(yc - yo)).toFixed(1)}" fill="${col}"/>`;
+    });
+    // Entry / SL1 / TP1 from the setup candle onwards
+    [[r.entry, '#E2E8F0', 'Entry'], [r.sl1, '#EF4444', 'SL1'], [r.tp1, '#22C55E', 'TP1']].forEach(([p, col, t]) => {
+      if (isNaN(p)) return;
+      g += `<line x1="${x(si).toFixed(1)}" x2="${W - R}" y1="${y(p).toFixed(1)}" y2="${y(p).toFixed(1)}" stroke="${col}" stroke-width="1" stroke-dasharray="5,3"/>`;
+      g += `<text x="${W - R + 3}" y="${(y(p) + 3).toFixed(1)}" font-size="10" fill="${col}">${t} ${p}</text>`;
+    });
+    // entry arrow
+    const lg = r.dir !== 'SHORT';
+    const ay = lg ? y(B[i].l) + 12 : y(B[i].h) - 12;
+    g += `<text x="${x(si).toFixed(1)}" y="${ay.toFixed(1)}" font-size="12" text-anchor="middle" fill="${lg ? '#22C55E' : '#EF4444'}">${lg ? '▲' : '▼'}</text>`;
+    // time labels (New York)
+    const tl = (ms) => { const d = new Date(ms + chNyOffsetMs(ms)); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+    for (let k = 0; k < S.length; k += 10) g += `<text x="${x(k).toFixed(1)}" y="${H - 5}" font-size="10" fill="#94A3B8" text-anchor="${k ? 'middle' : 'start'}">${tl(S[k].t)}</text>`;
+    return { html: `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;background:#020617;border-radius:6px;">${g}</svg>` };
+  }
+  function renderSetupList() {
+    if (!setupListState) return;
+    const { lbl, rs, max } = setupListState;
+    const f = (v) => (isNaN(v) ? '–' : (v >= 0 ? '+' : '') + v.toFixed(2));
+    document.getElementById('setupListTitle').textContent = `${lbl} — ${rs.length} setup${rs.length === 1 ? '' : 's'}`;
+    let pending = 0;
+    const cards = rs.slice(0, max).map((r) => {
+      const ch = setupMiniChart(r);
+      if (ch.pending) pending++;
+      const col = isNaN(r.v) ? '#94A3B8' : r.v >= 0 ? '#22C55E' : '#EF4444';
+      const btn = r.id != null ? `<button type="button" class="ch-goto" data-ch-id="${escapeHtml(String(r.id))}" title="Open the full chart on this setup">CHART</button>` : '';
+      return `<div style="border:1px solid #1e293b;border-radius:8px;padding:8px;margin-bottom:10px;">` +
+        `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;margin-bottom:6px;">` +
+        `<b>${escapeHtml(r.time)}</b><span>${escapeHtml(r.sym)}</span><b style="color:${r.dir === 'SHORT' ? '#EF4444' : '#22C55E'}">${r.dir}</b>` +
+        `<span style="opacity:.8">${escapeHtml(r.k || '')}</span><span style="opacity:.8">${escapeHtml(r.patTxt && r.patTxt !== 'pending' ? 'Pattern: ' + r.patTxt : '')}</span>` +
+        `<span>${escapeHtml(r.o ? r.o.why : 'open')} <b style="color:${col}">${f(r.v)}</b>${r.max ? ' · max ' + escapeHtml(r.max) : ''}</span>` +
+        `<span style="margin-left:auto">${btn}</span></div>${ch.html}</div>`;
+    }).join('');
+    const more = rs.length > max ? `<div style="text-align:center;"><button type="button" data-sl-more="1">Show ${Math.min(30, rs.length - max)} more (${rs.length - max} left)</button></div>` : '';
+    document.getElementById('setupListBody').innerHTML = (rs.length ? cards + more : '<div style="opacity:.7">No setups.</div>') +
+      '<div style="font-size:11px;opacity:.7;margin-top:6px;">Chart = the setup\'s own chart timeframe from the BarFeed bars, New York time: 40 bars before and 40 after the setup candle (dashed amber line; shaded = setup candle + the 2 before it, where the pattern is read). Orange = EMA20, purple = VWAP, grey = EMA200; Entry / SL1 / TP1 from the setup alert.</div>';
+    clearTimeout(setupListTimer);
+    if (pending && setupListState.tries++ < 30) setupListTimer = setTimeout(renderSetupList, 1000);
+  }
 
   // ============================================================================
   // v84: Chart tab -- candles rebuilt from the BarFeed 3m bars stored on the server (GET /bars, live SSE
