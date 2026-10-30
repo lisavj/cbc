@@ -1,0 +1,204 @@
+// ===== HTF 1.01 (10/03/2026) =====
+// Versioning (user rule): HTF 1.0 -> 1.01 -> 1.02 ... (file HTF_v1_01.pine etc.)
+// 1.01: "Draw flip setup" checkbox + "EMA9 Pierce setups after each flip" (0-10, default 1). The count resets on
+//   every LTF CBC flip; 0 = no pierce setups. Pierce markers still show regardless. Replaces the pierce checkbox.
+// Standalone 15-minute indicator built from CBC v8.74. No library import (ESLib not needed).
+// KEPT:  LTF CBC Flip triangles (+ gold Reversal), LTF EMA9 Pierce markers (new; same rules as v8.74's
+//        LTF EMA20 Pierce, on EMA9), Trade Setup drawing with FIXED TP / SL (default 10 points each).
+// REMOVED: every other alert, marker, table, pivot, HTF/MTF request, BRSG, FVG, ORB, order block,
+//        confluence score and the auto pivot-based TP/SL picking.
+// On a 15m chart "LTF" = the chart's own 15m candles; direction = the chart's CBC state.
+//@version=6
+indicator("HTF 1.01", overlay = true, max_labels_count = 500, max_lines_count = 500, max_boxes_count = 500)
+
+// ----- Inputs: Trade Setup (first group) -----
+grp_ats = "Trade Setup"
+ats_on        = input.bool(true, "Draw trade setup", group=grp_ats)
+ats_on_flip   = input.bool(true, "Draw flip setup", group=grp_ats, tooltip="Draw a setup on every LTF CBC flip.")
+ats_pierce_n  = input.int(1, "EMA9 Pierce setups after each flip", options=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], group=grp_ats, tooltip="How many more setups (after the flip setup) may come from LTF EMA9 Pierces before the next CBC flip. The count resets on every flip. 0 = none. A pierce setup also needs the candle to CLOSE on the trade side of EMA9.")
+ats_tp        = input.float(10.0, "TP (points)", minval=0.25, step=0.25, group=grp_ats)
+ats_sl        = input.float(10.0, "SL (points)", minval=0.25, step=0.25, group=grp_ats)
+ats_cd        = input.int(3, "Min bars between same-direction setups", minval=0, group=grp_ats, tooltip="A reverse-direction trigger is never blocked by this.")
+ats_end_flip  = input.bool(true, "End setup when CBC flips against it", group=grp_ats)
+ats_ext       = input.int(10, "Live setup: extend right (bars)", minval=1, group=grp_ats)
+col_rw        = input.color(color.new(color.green, 80), "Reward", inline="col", group=grp_ats)
+col_rk        = input.color(color.new(color.red, 80), "Risk", inline="col", group=grp_ats)
+
+// ----- Inputs: Signals -----
+grp_sig = "LTF Signals"
+show_flip     = input.bool(true, "LTF CBC Flip triangles", group=grp_sig)
+show_reversal = input.bool(true, "Show CBC Reversal (gold)", group=grp_sig, tooltip="A flip right after a flip (double flip) is drawn gold.")
+flip_size_in  = input.string("Tiny", "CBC Flip Triangle Size", options=["Tiny", "Small", "Normal", "Large", "Huge"], group=grp_sig)
+show_pierce   = input.bool(true, "LTF EMA9 Pierce markers", group=grp_sig)
+show_ema9     = input.bool(true, "Show EMA9 line", inline="e9", group=grp_sig)
+col_ema9      = input.color(color.orange, "", inline="e9", group=grp_sig)
+pullback_only = input.bool(true, "EMA9 Pierce: pullbacks only", group=grp_sig, tooltip="Prior candle must be fully on the trade side of EMA9 (long: low[1] above EMA9, short: high[1] below EMA9).")
+pierce_cd     = input.int(3, "EMA9 Pierce: cooldown bars", minval=0, group=grp_sig)
+
+// ----- Inputs: Alerts -----
+grp_al = "Alerts"
+al_flip   = input.bool(true, "Alert: LTF CBC Flip", group=grp_al)
+al_setup  = input.bool(true, "Alert: Trade Setup", group=grp_al)
+al_pierce = input.bool(true, "Alert: LTF EMA9 Pierce", group=grp_al)
+al_end    = input.bool(false, "Alert: Setup Ended (TP / SL / flip)", group=grp_al)
+
+const color col_cbc_long  = #15FF00
+const color col_cbc_short = #FF1500
+
+f_t(int t) => str.format_time(t, "HH:mm", "America/New_York")
+f_p(float x) => str.tostring(x, format.mintick)
+s_tf = timeframe.period + (timeframe.isminutes ? "m" : "")
+
+// ----- EMA9 -----
+ema9 = ta.ema(close, 9)
+plot(show_ema9 ? ema9 : na, "EMA9", color=col_ema9, linewidth=1)
+
+// ----- CBC state (unchanged from v8.74): strict prior-bar breaks -----
+f_cbc_state() =>
+    var bool state = false
+    state := state[1]
+    if state and close < low[1]
+        state := false
+    if not state and close > high[1]
+        state := true
+    state
+
+cbc = f_cbc_state()
+bull_flip = cbc and not cbc[1]
+bear_flip = not cbc and cbc[1]
+any_flip = bull_flip or bear_flip
+reversal = any_flip and any_flip[1]
+
+// ----- LTF CBC Flip triangles (same drawing as v8.74) -----
+flip_sz = flip_size_in == "Tiny" ? size.tiny : flip_size_in == "Small" ? size.small : flip_size_in == "Normal" ? size.normal : flip_size_in == "Large" ? size.large : size.huge
+float up_y = low - (high - low) * 0.15
+float dn_y = high + (high - low) * 0.15
+if show_flip and any_flip
+    bool gold = show_reversal and reversal
+    label.new(bar_index, bull_flip ? up_y : dn_y, "", color=gold ? #F9CB00 : bull_flip ? col_cbc_long : col_cbc_short, style=bull_flip ? label.style_triangleup : label.style_triangledown, size=flip_sz, tooltip="LTF(" + s_tf + ") CBC " + (gold ? "Reversal" : "Flip") + ": " + (bull_flip ? "LONG" : "SHORT") + "\nFired: " + f_t(time_close))
+
+// ----- LTF EMA9 Pierce (same rules as v8.74 LTF EMA20 Pierce, direction = chart CBC) -----
+bool p_state = low <= ema9 and high >= ema9
+var int p_last = -1000000
+bool p_from_above = not pullback_only or low[1] > ema9[1]
+bool p_from_below = not pullback_only or high[1] < ema9[1]
+bool p_ready = p_state and not p_state[1] and bar_index - p_last > pierce_cd
+bool pierce_long  = p_ready and p_from_above and cbc
+bool pierce_short = p_ready and p_from_below and not cbc
+if pierce_long or pierce_short
+    p_last := bar_index
+if show_pierce and (pierce_long or pierce_short)
+    bool fav = pierce_long ? close > ema9 : close < ema9
+    label.new(bar_index, pierce_long ? low - (high - low) * 0.5 : high + (high - low) * 0.5, "9", color=pierce_long ? color.new(#2962FF, 0) : color.new(#9C27B0, 0), textcolor=color.white, style=pierce_long ? label.style_label_up : label.style_label_down, size=size.tiny, tooltip="LTF(" + s_tf + ") EMA9 Pierce - " + (pierce_long ? "LONG" : "SHORT") + "\nEMA9: " + f_p(ema9) + "\nClosed " + (fav ? "on the trade side" : "back through EMA9 (no setup)") + "\nFired: " + f_t(time_close))
+
+// ----- Trade Setup: fixed TP / SL -----
+var float s_en = na
+var float s_tp = na
+var float s_sl = na
+var bool  s_long = false
+var bool  s_live = false
+var int   s_bar = na
+var string s_why = ""
+var box   b_rw = na
+var box   b_rk = na
+var line  l_en = na
+var line  l_tp = na
+var line  l_sl = na
+var label t_en = na
+var label t_tp = na
+var label t_sl = na
+
+// keep a live setup extended to the right
+if s_live
+    int rx = bar_index + ats_ext
+    box.set_right(b_rw, rx)
+    box.set_right(b_rk, rx)
+    line.set_x2(l_en, rx)
+    line.set_x2(l_tp, rx)
+    line.set_x2(l_sl, rx)
+    label.set_x(t_en, rx)
+    label.set_x(t_tp, rx)
+    label.set_x(t_sl, rx)
+
+// pierce setups drawn since the last LTF CBC flip
+var int pierce_cnt = 0
+if any_flip
+    pierce_cnt := 0
+bool p_ok = pierce_cnt < ats_pierce_n
+bool trig_l = ats_on and barstate.isconfirmed and ((ats_on_flip and bull_flip) or (p_ok and pierce_long and close > ema9))
+bool trig_s = ats_on and barstate.isconfirmed and ((ats_on_flip and bear_flip) or (p_ok and pierce_short and close < ema9))
+if trig_l and trig_s
+    trig_s := false
+
+// same-direction cooldown; reverse direction always allowed
+bool new_l = trig_l and (na(s_bar) or not s_long or bar_index - s_bar > ats_cd)
+bool new_s = trig_s and (na(s_bar) or s_long or bar_index - s_bar > ats_cd)
+
+// end check on closed candles (after the entry candle)
+string end_why = ""
+float end_res = na
+if barstate.isconfirmed and s_live and bar_index > s_bar
+    bool hit_sl = s_long ? low <= s_sl : high >= s_sl
+    bool hit_tp = s_long ? high >= s_tp : low <= s_tp
+    if hit_sl
+        end_why := hit_tp ? "SL hit (TP same candle, counted as SL)" : "SL hit"
+        end_res := -ats_sl
+    else if hit_tp
+        end_why := "TP hit"
+        end_res := ats_tp
+    else if ats_end_flip and (s_long ? bear_flip : bull_flip)
+        end_why := "CBC flipped " + (s_long ? "SHORT" : "LONG")
+        end_res := s_long ? close - s_en : s_en - close
+    else if new_l or new_s
+        end_why := "New setup"
+        end_res := s_long ? close - s_en : s_en - close
+if end_why != ""
+    box.set_right(b_rw, bar_index)
+    box.set_right(b_rk, bar_index)
+    line.set_x2(l_en, bar_index)
+    line.set_x2(l_tp, bar_index)
+    line.set_x2(l_sl, bar_index)
+    label.set_x(t_en, bar_index)
+    label.set_x(t_tp, bar_index)
+    label.set_x(t_sl, bar_index)
+    string res_s = (end_res >= 0 ? "+" : "") + str.tostring(end_res, "#.##")
+    label.set_text(t_en, (s_long ? "LONG " : "SHORT ") + f_p(s_en) + "  → " + end_why + " " + res_s)
+    s_live := false
+    if al_end
+        alert(syminfo.ticker + " —\n• Setup Ended: " + (s_long ? "LONG" : "SHORT") + "\nEnded: " + end_why + " | Result: " + res_s + " pts | Lasted: " + str.tostring((bar_index - s_bar) * timeframe.in_seconds() / 60) + "m | At: " + f_t(time_close) + "\nSetup Entry: " + f_p(s_en) + " | Started: " + f_t(time[bar_index - s_bar]), alert.freq_once_per_bar_close)
+
+// new setup
+if new_l or new_s
+    s_long := new_l
+    s_en := close
+    s_tp := s_long ? close + ats_tp : close - ats_tp
+    s_sl := s_long ? close - ats_sl : close + ats_sl
+    s_bar := bar_index
+    s_live := true
+    bool by_flip = ats_on_flip and (s_long ? bull_flip : bear_flip)
+    if not by_flip
+        pierce_cnt += 1
+    s_why := by_flip ? "LTF CBC Flip" : "LTF EMA9 Pierce " + str.tostring(pierce_cnt) + "/" + str.tostring(ats_pierce_n)
+    int rx = bar_index + ats_ext
+    b_rw := box.new(bar_index, math.max(s_en, s_tp), rx, math.min(s_en, s_tp), border_color=na, bgcolor=col_rw)
+    b_rk := box.new(bar_index, math.max(s_en, s_sl), rx, math.min(s_en, s_sl), border_color=na, bgcolor=col_rk)
+    l_en := line.new(bar_index, s_en, rx, s_en, color=color.gray, width=1)
+    l_tp := line.new(bar_index, s_tp, rx, s_tp, color=color.green, width=1)
+    l_sl := line.new(bar_index, s_sl, rx, s_sl, color=color.red, width=1)
+    t_en := label.new(rx, s_en, (s_long ? "LONG " : "SHORT ") + f_p(s_en) + " · " + s_why, style=label.style_label_left, color=s_long ? color.new(color.green, 20) : color.new(color.red, 20), textcolor=color.white, size=size.small)
+    t_tp := label.new(rx, s_tp, "TP " + f_p(s_tp) + " (+" + str.tostring(ats_tp, "#.##") + ")", style=label.style_label_left, color=color.new(color.green, 60), textcolor=color.white, size=size.small)
+    t_sl := label.new(rx, s_sl, "SL " + f_p(s_sl) + " (-" + str.tostring(ats_sl, "#.##") + ")", style=label.style_label_left, color=color.new(color.red, 60), textcolor=color.white, size=size.small)
+    if al_setup
+        alert(syminfo.ticker + " —\n• Trade Setup: " + (s_long ? "LONG" : "SHORT") + "\nTrigger: " + s_why + "\nTP1: " + f_p(s_tp) + " | Fixed " + str.tostring(ats_tp, "#.##") + " | +" + str.tostring(ats_tp, "#.##") + "\nEntry: " + f_p(s_en) + "\nSL1: " + f_p(s_sl) + " | Fixed " + str.tostring(ats_sl, "#.##") + " | -" + str.tostring(ats_sl, "#.##") + "\nChart: " + syminfo.ticker + " " + s_tf + "\nTime: " + f_t(time_close), alert.freq_once_per_bar_close)
+
+// ----- Flip + pierce alerts (closed candle only) -----
+if barstate.isconfirmed
+    if al_flip and any_flip
+        alert(syminfo.ticker + " —\n• LTF(" + s_tf + ") CBC Flip: " + (bull_flip ? "LONG (confirmed, bar closed — was short, now long)" : "SHORT (confirmed, bar closed — was long, now short)") + "\nPrice: " + f_p(close) + "\nTime: " + f_t(time_close), alert.freq_once_per_bar_close)
+    if al_pierce and (pierce_long or pierce_short)
+        alert(syminfo.ticker + " —\n• LTF(" + s_tf + ") EMA9 Pierce - Entry: " + (pierce_long ? "LONG" : "SHORT") + "\nEMA9: " + f_p(ema9) + "\nPrice: " + f_p(close) + "\nTime: " + f_t(time_close), alert.freq_once_per_bar_close)
+
+// ----- Not on 15m? small reminder -----
+var table tf_warn = table.new(position.bottom_right, 1, 1)
+if barstate.islast and timeframe.period != "15"
+    table.cell(tf_warn, 0, 0, "HTF indicator is built for 15m (chart: " + s_tf + ")", text_color=color.white, bgcolor=color.new(color.orange, 20), text_size=size.small)

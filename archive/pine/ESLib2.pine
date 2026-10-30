@@ -1,0 +1,593 @@
+// This Pine Script code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//@version=6
+// ESLib2 v1 (10/11/2026): second helper library for CBC. Holds the Lux-style Order Block functions moved out of
+// ESLib (rev25b) because ESLib hit TradingView's token limit (CE10117, 104,111 tokens). Code unchanged.
+library("ESLib2", overlay = true)
+// ESLib2 (10/16/2026, CBC v10.07+): Lux-style OBs redrawn as new objects on the last bar (stored left times, int[] lfts) so the
+// 500-box limit can no longer garbage-collect a block created early in the history. + f_ob2_al (v10.05). No export signature change.
+// ESLib2 v4 (10/14/2026): Lux-style OBs rebuilt to match LuxAlgo Price Action Concepts (logic of the standalone OB v1.08,
+//   verified offline on MGC 3m 10/14 bars against PAC: same OB candles, levels and volumes). Export signatures unchanged.
+//   f_ob2_detect: swing = "leg" method (new swing high only after a swing low, like LuxAlgo), OB = lowest-low (bull) /
+//   highest-high (bear) candle between the swing and the break; buy/sell volume summed over the whole leg (candles between
+//   swing and break), split by close position in the candle range. f_ob2_manage: Hide Overlap = keep the NEWER block and hide
+//   the older overlapping one (it still uses one of the Show Last slots, like PAC); metrics text = "volume (x% of the
+//   Show Last blocks of that side)"; buy/sell activity bars span their share of the box up to the current bar.
+//   Fix: CE10237 unused n_tb -- new boxes / mid-line start with their right edge at the break candle (extend right as before).
+//   + f_fd_ok (CBC flip distance gate incl. per-symbol pts floor, v9.89).
+//   + f_ob2_in (tooltip line "In OB+ top-bottom (mid x)" when the close is inside an active block; CBC v9.88).
+// ESLib2 v3 (10/13/2026): + f_htf_last4, f_ats_hm (from CBC v9.59).
+// ESLib2 v2 (10/12/2026): + f_field_render_order, f_clr (from CBC v9.45). + f_ob2_detect_t -- the 12-value tuple wrapper for request.security(), moved from CBC v9.38 (CE10117 relief).
+// (ESLib v86-v99 history of these functions: see ESLib.pine.)
+
+// ===========================================================================================
+// Lux-style Order Blocks. f_ob2_detect runs inside CBC's request.security (lookahead_on, returns the previous bar's values);
+// f_ob2_manage draws per side: Show Last N, Hide Overlap, mitigation Close / Wick / Average, breakers, mid-line, activity
+// bars, metrics. Returns float[] of (code, price) pairs for every visible active OB: 1/2/3 = bull top/bottom/mid,
+// 4/5/6 = bear top/bottom/mid (Auto Trade Setup TP/SL pool).
+// ===========================================================================================
+f_ob2_fmt_vol(float v) =>
+    v >= 1e6 ? str.tostring(v / 1e6, "#.###") + "M" : v >= 1e3 ? str.tostring(v / 1e3, "#.###") + "K" : str.tostring(v, "#")
+
+f_ob2_clear(box[] bx, line[] mids, box[] actb, box[] acts, float[] tops, float[] bots, float[] vols, float[] shrs, int[] lfts, int i) =>
+    array.remove(lfts, i)
+    box.delete(array.remove(bx, i))
+    line.delete(array.remove(mids, i))
+    box.delete(array.remove(actb, i))
+    box.delete(array.remove(acts, i))
+    array.remove(tops, i)
+    array.remove(bots, i)
+    array.remove(vols, i)
+    array.remove(shrs, i)
+
+// Hidden (overlapped) entries keep their slot: drawings deleted, top/bottom = na, volume kept for the % total.
+f_ob2_hide(box[] bx, line[] mids, box[] actb, box[] acts, float[] tops, float[] bots, int i) =>
+    box.delete(array.get(bx, i))
+    line.delete(array.get(mids, i))
+    box.delete(array.get(actb, i))
+    box.delete(array.get(acts, i))
+    array.set(bx, i, box(na))
+    array.set(mids, i, line(na))
+    array.set(actb, i, box(na))
+    array.set(acts, i, box(na))
+    array.set(tops, i, na)
+    array.set(bots, i, na)
+
+f_ob2_side(bool is_bull, bool on, float n_top, float n_bot, int n_tl, int n_tb, float n_buy, float n_sell, string mitig, int max_n, color col, bool activity, color act_buy, color act_sell, bool breakers, bool metrics, bool mid, bool hide_overlap, box[] bx, line[] mids, box[] actb, box[] acts, float[] tops, float[] bots, float[] vols, float[] shrs, box[] brk, float[] brk_tops, float[] brk_bots, float[] out, int[] lfts) =>
+    var int last_tl = na
+    if on and not na(n_tl) and (na(last_tl) or n_tl != last_tl) and not na(n_top) and not na(n_bot)
+        last_tl := n_tl
+        if hide_overlap and array.size(tops) > 0
+            for i = 0 to array.size(tops) - 1
+                float t0 = array.get(tops, i)
+                if not na(t0) and n_bot < t0 and n_top > array.get(bots, i)
+                    f_ob2_hide(bx, mids, actb, acts, tops, bots, i)
+        float tot = n_buy + n_sell
+        array.push(bx, box.new(n_tl, n_top, n_tb, n_bot, xloc=xloc.bar_time, extend=extend.right, border_color=color.new(col, 30), bgcolor=color.new(col, 85), text="", text_color=color.new(color.gray, 0), text_size=size.tiny, text_halign=text.align_right, text_valign=text.align_center))
+        float m = (n_top + n_bot) / 2
+        array.push(mids, mid ? line.new(n_tl, m, n_tb, m, xloc=xloc.bar_time, extend=extend.right, color=color.new(col, 20), style=line.style_dashed, width=1) : line(na))
+        array.push(actb, activity and tot > 0 ? box.new(n_tl, n_top, n_tb, m, xloc=xloc.bar_time, border_color=color(na), bgcolor=color.new(act_buy, 55)) : box(na))
+        array.push(acts, activity and tot > 0 ? box.new(n_tl, m, n_tb, n_bot, xloc=xloc.bar_time, border_color=color(na), bgcolor=color.new(act_sell, 55)) : box(na))
+        array.push(tops, n_top)
+        array.push(bots, n_bot)
+        array.push(vols, tot)
+        array.push(shrs, tot > 0 ? n_buy / tot : 0.5)
+        array.push(lfts, n_tl)
+        while array.size(bx) > max_n
+            f_ob2_clear(bx, mids, actb, acts, tops, bots, vols, shrs, lfts, 0)
+    // mitigation (newest-first so removals don't shift the indexes still to visit); hidden entries (na) are skipped
+    if array.size(bx) > 0
+        for i = array.size(bx) - 1 to 0
+            float t = array.get(tops, i)
+            float b = array.get(bots, i)
+            if not on or not na(t)
+                float mm = (t + b) / 2
+                bool broken = is_bull ? (mitig == "Wick" ? low < b : mitig == "Average" ? close < mm : close < b) : (mitig == "Wick" ? high > t : mitig == "Average" ? close > mm : close > t)
+                if broken or not on
+                    if breakers and on
+                        box bb = box.new(array.get(lfts, i), t, time, b, xloc=xloc.bar_time, extend=extend.right, border_color=color.new(col, 40), border_style=line.style_dashed, bgcolor=color.new(col, 93))
+                        array.push(brk, bb)
+                        array.push(brk_tops, t)
+                        array.push(brk_bots, b)
+                    f_ob2_clear(bx, mids, actb, acts, tops, bots, vols, shrs, lfts, i)
+    // breakers: a broken bull OB acts as resistance until price closes back above its top (bear mirrored)
+    if array.size(brk) > 0
+        for i = array.size(brk) - 1 to 0
+            bool gone = not on or not breakers or (is_bull ? close > array.get(brk_tops, i) : close < array.get(brk_bots, i))
+            if gone
+                box.delete(array.remove(brk, i))
+                array.remove(brk_tops, i)
+                array.remove(brk_bots, i)
+        while array.size(brk) > max_n
+            box.delete(array.shift(brk))
+            array.shift(brk_tops)
+            array.shift(brk_bots)
+    // metrics (% of all Show Last slots of this side, hidden ones included) + activity bars up to the current bar
+    float vt = 0.0
+    if array.size(vols) > 0
+        for i = 0 to array.size(vols) - 1
+            vt += array.get(vols, i)
+        for i = 0 to array.size(vols) - 1
+            float t = array.get(tops, i)
+            if not na(t)
+                float v = array.get(vols, i)
+                box b0 = array.get(bx, i)
+                int lft = array.get(lfts, i)
+                float bt = array.get(bots, i)
+                // v6 (CBC v10.08): on the last bar redraw the block, mid-line and activity bars as NEW objects. TradingView
+                // keeps only the newest 500 boxes per script (CBC draws many setup / trail / ORB boxes), so a block created
+                // early in the history had been garbage-collected and never showed.
+                if barstate.islast
+                    float mm2 = (t + bt) / 2
+                    box.delete(b0)
+                    b0 := box.new(lft, t, time, bt, xloc=xloc.bar_time, extend=extend.right, border_color=color.new(col, 30), bgcolor=color.new(col, 85), text="", text_color=color.new(color.gray, 0), text_size=size.tiny, text_halign=text.align_right, text_valign=text.align_center)
+                    array.set(bx, i, b0)
+                    line.delete(array.get(mids, i))
+                    array.set(mids, i, mid ? line.new(lft, mm2, time, mm2, xloc=xloc.bar_time, extend=extend.right, color=color.new(col, 20), style=line.style_dashed, width=1) : line(na))
+                    box.delete(array.get(actb, i))
+                    box.delete(array.get(acts, i))
+                    array.set(actb, i, activity and v > 0 ? box.new(lft, t, time, mm2, xloc=xloc.bar_time, border_color=color(na), bgcolor=color.new(act_buy, 55)) : box(na))
+                    array.set(acts, i, activity and v > 0 ? box.new(lft, mm2, time, bt, xloc=xloc.bar_time, border_color=color(na), bgcolor=color.new(act_sell, 55)) : box(na))
+                box.set_text(b0, metrics and v > 0 ? f_ob2_fmt_vol(v) + " (" + str.tostring(vt > 0 ? 100 * v / vt : 0, "#.#") + "%)" : "")
+                float w = float(time - lft)
+                float sb = array.get(shrs, i)
+                if not na(array.get(actb, i))
+                    box.set_right(array.get(actb, i), lft + int(w * sb))
+                if not na(array.get(acts, i))
+                    box.set_right(array.get(acts, i), lft + int(w * (1 - sb)))
+                array.push(out, is_bull ? 1.0 : 4.0)
+                array.push(out, t)
+                array.push(out, is_bull ? 2.0 : 5.0)
+                array.push(out, bt)
+                array.push(out, is_bull ? 3.0 : 6.0)
+                array.push(out, (t + bt) / 2)
+    true
+
+export f_ob2_manage(bool on, float bu_top, float bu_bot, int bu_tl, int bu_tb, float bu_buy, float bu_sell, float be_top, float be_bot, int be_tl, int be_tb, float be_buy, float be_sell, string mitig, int max_n, color bull_col, color bear_col, bool activity, color act_buy, color act_sell, bool breakers, bool metrics, bool mid, bool hide_overlap) =>
+    var box[] bu_bx = array.new_box()
+    var line[] bu_mid = array.new_line()
+    var box[] bu_ab = array.new_box()
+    var box[] bu_as = array.new_box()
+    var float[] bu_tops = array.new_float()
+    var float[] bu_bots = array.new_float()
+    var float[] bu_vols = array.new_float()
+    var float[] bu_shrs = array.new_float()
+    var box[] bu_brk = array.new_box()
+    var float[] bu_brk_t = array.new_float()
+    var float[] bu_brk_b = array.new_float()
+    var int[] bu_lft = array.new_int()
+    var box[] be_bx = array.new_box()
+    var line[] be_mid = array.new_line()
+    var box[] be_ab = array.new_box()
+    var box[] be_as = array.new_box()
+    var float[] be_tops = array.new_float()
+    var float[] be_bots = array.new_float()
+    var float[] be_vols = array.new_float()
+    var float[] be_shrs = array.new_float()
+    var box[] be_brk = array.new_box()
+    var float[] be_brk_t = array.new_float()
+    var float[] be_brk_b = array.new_float()
+    var int[] be_lft = array.new_int()
+    float[] out = array.new_float()
+    f_ob2_side(true, on, bu_top, bu_bot, bu_tl, bu_tb, bu_buy, bu_sell, mitig, max_n, bull_col, activity, act_buy, act_sell, breakers, metrics, mid, hide_overlap, bu_bx, bu_mid, bu_ab, bu_as, bu_tops, bu_bots, bu_vols, bu_shrs, bu_brk, bu_brk_t, bu_brk_b, out, bu_lft)
+    f_ob2_side(false, on, be_top, be_bot, be_tl, be_tb, be_buy, be_sell, mitig, max_n, bear_col, activity, act_buy, act_sell, breakers, metrics, mid, hide_overlap, be_bx, be_mid, be_ab, be_as, be_tops, be_bots, be_vols, be_shrs, be_brk, be_brk_t, be_brk_b, out, be_lft)
+    out
+
+// v4: LuxAlgo-style detection (leg swings). Returns the PREVIOUS bar's 12 values as a float[] (times as floats): bull top,
+// bot, left time, break time, buy vol, sell vol, then the same 6 for bear. Call inside request.security(..., lookahead_on).
+// Must be called on every bar (it is, from CBC's request.security) -- history references below rely on that.
+export f_ob2_detect(int len) =>
+    var int os = 0
+    var float top_y = na
+    var int top_x = na
+    var bool top_x_done = true
+    var float btm_y = na
+    var int btm_x = na
+    var bool btm_x_done = true
+    var float o_bu_top = na
+    var float o_bu_bot = na
+    var int o_bu_tl = na
+    var int o_bu_tb = na
+    var float o_bu_buy = na
+    var float o_bu_sell = na
+    var float o_be_top = na
+    var float o_be_bot = na
+    var int o_be_tl = na
+    var int o_be_tb = na
+    var float o_be_buy = na
+    var float o_be_sell = na
+    float upper = ta.highest(len)
+    float lower = ta.lowest(len)
+    int os_prev = os
+    os := high[len] > upper ? 0 : low[len] < lower ? 1 : os
+    if os == 0 and os_prev != 0
+        top_y := high[len]
+        top_x := bar_index - len
+        top_x_done := false
+    if os == 1 and os_prev != 1
+        btm_y := low[len]
+        btm_x := bar_index - len
+        btm_x_done := false
+    if not top_x_done and close > top_y
+        top_x_done := true
+        int span = math.max(1, bar_index - top_x - 1)
+        float ext = na
+        float oth = na
+        int tl = time[1]
+        float bv = 0.0
+        float sv = 0.0
+        for i = 1 to span
+            if na(ext) or low[i] <= ext
+                ext := low[i]
+                oth := high[i]
+                tl := time[i]
+            float rg = high[i] - low[i]
+            float vb = rg > 0 ? nz(volume[i]) * (close[i] - low[i]) / rg : nz(volume[i]) * 0.5
+            bv += vb
+            sv += nz(volume[i]) - vb
+        o_bu_top := oth
+        o_bu_bot := ext
+        o_bu_tl := tl
+        o_bu_tb := time
+        o_bu_buy := bv
+        o_bu_sell := sv
+    if not btm_x_done and close < btm_y
+        btm_x_done := true
+        int span = math.max(1, bar_index - btm_x - 1)
+        float ext = na
+        float oth = na
+        int tl = time[1]
+        float bv = 0.0
+        float sv = 0.0
+        for i = 1 to span
+            if na(ext) or high[i] >= ext
+                ext := high[i]
+                oth := low[i]
+                tl := time[i]
+            float rg = high[i] - low[i]
+            float vb = rg > 0 ? nz(volume[i]) * (close[i] - low[i]) / rg : nz(volume[i]) * 0.5
+            bv += vb
+            sv += nz(volume[i]) - vb
+        o_be_top := ext
+        o_be_bot := oth
+        o_be_tl := tl
+        o_be_tb := time
+        o_be_buy := bv
+        o_be_sell := sv
+    array.from(o_bu_top[1], o_bu_bot[1], float(o_bu_tl[1]), float(o_bu_tb[1]), o_bu_buy[1], o_bu_sell[1], o_be_top[1], o_be_bot[1], float(o_be_tl[1]), float(o_be_tb[1]), o_be_buy[1], o_be_sell[1])
+// v4: tooltip line when the close is inside a visible active Lux-style OB (lv = f_ob2_manage output), else "".
+// e.g. "\nIn OB+ 4105.9-4101.3 (mid 4103.6)". CBC appends it to the HTF flip dot and setup ⓘ tooltips (a_ex).
+export f_ob2_in(float[] lv) =>
+    string s = ""
+    int n = array.size(lv)
+    if n >= 6
+        for i = 0 to n - 6 by 6
+            float t = array.get(lv, i + 1)
+            float b = array.get(lv, i + 3)
+            if close <= t and close >= b
+                s += "\nIn OB" + (array.get(lv, i) == 1.0 ? "+ " : "- ") + str.tostring(t, format.mintick) + "-" + str.tostring(b, format.mintick) + " (mid " + str.tostring(array.get(lv, i + 5), format.mintick) + ")"
+    s
+// v2: f_ob2_detect as a 12-value tuple, for request.security() in CBC (was CBC's local f_ob2_detect_c).
+export f_ob2_detect_t(int len) =>
+    float[] a = f_ob2_detect(len)
+    [array.get(a, 0), array.get(a, 1), array.get(a, 2), array.get(a, 3), array.get(a, 4), array.get(a, 5), array.get(a, 6), array.get(a, 7), array.get(a, 8), array.get(a, 9), array.get(a, 10), array.get(a, 11)]
+// v2: Status table field order (moved from CBC v9.45; orders = status_order_arr, returns field ids sorted by order).
+export f_field_render_order(int[] orders) =>
+    array<int> sorted_idx = array.sort_indices(orders, order.ascending)
+    array<string> sorted_ids = array.new<string>()
+    for i = 0 to array.size(sorted_idx) - 1
+        array.push(sorted_ids, array.get((array.from("market", "price", "cbc", "or", "cloud", "vwap", "ema200", "structure", "confsummary", "lastflip", "stop", "entryzone", "next3", "next4", "chart", "pivltf", "pivhtf", "pivmtf", "fliplevel", "confluence", "fibzone")), array.get(sorted_idx, i)))
+    sorted_ids
+// v2: "Require price past both EMA clouds" check (moved from CBC v9.45 f_clr). Returns [htf_clr_l, htf_clr_s, ema_clear_long, ema_clear_short].
+export f_clr(bool ats_req_clear, bool ats_req_htf9, bool ats_req_htf20, float htf_ema9, float htf_ema20, float ema9, float ema20) =>
+    htf_clr_l = not ats_req_clear or ((not ats_req_htf9 or na(htf_ema9) or close > htf_ema9) and (not ats_req_htf20 or na(htf_ema20) or close > htf_ema20))
+    htf_clr_s = not ats_req_clear or ((not ats_req_htf9 or na(htf_ema9) or close < htf_ema9) and (not ats_req_htf20 or na(htf_ema20) or close < htf_ema20))
+    ema_clear_long = htf_clr_l and (not ats_req_clear or close > math.max(ema9, ema20))
+    ema_clear_short = htf_clr_s and (not ats_req_clear or close < math.min(ema9, ema20))
+    [htf_clr_l, htf_clr_s, ema_clear_long, ema_clear_short]
+// v3 (10/13/2026): moved from CBC v9.59 (CE10117 relief). f_n = CBC number format.
+f_n(float x) => na(x) ? "—" : str.tostring(x, "#.##")
+f_htf_prev(string nm, float h, float l) =>
+    "\nHTF " + nm + ": H=" + f_n(h) + " L=" + f_n(l) + " R=" + f_n(h - l)
+// v3: HTF flip candle context: Avg4 / RangeX4 of the 4 HTF candles before it + Prev1..Prev4 lines.
+export f_htf_last4(float sig_htf_h2, float sig_htf_l2, float sig_htf_h3, float sig_htf_l3, float sig_htf_h4, float sig_htf_l4, float sig_htf_h5, float sig_htf_l5, float sig_htf_hi, float sig_htf_lo) =>
+    float s4 = (sig_htf_h2 - sig_htf_l2) + (sig_htf_h3 - sig_htf_l3) + (sig_htf_h4 - sig_htf_l4) + (sig_htf_h5 - sig_htf_l5)
+    na(s4) ? "" : " Avg4=" + f_n(s4 / 4) + " RangeX4=" + str.tostring((sig_htf_hi - sig_htf_lo) * 4 / math.max(s4, 1e-9), "#.#") + f_htf_prev("Prev1", sig_htf_h2, sig_htf_l2) + f_htf_prev("Prev2", sig_htf_h3, sig_htf_l3) + f_htf_prev("Prev3", sig_htf_h4, sig_htf_l4) + f_htf_prev("Prev4", sig_htf_h5, sig_htf_l5)
+// v3: NY time "H:MM" (drop00 -> "H" on the hour).
+export f_ats_hm(int t, bool drop00) =>
+    int h = hour(t, "America/New_York")
+    int m = minute(t, "America/New_York")
+    drop00 and m == 0 ? str.tostring(h) : str.tostring(h) + ":" + (m < 10 ? "0" : "") + str.tostring(m)
+// v4 (CBC v9.89 token relief): HTF CBC flip distance gate. True = setup allowed. Limit = max(x * (ATR or 1 pt), per-symbol pts
+// from txt like "MGC 10, MES 8"); distance = |close - 3m or 15m EMA20| by mode ("Off" = always true).
+f_fd_cap(string txt) =>
+    string r = syminfo.root
+    string k = r == "GC" ? "MGC" : r == "ES" ? "MES" : r == "NQ" ? "MNQ" : r == "RTY" ? "M2K" : r == "CL" ? "MCL" : r == "MBT" or str.contains(r, "BTC") ? "BTC" : r
+    float v = na
+    for p in str.split(txt, ",")
+        string[] kv = str.split(str.trim(str.replace_all(str.replace_all(p, "=", " "), ":", " ")), " ")
+        if array.size(kv) >= 2 and str.upper(array.get(kv, 0)) == k
+            v := str.tonumber(array.get(kv, array.size(kv) - 1))
+    v > 0 ? v : 0.0
+// v4b (CBC v9.90): HTF CBC Flip trigger, long / short. win/pb = flip pullback wait (0 = off) / its result (+1 / -1);
+// on/fb/fs/ok = trigger enabled, HTF flip long / short, flip allowed. Gates: distance (mode, x, pts), e_on / v_on = EMA200 / VWAP
+// slope vs n bars ago in the trade direction, fva = close beyond max/min(VWAP, EMA200) by fvx. Returns [long, short].
+// v4g (CBC v9.95): er / erm = Efficiency Ratio on the candle / minimum for flip setups (erm <= 0 = off).
+// Must be called on every bar (history of e200 / vw).
+export f_fd_ok(string mode, float x, string pts, float e3, float e15, float atr, bool e_on, bool v_on, float e200, float vw, int n, int win, int pb, bool on, bool fb, bool fs, bool ok, bool fva, float fvx, float er, float erm) =>
+    bool fd = (mode == "Off" or math.abs(close - (str.contains(mode, "15m") ? e15 : e3)) <= math.max(x * (str.contains(mode, "ATR") ? atr : 1.0), f_fd_cap(pts))) and (erm <= 0 or er >= erm)
+    float de = e200 - e200[n]
+    float dv = vw - vw[n]
+    bool tl = (win == 0 ? on and fb and ok : pb > 0) and fd and (not e_on or de > 0) and (not v_on or dv > 0) and (not fva or close > math.max(vw, e200) + fvx)
+    bool ts = (win == 0 ? on and fs and ok : pb < 0) and fd and (not e_on or de < 0) and (not v_on or dv < 0) and (not fva or close < math.min(vw, e200) - fvx)
+    [tl, ts]
+// v4c (CBC v9.91): volatility gates for every new setup. c_on: skip when the per-symbol Max ATR SL1 cap (cap_txt, only when
+// cap_on) is below cx x ATR (the allowed risk is too small for the market). a_on: skip while ATR > ax x ATR(100).
+// Must be called on every bar (ta.atr(100)).
+export f_vol_ok(bool c_on, float cx, bool cap_on, string cap_txt, bool a_on, float ax, float atr) =>
+    float a100 = ta.atr(100)
+    float cap = cap_on ? f_fd_cap(cap_txt) : 0.0
+    not (c_on and cap > 0 and atr > 0 and cap < cx * atr) and not (a_on and a100 > 0 and atr > ax * a100)
+// v4d (CBC v9.91 token relief): HTF EMA9 / EMA20 Pierce trigger, moved from CBC f_ats_htf_ema_pierce (same logic).
+// lvl = HTF EMA, on = trigger enabled, al_on = pierce alert on, ok = flip allowed, hb/hs = HTF direction, pbo = pullbacks only,
+// lb = late-confirm window (bars), ldb = bar of the last drawn setup, lc = late confirm needs a trade-colour candle.
+// Returns [long, short, fired, fired long, late]. Must be called on every bar; one call per level (own state).
+export f_ats_hep(float lvl, bool on, bool al_on, bool ok, bool hb, bool hs, bool pbo, int lb, int ldb, bool lc) =>
+    var int last_bar = -1000000
+    var int arm = na
+    var bool arm_l = false
+    bool st = (on or al_on) and not na(lvl) and low <= lvl and high >= lvl
+    bool ready = st and not st[1] and bar_index - last_bar > 3 and ok
+    bool al = ready and hb and (not pbo or low[1] > lvl[1])
+    bool ash = ready and hs and (not pbo or high[1] < lvl[1])
+    if al or ash
+        last_bar := bar_index
+        arm := bar_index
+        arm_l := al
+    int age = na(arm) ? -1 : bar_index - arm
+    bool live = on and age >= 1 and age <= lb and (na(ldb) or ldb < arm)
+    bool late_l = live and arm_l and hb and close > lvl and (not lc or close > open)
+    bool late_s = live and not arm_l and hs and close < lvl and (not lc or close < open)
+    if age > lb
+        arm := na
+    [on and (al and close > lvl or late_l), on and (ash and close < lvl or late_s), al or ash, al, late_l or late_s]
+// v4e (CBC v9.92): per-symbol Max ATR TP1 (pts). Returns the TP1 ATR multiplier, lowered to cap / atr when m x atr > cap
+// (cap from txt like "MGC 6, MES 6"; unlisted symbol / off = m unchanged). Same idea as ESLib's SL1 cap.
+export f_tp_m(float m, float atr, bool on, string txt) =>
+    float cap = on ? f_fd_cap(txt) : 0.0
+    cap > 0 and atr > 0 and m * atr > cap ? cap / atr : m
+// v4f (CBC v9.94): ER chop filter breakout exception. True while a close broke through the last LTF swing high / low or a
+// session opening-range high / low (previous close not beyond it) within the last n bars (n = 1: this candle only).
+// Must be called on every bar (ta.barssince).
+f_x(float lv) =>
+    not na(lv) and not na(lv[1]) and ((close > lv and close[1] <= lv[1]) or (close < lv and close[1] >= lv[1]))
+export f_er_brk(int n, float sh, float sl, float h1, float l1, float h2, float l2, float h3, float l3) =>
+    bool b = f_x(sh) or f_x(sl) or f_x(h1) or f_x(l1) or f_x(h2) or f_x(l2) or f_x(h3) or f_x(l3)
+    // (CBC v10.11) n < 0 = skip the breakout candle itself: only the next |n| - 1 candles lift the ER block
+    int bs = nz(ta.barssince(b), 9999)
+    bs < math.max(1, math.abs(n)) and (n >= 0 or bs >= 1)
+// v4h (CBC v9.95 token relief): setup-engine HTF direction block, moved from CBC f_ats_hdir (same logic). hc = act at the HTF
+// candle close (ats_hc_on), lc = this chart candle closes the live HTF candle, hcb = live HTF CBC, jf = HTF just flipped (zone),
+// hf = confirmed HTF CBC (1/0), en = HTF enabled, twl / atw / twp = toward-flip late-away options, e20 = HTF EMA20,
+// sh / h0 / sl / l0 = flip candle high/low sources, eod = end setups at 16:00 ET (CBC v10.10: every bar closing 16:00-17:00 ET is flagged, so the active setup ends on the 16:00 close and no new setup draws until the 17:00 CME close).
+// Returns [hb, hs, fb, fs, aw, fch, fcl, flip_ok, eod_bar, tol]. Must be called on every bar.
+export f_ats_hdir(bool hc, bool lc, bool hcb, bool jf, float hf, bool en, bool twl, bool atw, float e20, float twp, float sh, float h0, float sl, float l0, bool eod) =>
+    var float hd = na
+    hd := hc and barstate.isconfirmed and lc ? (hcb ? 1.0 : 0.0) : jf or na(hd) ? hf : hd
+    bool fb = en and hd > hd[1]
+    bool fs = en and hd < hd[1]
+    var bool aw = false
+    var float fch = na
+    var float fcl = na
+    bool lt = twl and not atw and not aw and not (fb or fs) and barstate.isconfirmed and not na(hd) and (hd == 1.0 ? close > e20 + twp : close < e20 - twp)
+    if lt
+        aw := true
+    if fb or fs
+        aw := fb ? close > e20 : close < e20
+        fch := jf ? sh : h0
+        fcl := jf ? sl : l0
+    int m = hour(time_close, "America/New_York") * 60 + minute(time_close, "America/New_York")
+    [hd == 1.0, hd == 0.0, fb or lt and hd == 1.0, fs or lt and hd == 0.0, aw, fch, fcl, atw or aw, eod and m >= 960 and m <= 1020, syminfo.root == "MNQ" ? 50.0 : 5.0]
+// v4i (CBC v9.96): per-trigger minimum Efficiency Ratio. er = ER of the candle; a/b/c = minimum for LTF EMA20 Pierce /
+// HTF EMA9 Pierce / HTF EMA20 Pierce (<= 0 = off). Returns [ltf ok, htf9 ok, htf20 ok].
+export f_erm(float er, float a, float b, float c) =>
+    [a <= 0 or er >= a, b <= 0 or er >= b, c <= 0 or er >= c]
+// (10/15/2026, CBC v9.98): ER background colour by band. na above 0.23 (no shade).
+// <=0.05 dark red | <=0.10 red | <=0.15 orange | <=0.20 yellow | <=0.23 green.
+export f_er_col(float er) =>
+    na(er) or er > 0.23 ? color(na) : er <= 0.05 ? color.new(#b71c1c, 70) : er <= 0.10 ? color.new(#f44336, 75) : er <= 0.15 ? color.new(#ff9800, 78) : er <= 0.20 ? color.new(#ffeb3b, 80) : color.new(#4caf50, 80)
+// (10/16/2026, CBC v10.01): SL1 method override. c = setup call [entry, SL1, TP1, SL2, TP2], alt = f_ats_atr_lv result.
+// mode containing "flip" = HTF CBC flip level (last closed HTF low for a long / high for a short); containing "close" =
+// last closed HTF close. Distance clamped to the Max SL1 cap (cap, na = off) and at least msl. Level on the wrong side
+// of Entry or na -> SL1 unchanged (ATR / pivot). SL2 pushed out to at least SL1. sl_on (ATR SL method) -> the ATR
+// multiplier shown (alt[4]) becomes distance / ATR and alt[9] the pre-min-SL stop.
+export f_sl_alt(float[] c, float[] alt, string mode, float fl, float fh, float hc, float atr, float msl, float cap, bool sl_on) =>
+    float en = array.get(c, 0)
+    bool lg = array.get(c, 2) > en
+    float raw = str.contains(mode, "flip") ? (lg ? fl : fh) : str.contains(mode, "close") ? hc : na
+    if not na(raw) and not na(en) and (lg ? raw < en : raw > en)
+        float d0 = not na(cap) and math.abs(en - raw) > cap ? cap : math.abs(en - raw)
+        float d = math.max(d0, nz(msl))
+        float s = lg ? en - d : en + d
+        array.set(c, 1, s)
+        float s2 = array.get(c, 3)
+        if not na(s2)
+            array.set(c, 3, lg ? math.min(s2, s) : math.max(s2, s))
+        if sl_on and array.size(alt) > 9 and atr > 0
+            array.set(alt, 4, d / atr)
+            array.set(alt, 9, lg ? en - d0 : en + d0)
+    true
+// (10/16/2026, CBC v10.01): MTF CBC gate. f = MTF CBC confirmed (1 bull / 0 bear / na). Returns [long ok, short ok].
+export f_mtf_ok(bool on, float f) =>
+    [not on or nz(f, 0.5) != 0.0, not on or nz(f, 0.5) != 1.0]
+// (10/16/2026, CBC v10.02, CE10117 relief): alert-snapshot text pieces moved out of CBC's a_mid (same text).
+// Pivot lines "\nPivot R3: 1234.5" ... for each shown level; p = piv_price_arr [R3, R2, R1, PP, S1, S2, S3].
+export f_piv_txt(bool on, float[] p, bool r3, bool r2, bool r1, bool pp, bool s1, bool s2, bool s3) =>
+    string s = ""
+    if on
+        bool[] sh = array.from(r3, r2, r1, pp, s1, s2, s3)
+        string[] nm = array.from("R3", "R2", "R1", "PP", "S1", "S2", "S3")
+        for i = 0 to 6
+            if array.get(sh, i)
+                s += "\nPivot " + array.get(nm, i) + ": " + str.tostring(array.get(p, i), "#.##")
+    s
+// "\nORB set: 09:30-09:45 ET"
+export f_orb_set(int oh, int om, int eh, int em) =>
+    "\nORB set: " + (oh < 10 ? "0" : "") + str.tostring(oh, "#") + ":" + (om < 10 ? "0" : "") + str.tostring(om, "#") + "-" + (eh < 10 ? "0" : "") + str.tostring(eh, "#") + ":" + (em < 10 ? "0" : "") + str.tostring(em, "#") + " ET"
+// "\nCBC (15m) last flip: LONG 10/16 09:45 ET  #3"
+export f_lf(string tf, int t, bool bull, int n) =>
+    "\nCBC (" + tf + ") last flip: " + (na(t) ? "—" : (bull ? "LONG " : "SHORT ") + str.format_time(t, "M/d HH:mm", "America/New_York") + " ET  #" + str.tostring(n))
+// "\nCBC Flip Level (15m): 4012.3 (close below)"
+export f_fl(string tf, float p, bool below) =>
+    "\nCBC Flip Level (" + tf + "): " + (na(p) ? "—" : str.tostring(p, "#.##") + " (" + (below ? "close below" : "close above") + ")")
+// (10/16/2026, CBC v10.05): OB line for the Trade Setup alert: "\nIn OB+ top-bottom (mid x)" lines (f_ob2_in), else
+// "\nOB: none" (+ nearest block and distance since CBC v10.09), or "\nOB: off" when ⑨ Show is off.
+export f_ob2_al(float[] lv, bool on) =>
+    string s = f_ob2_in(lv)
+    // (CBC v10.09) not inside any block: name the nearest active block and its distance from the close, e.g.
+    // "OB: none (nearest OB+ 4177.7-4176.5, 2.1 pts away)" -- the Alert Feed Stats "near OB" band uses it.
+    string nr = ""
+    int n = array.size(lv)
+    if on and s == "" and n >= 6
+        float bd = na
+        string bx = ""
+        for i = 0 to n - 6 by 6
+            float t = array.get(lv, i + 1)
+            float b = array.get(lv, i + 3)
+            float d = close > t ? close - t : close < b ? b - close : 0.0
+            if na(bd) or d < bd
+                bd := d
+                bx := "OB" + (array.get(lv, i) == 1.0 ? "+ " : "- ") + str.tostring(t, format.mintick) + "-" + str.tostring(b, format.mintick)
+        nr := na(bd) ? "" : " (nearest " + bx + ", " + str.tostring(bd, "#.##") + " pts away)"
+    not on ? "\nOB: off" : s == "" ? "\nOB: none" + nr : s
+// (10/17/2026, CBC v10.12): per-symbol value from a list like "MGC 4, MES 0" (na when the chart symbol is not listed).
+f_sym_v(string txt) =>
+    // rev (10/19/2026, CBC v10.23): per symbol AND chart timeframe -- "MGC 3m 5, MGC 2m 6, MES 4" -- an entry with the chart's
+    // timeframe ("3m" on a 3-minute chart) wins over a symbol-only entry; a symbol-only entry applies to every timeframe.
+    string r = syminfo.root
+    string k = r == "GC" ? "MGC" : r == "ES" ? "MES" : r == "NQ" ? "MNQ" : r == "RTY" ? "M2K" : r == "CL" ? "MCL" : r == "MBT" or str.contains(r, "BTC") ? "BTC" : r
+    string tf = str.lower(timeframe.period) + "m"
+    float v = na
+    float vt = na
+    for p in str.split(txt, ",")
+        string[] kv = str.split(str.trim(str.replace_all(str.replace_all(str.replace_all(str.replace_all(p, "=", " "), ":", " "), "  ", " "), "  ", " ")), " ")
+        int n = array.size(kv)
+        if n >= 2 and str.upper(array.get(kv, 0)) == k
+            if n >= 3
+                if str.lower(array.get(kv, 1)) == tf
+                    vt := str.tonumber(array.get(kv, n - 1))
+            else
+                v := str.tonumber(array.get(kv, n - 1))
+    na(vt) ? v : vt
+// (CBC v10.12) "Block after frequent HTF flips" per symbol: listed > 0 = ON with that count, listed 0 = OFF, unlisted = the checkbox / N.
+export f_sym_n(bool on, int n, string txt) =>
+    float v = f_sym_v(txt)
+    [na(v) ? on : v > 0, na(v) or v <= 0 ? n : int(v)]
+// (CBC v10.12) buy share (%) of the last COMPLETED HTF candle's volume, from 1m intrabars (c / v = request.security_lower_tf
+// close / volume arrays of each chart bar). Tick rule: intrabar close above the previous intrabar close = buy volume, below = sell,
+// unchanged = half each. Updated on the chart bar that closes the HTF candle, held until the next one closes.
+export f_htf_buy(float[] c, float[] v, simple string htf) =>
+    var float cb = 0.0
+    var float cs = 0.0
+    var float pc = na
+    var float last = na
+    if ta.change(time(htf)) != 0
+        cb := 0.0
+        cs := 0.0
+    if array.size(v) > 0
+        for i = 0 to array.size(v) - 1
+            float vv = nz(array.get(v, i))
+            float ci = array.get(c, i)
+            float d = na(pc) ? 0.0 : ci - pc
+            cb += d > 0 ? vv : d == 0 ? vv / 2 : 0.0
+            cs += d < 0 ? vv : d == 0 ? vv / 2 : 0.0
+            pc := ci
+    if time_close == time_close(htf) and cb + cs > 0
+        last := 100 * cb / (cb + cs)
+    last
+// (CBC v10.12) "\nFlip volume: buy 62% · RVOL 1.40" line for the Trade Setup alert (HTF flip candle buy share + its volume vs the average).
+export f_fv_txt(float buy, float rv) =>
+    "\nFlip volume: buy " + (na(buy) ? "—" : str.tostring(buy, "#") + "%") + " · RVOL " + (na(rv) ? "—" : str.tostring(rv, "0.00"))
+// ESLib2 (10/18/2026, CBC v10.15): flop exception. Returns lv, or na (= not a flop for this level) when at least pct % of the
+// HTF flip candle's range (lo..hi) is on the flip-direction side of lv (long: above, short: below). pct <= 0 = off.
+export f_flop_ok(float lv, bool bull, float lo, float hi, float pct) =>
+    float r = hi - lo
+    na(lv) or pct <= 0 or na(r) or r <= 0 ? lv : (bull ? hi - lv : lv - lo) / r * 100 >= pct ? na : lv
+// ESLib2 (10/18/2026, CBC v10.16): true when the HTF flip candle (lo..hi) crosses EMA200 (e) or VWAP (v) and less than pct % of
+// its range is on the flip side of that line (= a flop under the v10.15 rule; pivots ignored).
+f_fk1(float lv, bool bull, float lo, float hi, float pct) =>
+    not na(lv) and lo <= lv and hi >= lv and not na(f_flop_ok(lv, bull, lo, hi, pct))
+export f_is_flop(float e, float v, bool bull, float lo, float hi, float pct) =>
+    f_fk1(e, bull, lo, hi, pct) or f_fk1(v, bull, lo, hi, pct)
+// ESLib2 (10/18/2026, CBC v10.17): LTF candle patterns on the last 3 chart candles (0 = this candle, -1, -2), for the setup
+// alert / tooltip line "Pattern: ...". Engulfing = the candle's body swallows the previous opposite-colour body; tweezer top =
+// green then red with highs within tol (bottom: red then green, lows within tol). Call every bar (history refs).
+f_pat1(int k, float tol) =>
+    float o = open[k]
+    float c = close[k]
+    float po = open[k + 1]
+    float pc = close[k + 1]
+    string g = " (" + (k == 0 ? "0" : "-" + str.tostring(k)) + "), "
+    (pc < po and c > o and o <= pc and c >= po and c - o > po - pc ? "bull engulfing" + g : "") + (pc > po and c < o and o >= pc and c <= po and o - c > pc - po ? "bear engulfing" + g : "") + (math.abs(high[k] - high[k + 1]) <= tol and pc > po and c < o ? "tweezer top" + g : "") + (math.abs(low[k] - low[k + 1]) <= tol and pc < po and c > o ? "tweezer bottom" + g : "")
+export f_pat(float tol) =>
+    string s = f_pat1(0, tol) + f_pat1(1, tol) + f_pat1(2, tol)
+    s == "" ? "none" : str.substring(s, 0, str.length(s) - 2)
+// ESLib2 (10/19/2026, CBC v10.19): float version of f_sym_n for per-symbol overrides, e.g. "MGC 4, MES 8". Listed value > 0 =
+// ON at that value, listed 0 = OFF, symbol not listed = the checkbox (on) and number (x).
+export f_sym_f(bool on, float x, string txt) =>
+    float v = f_sym_v(txt)
+    [na(v) ? on : v > 0, na(v) or v <= 0 ? x : v]
+// ESLib2 (10/19/2026, CBC v10.20): range-position gate. Where the close sits in the last n bars' high-low range (0 = low,
+// 1 = high) and how wide that range is in ATRs. Returns [block long, block short, alert text]. on = gate on; a long is blocked
+// when the range is under x ATR AND the close is in the top z %, a short when in the bottom z %. Call every bar.
+export f_rp(bool on, simple int n, float z, float x, float atr) =>
+    float hi = ta.highest(high, n)
+    float lo = ta.lowest(low, n)
+    float r = hi - lo
+    float p = r > 0 ? (close - lo) / r : 0.5
+    float w = atr > 0 ? r / atr : na
+    bool t = on and not na(w) and w < x
+    [t and p >= 1 - z / 100, t and p <= z / 100, "\nRange: " + str.tostring(p * 100, "#") + "% of " + str.tostring(n) + "-bar range · " + str.tostring(w, "#.#") + " ATR"]
+// ESLib2 (10/19/2026, CBC v10.28): time stop. Tracks the latest setup (c = ats_call: [0] entry, [2] TP1) from the bar after it
+// is drawn; returns true ONCE on the first bar where n candles have passed, TP1 has not been reached and the best move in the
+// trade direction is still below x * ATR (ATR at the setup). on = time stop enabled for this chart. Call every bar.
+export f_tstop(bool new_setup, float[] c, int n, float x, float atr, bool on) =>
+    var float en = na
+    var float t1 = na
+    var bool lg = false
+    var int b0 = na
+    var float a0 = na
+    var float best = 0.0
+    var bool tp = false
+    var bool done = true
+    bool fire = false
+    if not done and not na(en) and bar_index > b0
+        best := math.max(best, lg ? high - en : en - low)
+        if lg ? high >= t1 : low <= t1
+            tp := true
+        if on and not tp and bar_index - b0 >= n and best < x * a0
+            fire := true
+            done := true
+    if new_setup
+        en := array.get(c, 0)
+        t1 := array.get(c, 2)
+        lg := t1 > en
+        b0 := bar_index
+        a0 := atr
+        best := 0.0
+        tp := false
+        done := false
+    fire
+// ESLib2 (10/19/2026, CBC v10.30, CE10117 token relief): alert text pieces moved out of CBC, same text.
+f_n2(float x) => na(x) ? "—" : str.tostring(x, "#.##")
+f_dpt(string nm, float d, string fmt) => nm + (d > 0 ? "+" : "") + str.tostring(d, fmt) + (d >= 0 ? "pts ✓" : "pts")
+f_dfl(string nm, float d, string fmt) => d < 0 ? "\n⚠ Potential flop - close to " + nm + " (" + str.tostring(d, fmt) + " pts)" : ""
+// "Distance from HTF EMA9 +3pts ✓ | EMA20 ... | LTF EMA20 ..." + ex + potential-flop warnings (CBC a_htf_flip_ema_dist).
+export f_ema_dist(float d9, float d20, float dl, string fmt, string ex) =>
+    f_dpt("Distance from HTF EMA9 ", d9, fmt) + f_dpt(" | EMA20 ", d20, fmt) + f_dpt(" | LTF EMA20 ", dl, fmt) + ex + f_dfl("HTF EMA9", d9, fmt) + f_dfl("HTF EMA20", d20, fmt) + f_dfl("LTF EMA20", dl, fmt)
+// "\nHTF Candle (15m, the one that flipped): H= L= C= Height= Retracement%= AvgRange= RangeX=" (CBC a_htf_candle_line, without the last-4 part).
+export f_htf_cline(string tf, float hi, float lo, float cl, float h, float rp, float ra) =>
+    "\nHTF Candle (" + tf + ", the one that flipped): H=" + f_n2(hi) + " L=" + f_n2(lo) + " C=" + f_n2(cl) + " Height=" + (na(h) ? "—" : (h >= 0 ? "+" : "") + f_n2(h)) + " Retracement%=" + (na(rp) ? "—" : (rp >= 0 ? "+" : "") + str.tostring(rp, "#.#") + "%") + (na(ra) or ra <= 0 ? "" : " AvgRange=" + f_n2(ra) + " RangeX=" + str.tostring((hi - lo) / ra, "#.#"))
+f_ck(bool b, string nm) => (b ? "✓" : "✗") + nm
+// confluence factor breakdown (CBC confluence_reasons_str).
+export f_cf_txt(string htf, bool c1, bool c2, bool c3, bool c4, bool c5, bool c6, bool c7, bool c8, bool use9, bool c9) =>
+    f_ck(c1, "HTF(" + htf + ")  ") + f_ck(c2, "Zone  ") + f_ck(c3, "Sweep  ") + f_ck(c4, "Fib  ") + f_ck(c5, "HTFEMA  ") + f_ck(c6, "StructureHTF  ") + f_ck(c7, "LTFPierce  ") + f_ck(c8, "HTFBetween") + (not use9 ? "" : "  " + f_ck(c9, "HTFFlip(4)"))

@@ -1,0 +1,393 @@
+// This work is licensed under a Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) https://creativecommons.org/licenses/by-nc-sa/4.0/
+// Based on "Order Blocks & Breaker Blocks [LuxAlgo]" © LuxAlgo. Modifications (PAC-style order blocks) under the same license.
+// v1.00  internal + swing OBs, high-volatility candle filter, volumetric OBs (buy/sell split + % of shown volume),
+//        mitigation choice (Body/Close/Wick/Midpoint), overlap filter, nearest-OB Data Window plots, alerts.
+// v1.01  "OB candle" option (Lowest in leg / Last opposite candle before break, PAC-like) + "Volume % base" option (All shown / Same side).
+// v1.02  "Swing detection" option (Leg = original / Pivot = every pivot high/low, PAC-like) + "Show mid-line" (dashed OB middle).
+// v1.03  PAC-like defaults: internal last 5/5, swing OBs off, Pivot, high-vol filter Off, mitigation Close, breakers off, mid-line on,
+//        volume window OB candle, % base Same side; colours bull #089981 / bear #F23645 / breakers grey (85% transp).
+// v1.04  "Overlap rule" (Skip new = PAC-like, default: a new OB overlapping an active OB of the same side is not created /
+//        Keep newest = v1.03 display filter).
+// v1.05  FIX: OB candle search moved to global scope (inside the function it read the break bar, so OBs sat on the breakout candle).
+//        Volume window "Leg (PAC)" = all candles between the swing and the break (matches PAC metrics). Verified offline on MGC 3m
+//        10/14 bars: Leg + Lowest in leg + Keep newest reproduces PAC's 12:18 / 14:00 / 14:51 / 16:45 / 18:03 OBs and volumes.
+//        Defaults: Swing detection Leg, Overlap rule Keep newest, Volume window Leg (PAC).
+// v1.06  "Last N" counts the N newest OBs incl. ones hidden by overlap (PAC: 13:15 hidden by 14:00 still uses a slot, so 12:18 drops
+//        out); volume % total includes those hidden OBs too (matches PAC 37% / 15%).
+// v1.07  PAC look: "Volume bar length" Box (PAC, default) = buy/sell bars span their share of the box up to the current bar, or Bars
+//        (fixed N bars, old); volume text without the Int/Swing prefix unless both scales are shown.
+// v1.08  Alert Feed alerts (alert(), once per bar close, input "Alert Feed alerts" ON): "TICKER —" header + "• Bullish order block
+//        created: top - btm (vol)" / "• Bullish OB Mitigated: top - btm" / "• Bullish OB Entered: top - btm" (bearish mirrored)
+//        + "Price: x". Wording = what the web feed already parses as Price Action OB alerts (LUXALGO pill).
+//@version=6
+indicator("OB v1.08", "OB 1.08", overlay = true
+  , max_boxes_count  = 500
+  , max_lines_count  = 500
+  , max_labels_count = 500
+  , max_bars_back    = 5000)
+
+//------------------------------------------------------------------------------
+//Settings
+//-----------------------------------------------------------------------------{
+iOn   = input.bool(true, "Show internal OBs", group = "▌Internal order blocks")
+iLen  = input.int(5, "Swing lookback", minval = 3, group = "▌Internal order blocks")
+iBull = input.int(5, "Last bullish", minval = 0, inline = "in", group = "▌Internal order blocks")
+iBear = input.int(5, "Last bearish", minval = 0, inline = "in", group = "▌Internal order blocks")
+
+sOn   = input.bool(false, "Show swing OBs", group = "▌Swing order blocks")
+sLen  = input.int(50, "Swing lookback", minval = 3, group = "▌Swing order blocks")
+sBull = input.int(3, "Last bullish", minval = 0, inline = "sw", group = "▌Swing order blocks")
+sBear = input.int(3, "Last bearish", minval = 0, inline = "sw", group = "▌Swing order blocks")
+
+swMode  = input.string("Leg", "Swing detection", options = ["Leg", "Pivot"], group = "▌Construction"
+  , tooltip = "Leg = original script: a new swing high only after a swing low has formed (and vice versa). Pivot = every pivot high/low with the lookback on both sides counts, so the most recent high is the one that gets broken (PAC-like).")
+useBody = input.bool(false, "Use candle body", group = "▌Construction")
+obPick  = input.string("Lowest in leg", "OB candle", options = ["Lowest in leg", "Last opposite candle"], group = "▌Construction"
+  , tooltip = "Lowest in leg = original script: the lowest candle (bullish) / highest candle (bearish) between the swing and the break. Last opposite candle = the most recent down candle before a bullish break / up candle before a bearish break (PAC-like). Falls back to Lowest in leg if none is found.")
+volF    = input.string("Off", "Skip high-volatility candles", options = ["Off", "ATR", "Mean range"], inline = "hv", group = "▌Construction"
+  , tooltip = "When picking the OB candle, skip candles whose range is at least X times ATR(200) or the cumulative mean range.")
+volX    = input.float(2.0, "X", minval = 0.5, step = 0.1, inline = "hv", group = "▌Construction")
+mit     = input.string("Close", "Mitigation (OB becomes breaker)", options = ["Body", "Close", "Wick", "Midpoint"], group = "▌Construction"
+  , tooltip = "Bullish OB (bearish mirrored): Body = candle body below the bottom (original script), Close = close below the bottom, Wick = low below the bottom, Midpoint = low reaches the OB middle.")
+hideOv  = input.bool(true, "Hide overlapping OBs", inline = "ov", group = "▌Construction")
+ovRule  = input.string("Keep newest", "", options = ["Keep newest", "Skip new"], inline = "ov", group = "▌Construction"
+  , tooltip = "Skip new = a new OB that overlaps an active (not mitigated) OB of the same side is not created; the older one stays. Keep newest (PAC-like) = all OBs are created and the newer one is drawn, older overlapping ones are hidden (swing OBs drawn first).")
+showBrk = input.bool(false, "Show breakers", group = "▌Construction")
+showMid = input.bool(true, "Show mid-line", group = "▌Construction")
+
+volOn   = input.bool(true, "Volumetric OBs", group = "▌Volume")
+volWin  = input.string("Leg (PAC)", "Volume window", options = ["Leg (PAC)", "OB candle", "OB candle to break"], group = "▌Volume")
+ltf     = input.timeframe("1", "Intrabar TF for buy/sell split", group = "▌Volume"
+  , tooltip = "Bars with no intrabar data use an estimate: volume x (close - low) / (high - low).")
+volLen  = input.string("Box (PAC)", "Volume bar length", options = ["Box (PAC)", "Bars"], inline = "vl", group = "▌Volume"
+  , tooltip = "Box (PAC) = each bar spans its share (buy or sell %) of the box from the OB candle to the current bar. Bars = the full split spans the number of bars set here.")
+volBars = input.int(15, "", minval = 2, inline = "vl", group = "▌Volume")
+volTxt  = input.bool(true, "Show volume text", group = "▌Volume")
+pctBase = input.string("Same side", "Volume % base", options = ["All shown", "Same side"], group = "▌Volume"
+  , tooltip = "All shown = % of the volume of every drawn OB. Same side = % of the drawn bullish OBs (bullish) or bearish OBs (bearish).")
+
+bullCss      = input.color(color.new(#089981, 85), "Bullish OB"   , inline = "bull", group = "▌Style")
+bullBreakCss = input.color(color.new(color.gray, 85), "Bull breaker" , inline = "bull", group = "▌Style")
+bearCss      = input.color(color.new(#F23645, 85), "Bearish OB"   , inline = "bear", group = "▌Style")
+bearBreakCss = input.color(color.new(color.gray, 85), "Bear breaker" , inline = "bear", group = "▌Style")
+buyCss       = input.color(color.new(#089981, 35), "Buy volume"   , inline = "vol" , group = "▌Style")
+sellCss      = input.color(color.new(#f23645, 35), "Sell volume"  , inline = "vol" , group = "▌Style")
+txtCss       = input.color(color.gray, "Text", group = "▌Style")
+afOn         = input.bool(true, "Alert Feed alerts (Any alert() function call)", group = "▌Alerts"
+  , tooltip = "One alert per closed candle: new OB, OB mitigated, price entered the nearest OB. Create the TradingView alert with condition OB 1.08 -> Any alert() function call and the Alert Feed webhook URL.")
+
+//-----------------------------------------------------------------------------}
+//UDT's
+//-----------------------------------------------------------------------------{
+type ob
+    float top
+    float btm
+    int   loc
+    bool  breaker = false
+    int   break_loc
+    bool  swing   = false
+    float bv      = 0.
+    float sv      = 0.
+
+type swing
+    float y
+    int   x
+    bool  crossed = false
+
+//-----------------------------------------------------------------------------}
+//Per-bar series
+//-----------------------------------------------------------------------------{
+hiP = useBody ? math.max(close, open) : high
+loP = useBody ? math.min(close, open) : low
+
+measure = volF == "ATR" ? ta.atr(200) : ta.cum(ta.tr(true)) / (bar_index + 1)
+hiVol   = volF != "Off" and (high - low) >= volX * nz(measure, high - low)
+
+[lo, lc, lv] = request.security_lower_tf(syminfo.tickerid, ltf, [open, close, volume])
+
+f_split() =>
+    float b = 0.
+    float s = 0.
+    int n = array.size(lv)
+    if n > 0
+        for i = 0 to n - 1
+            v = nz(array.get(lv, i))
+            if array.get(lc, i) >= array.get(lo, i)
+                b += v
+            else
+                s += v
+    else
+        rng = high - low
+        v = nz(volume)
+        b := rng > 0 ? v * (close - low) / rng : v * 0.5
+        s := v - b
+    [b, s]
+
+[bVol, sVol] = f_split()
+
+//-----------------------------------------------------------------------------}
+//Functions
+//-----------------------------------------------------------------------------{
+method notransp(color css) => color.rgb(color.r(css), color.g(css), color.b(css))
+
+swings(int len) =>
+    var int os = 0
+    var swing top = swing.new()
+    var swing btm = swing.new()
+
+    upper = ta.highest(len)
+    lower = ta.lowest(len)
+
+    os := high[len] > upper ? 0 : low[len] < lower ? 1 : os
+    ph = ta.pivothigh(high, len, len)
+    pl = ta.pivotlow(low, len, len)
+
+    if swMode == "Pivot"
+        if not na(ph)
+            top := swing.new(ph, bar_index - len)
+        if not na(pl)
+            btm := swing.new(pl, bar_index - len)
+    else
+        if os == 0 and os[1] != 0
+            top := swing.new(high[len], bar_index[len])
+        if os == 1 and os[1] != 1
+            btm := swing.new(low[len], bar_index[len])
+
+    [top, btm]
+
+f_ov(array<ob> arr, float t, float b) =>
+    bool hit = false
+    if hideOv and ovRule == "Skip new"
+        for e in arr
+            if not e.breaker and t > e.btm and b < e.top
+                hit := true
+    hit
+
+// OB -> breaker on mitigation; breaker removed when price closes back through it. Returns new breakers this bar.
+f_upd(array<ob> arr, bool bull) =>
+    int nb = 0
+    float mt = na
+    float mb = na
+    if arr.size() > 0
+        for i = arr.size() - 1 to 0
+            e = arr.get(i)
+            if not e.breaker
+                mid = math.avg(e.top, e.btm)
+                hit = bull ? (mit == "Body" ? math.min(close, open) < e.btm : mit == "Close" ? close < e.btm : mit == "Wick" ? low < e.btm : low <= mid)
+                           : (mit == "Body" ? math.max(close, open) > e.top : mit == "Close" ? close > e.top : mit == "Wick" ? high > e.top : high >= mid)
+                if hit
+                    e.breaker   := true
+                    e.break_loc := time
+                    nb += 1
+                    mt := e.top
+                    mb := e.btm
+            else if bull ? close > e.top : close < e.btm
+                arr.remove(i)
+    [nb, mt, mb]
+
+// Nearest active OB: bullish = highest bottom at/below close, bearish = lowest top at/above close
+f_near(array<ob> arr, bool bull) =>
+    float t = na
+    float b = na
+    for e in arr
+        if not e.breaker
+            if bull ? e.btm <= close and (na(b) or e.btm > b) : e.top >= close and (na(t) or e.top < t)
+                t := e.top
+                b := e.btm
+    [t, b]
+
+// Pick the N newest OBs per scale (cand, used for the volume % total), then draw them except ones hidden by overlap (out).
+f_pick(array<ob> arr, int nS, int nI) =>
+    array<ob> cand = array.new<ob>()
+    array<ob> out  = array.new<ob>()
+    for pass = 0 to 1
+        isS = pass == 0
+        lim = isS ? (sOn ? nS : 0) : (iOn ? nI : 0)
+        int c = 0
+        if lim > 0
+            for e in arr
+                if c < lim and e.swing == isS and (showBrk or not e.breaker)
+                    cand.push(e)
+                    c += 1
+    for e in cand
+        bool ov = false
+        if hideOv and ovRule == "Keep newest"
+            for o in out
+                if e.top > o.btm and e.btm < o.top
+                    ov := true
+        if not ov
+            out.push(e)
+    [cand, out]
+
+method display(ob e, color css, color brkCss, float tot) =>
+    float vol = e.bv + e.sv
+    string vt = volOn and volTxt and vol > 0 ? (sOn and iOn ? "  " : "") + str.tostring(vol, format.volume) + " (" + str.tostring(tot > 0 ? 100 * vol / tot : 0, "#.#") + "%)" : ""
+    string tag = (sOn and iOn ? (e.swing ? "Swing" : "Int") : "") + vt
+    if e.breaker
+        box.new(e.loc, e.top, e.break_loc, e.btm, css.notransp(), border_width = e.swing ? 2 : 1
+          , bgcolor = css, xloc = xloc.bar_time)
+        box.new(e.break_loc, e.top, time + 1, e.btm, brkCss.notransp(), border_style = line.style_dashed
+          , bgcolor = brkCss, extend = extend.right, xloc = xloc.bar_time
+          , text = tag, text_size = size.tiny, text_color = txtCss, text_halign = text.align_right)
+    else
+        box.new(e.loc, e.top, time, e.btm, e.swing ? css.notransp() : color.new(css.notransp(), 50), border_width = e.swing ? 2 : 1
+          , bgcolor = css, extend = extend.right, xloc = xloc.bar_time
+          , text = tag, text_size = size.tiny, text_color = txtCss, text_halign = text.align_right)
+    if showMid
+        float m = math.avg(e.top, e.btm)
+        line.new(e.loc, m, time, m, xloc.bar_time, extend.right, e.breaker ? brkCss.notransp() : css.notransp(), line.style_dashed)
+    if volOn and vol > 0
+        float len = volLen == "Box (PAC)" ? float((e.breaker ? e.break_loc : time) - e.loc) : volBars * timeframe.in_seconds() * 1000.0
+        mid = math.avg(e.top, e.btm)
+        if e.bv > 0
+            box.new(e.loc, e.top, e.loc + int(len * e.bv / vol), mid, na, bgcolor = buyCss, xloc = xloc.bar_time)
+        if e.sv > 0
+            box.new(e.loc, mid, e.loc + int(len * e.sv / vol), e.btm, na, bgcolor = sellCss, xloc = xloc.bar_time)
+
+//-----------------------------------------------------------------------------}
+//Detect
+//-----------------------------------------------------------------------------{
+var bullish = array.new<ob>()
+var bearish = array.new<ob>()
+
+[iTop, iBtm] = swings(iLen)
+[sTop, sBtm] = swings(sLen)
+
+bool newBull = false
+bool newBear = false
+
+// Global scope on purpose: history references ([i]) inside a user function that is not called on every bar return wrong values.
+for s = 0 to 1
+    bool isS = s == 1
+    if isS ? sOn : iOn
+        for side = 0 to 1
+            bool bull = side == 0
+            swing sw = bull ? (isS ? sTop : iTop) : (isS ? sBtm : iBtm)
+            if not sw.crossed and (bull ? close > sw.y : close < sw.y)
+                sw.crossed := true
+                int span = math.max(1, bar_index - sw.x - 1)
+                float ext = na
+                float other = na
+                int loc = time[1]
+                int k = 1
+                if obPick == "Last opposite candle"
+                    for i = 1 to span
+                        if not hiVol[i] and (bull ? close[i] < open[i] : close[i] > open[i])
+                            ext   := bull ? loP[i] : hiP[i]
+                            other := bull ? hiP[i] : loP[i]
+                            loc   := time[i]
+                            k     := i
+                            break
+                if na(ext)
+                    for i = 1 to span
+                        if not hiVol[i]
+                            float v = bull ? loP[i] : hiP[i]
+                            if na(ext) or (bull ? v <= ext : v >= ext)
+                                ext   := v
+                                other := bull ? hiP[i] : loP[i]
+                                loc   := time[i]
+                                k     := i
+                if na(ext)
+                    ext   := bull ? loP[1] : hiP[1]
+                    other := bull ? hiP[1] : loP[1]
+                    loc   := time[1]
+                    k     := 1
+                float bv = 0.
+                float sv = 0.
+                int ja = volWin == "OB candle" ? k : volWin == "OB candle to break" ? 0 : 1
+                int jz = volWin == "Leg (PAC)" ? span : k
+                for j = ja to jz
+                    bv += nz(bVol[j])
+                    sv += nz(sVol[j])
+                float t = bull ? other : ext
+                float b = bull ? ext : other
+                array<ob> arr = bull ? bullish : bearish
+                if not f_ov(arr, t, b)
+                    arr.unshift(ob.new(t, b, loc, false, na, isS, bv, sv))
+                    if bull
+                        newBull := true
+                    else
+                        newBear := true
+
+if bullish.size() > 60
+    bullish.pop()
+if bearish.size() > 60
+    bearish.pop()
+
+[brkBull, mbT, mbB] = f_upd(bullish, true)
+[brkBear, msT, msB] = f_upd(bearish, false)
+
+[nbT, nbB] = f_near(bullish, true)
+[nsT, nsB] = f_near(bearish, false)
+
+//-----------------------------------------------------------------------------}
+//Draw (last bar only)
+//-----------------------------------------------------------------------------{
+if barstate.islast
+    for bx in box.all
+        bx.delete()
+    for l in line.all
+        l.delete()
+
+    [candBull, shownBull] = f_pick(bullish, sBull, iBull)
+    [candBear, shownBear] = f_pick(bearish, sBear, iBear)
+
+    float totBu = 0.
+    float totBe = 0.
+    for e in candBull
+        totBu += e.bv + e.sv
+    for e in candBear
+        totBe += e.bv + e.sv
+    bool side = pctBase == "Same side"
+
+    for e in shownBull
+        e.display(bullCss, bullBreakCss, side ? totBu : totBu + totBe)
+    for e in shownBear
+        e.display(bearCss, bearBreakCss, side ? totBe : totBu + totBe)
+
+//-----------------------------------------------------------------------------}
+//Outputs (Data Window only; other scripts can read them with input.source)
+//-----------------------------------------------------------------------------{
+plot(nbT, "Bull OB top", display = display.data_window)
+plot(nbB, "Bull OB bottom", display = display.data_window)
+plot(nsT, "Bear OB top", display = display.data_window)
+plot(nsB, "Bear OB bottom", display = display.data_window)
+
+//-----------------------------------------------------------------------------}
+//Alerts
+//-----------------------------------------------------------------------------{
+bullTouch = not na(nbT) and low <= nbT and low[1] > nbT
+bearTouch = not na(nsB) and high >= nsB and high[1] < nsB
+
+alertcondition(newBull, "New bullish OB", "{{ticker}} new bullish order block")
+alertcondition(newBear, "New bearish OB", "{{ticker}} new bearish order block")
+alertcondition(brkBull > 0, "Bullish OB mitigated", "{{ticker}} bullish order block mitigated (now a breaker)")
+alertcondition(brkBear > 0, "Bearish OB mitigated", "{{ticker}} bearish order block mitigated (now a breaker)")
+alertcondition(bullTouch, "Price into bullish OB", "{{ticker}} price entered a bullish order block")
+alertcondition(bearTouch, "Price into bearish OB", "{{ticker}} price entered a bearish order block")
+//-----------------------------------------------------------------------------}
+
+//-----------------------------------------------------------------------------{
+//Alert Feed (alert())
+//-----------------------------------------------------------------------------{
+f_lv(float t, float b) => str.tostring(t, format.mintick) + " - " + str.tostring(b, format.mintick)
+
+if afOn and barstate.isconfirmed
+    string m = ""
+    if newBull and bullish.size() > 0
+        ob e = bullish.first()
+        m += "\n• Bullish order block created: " + f_lv(e.top, e.btm) + " (" + str.tostring(e.bv + e.sv, format.volume) + ")"
+    if newBear and bearish.size() > 0
+        ob e = bearish.first()
+        m += "\n• Bearish order block created: " + f_lv(e.top, e.btm) + " (" + str.tostring(e.bv + e.sv, format.volume) + ")"
+    if brkBull > 0
+        m += "\n• Bullish OB Mitigated: " + f_lv(mbT, mbB)
+    if brkBear > 0
+        m += "\n• Bearish OB Mitigated: " + f_lv(msT, msB)
+    if bullTouch
+        m += "\n• Bullish OB Entered: " + f_lv(nbT, nbB)
+    if bearTouch
+        m += "\n• Bearish OB Entered: " + f_lv(nsT, nsB)
+    if m != ""
+        alert(syminfo.ticker + " —" + m + "\nPrice: " + str.tostring(close, format.mintick), alert.freq_once_per_bar_close)
+//-----------------------------------------------------------------------------}
