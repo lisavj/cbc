@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v142 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v143 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,10 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v143: SHADOW SETUPS (CBC v10.48 "Show blocked setups"): new alert type "Setup Blocked (shadow)" for the
+       "• Setup Blocked:" and "• Shadow Ended:" alerts (a Trade Setup trigger blocked only by the VWAP stretch filter, tracked
+       with the base exits but not traded). Stats gets a "Blocked setups (shadow)" box under the detail view: count, win %,
+       net / avg pts of the ended shadows (same Symbol / TF selection), split by stretch band and ER band, + the last 30.
      v142: FASTER LOAD (iPhone): the page now loads only the newest 1000 alerts (/alerts?limit=1000; ~3,000 alerts arrive per
        day) instead of every stored alert (13,000-18,000). The full store is fetched only when it is needed: opening Stats, the Chart tab when its day range reaches past the oldest loaded alert,
        Backup > Download, or the new "Load all" link next to the alert count. Live alerts keep arriving as before; alerts
@@ -2101,6 +2105,7 @@
     </div>
     <div style="overflow-x:auto;"><table id="statsTbl" style="border-collapse:collapse;font-size:12px;width:100%;"></table></div>
     <div id="statsDetail" style="margin-top:12px;"></div>
+    <div id="statsShadow" style="margin-top:14px;"></div>
     <div style="font-size:11px;opacity:.7;margin-top:8px;">Windows count back from the newest alert (all alert types). A setup counts as Win / Loss from its Setup Ended result (pts &gt; 0 / &lt; 0); setups with no Setup Ended yet are open. Trigger = first trigger named in the setup alert. Avg = average result in points of ended setups. Click a trigger row (or Total) for the distribution of outcomes.</div>
   </div>
 </div>
@@ -2495,7 +2500,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v142</footer>
+<footer>tv-webhook-dashboard · v143</footer>
 
 <div class="modal-overlay" id="defModal">
   <div class="modal-box" id="defModalBox"></div>
@@ -4161,6 +4166,12 @@
       def: 'From the CHT Pine script (chart timeframe, e.g. 15m): CBC Flip, EMA9/EMA20 Pierce, Pullback - Structure Confirmed, EMA9/20 Zone, EMA20 Touch, EMA 200 Break, EMA9/20 Cross.'
     },
     {
+      // v143: CBC v10.48 shadow setups (blocked by the VWAP stretch filter, never traded)
+      test: (l) => /(Setup Blocked|Shadow Ended):/i.test(l),
+      title: 'Setup Blocked (shadow)',
+      def: 'v143 / CBC v10.48 ("Show blocked setups (shadow)", default OFF): a Trade Setup trigger that passed every gate except the VWAP stretch filter. "Setup Blocked" = shadow drawn (By = stretch in ATR, Trigger, Entry / TP1 / SL1, ER); "Shadow Ended" = its would-be result with the base exits. Not traded; counted only in the Stats "Blocked setups (shadow)" box.'
+    },
+    {
       test: (l) => /Trade Setup:/i.test(l),
       title: 'Trade Setup',
       def: 'Fires once each time the CBC Auto Trade Setup draws a new setup (triggers: HTF CBC Flip, LTF EMA20 Pierce, HTF EMA9 Pierce, HTF EMA20 Pierce, HTF Pullback Structure). Lists TP2/TP1/Entry/SL1/SL2 with the pivot name and points from entry. The latest one also shows in the Trade Setup box at top left.'
@@ -5607,6 +5618,85 @@
     document.getElementById('statsTbl').innerHTML = h;
     document.getElementById('statsNote').textContent = alerts.length + ' alerts stored';
     renderStatsDetail();
+    renderShadowStats(symF);
+  }
+  // v143: CBC v10.48 shadow setups. "• Setup Blocked:" starts one (By: VWAP stretch x ATR, Trigger, Entry, TP1, SL1, ER,
+  // Time); "• Shadow Ended:" closes it (Ended: why | Result: x, Shadow Entry: e | Started: HH:mm). Both can sit in one alert
+  // (an opposite shadow replacing the old one), so each "•" section is parsed on its own.
+  function shadowCollect(symF) {
+    const S = new Map();
+    const E = new Map();
+    const sorted = alerts.slice().sort((a, b) => String(a.receivedAt || '').localeCompare(String(b.receivedAt || '')));
+    sorted.forEach((a) => {
+      const raw = a.raw || '';
+      if (!/(Setup Blocked|Shadow Ended):/.test(raw)) return;
+      const sym = getSymbol(raw);
+      if (symF !== 'all' && sym !== symF) return;
+      if (!statsTfOk(raw)) return;
+      const tfm = /\nChart:\s*\S+\s+(\d+)m\b/.exec(raw);
+      const tf = tfm ? tfm[1] + 'm' : '';
+      const tm0 = /\nTime:\s*(\d+\/\d+)\s+(\d+:\d+)/.exec(raw);
+      raw.split(/\n(?=•\s)/).forEach((sec) => {
+        const tm = /\nTime:\s*(\d+\/\d+)\s+(\d+:\d+)/.exec(sec) || tm0;
+        let m = /^•\s*Setup Blocked:\s*(LONG|SHORT)/.exec(sec);
+        if (m) {
+          const en = parseFloat((/\nEntry:\s*([\d.]+)/.exec(sec) || [])[1]);
+          const by = parseFloat((/\nBy:[^\n]*?([\d.]+)\s*ATR/.exec(sec) || [])[1]);
+          const er = parseFloat((/\nER:\s*([\d.]+)/.exec(sec) || [])[1]);
+          const trig = ((/\nTrigger:\s*([^\n]*)/.exec(sec) || [])[1] || '').trim();
+          const st = tm ? tm[2] : '';
+          const k = sym + '|' + tf + '|' + m[1] + '|' + en + '|' + st;
+          S.set(k, { sym, tf, dir: m[1], en, by, er, trig, day: tm ? tm[1] : '', st, at: a.receivedAt });
+          return;
+        }
+        m = /^•\s*Shadow Ended:\s*(LONG|SHORT)/.exec(sec);
+        if (m) {
+          const r = /\nEnded:\s*([^|\n]*?)\s*\|\s*Result:\s*([+-]?[\d.]+)/.exec(sec);
+          const se = /\nShadow Entry:\s*([\d.]+)\s*\|\s*Started:\s*(\d+:\d+)/.exec(sec);
+          if (!r || !se) return;
+          E.set(sym + '|' + tf + '|' + m[1] + '|' + parseFloat(se[1]) + '|' + se[2], { why: r[1].trim(), res: parseFloat(r[2]) });
+        }
+      });
+    });
+    return Array.from(S.entries()).map(([k, v]) => Object.assign(v, E.get(k) || {}));
+  }
+  function renderShadowStats(symF) {
+    const box = document.getElementById('statsShadow');
+    if (!box) return;
+    const all = shadowCollect(symF);
+    if (!all.length) {
+      box.innerHTML = '<div style="font-size:12px;opacity:.7;"><b>Blocked setups (shadow)</b> — none yet. Turn on CBC v10.48 "Show blocked setups (shadow)" (with "Alert: new Trade Setup") and recreate the TradingView alert.</div>';
+      return;
+    }
+    const th = 'style="padding:3px 6px;border-bottom:1px solid #334155;text-align:right;white-space:nowrap;"';
+    const tl = th.replace('right', 'left');
+    const agg = (g) => {
+      const c = g.filter((x) => typeof x.res === 'number' && !isNaN(x.res));
+      const w = c.filter((x) => x.res > 0).length;
+      const lo = c.filter((x) => x.res < 0).length;
+      const net = c.reduce((t, x) => t + x.res, 0);
+      const col = net >= 0 ? '#22C55E' : '#EF4444';
+      return `<td ${th}>${g.length}</td><td ${th}>${c.length}</td><td ${th}>${w + lo ? Math.round(100 * w / (w + lo)) + '%' : '–'}</td><td ${th}><span style="color:${col}">${c.length ? (net >= 0 ? '+' : '') + net.toFixed(1) : '–'}</span></td><td ${th}>${c.length ? ((net / c.length >= 0 ? '+' : '') + (net / c.length).toFixed(2)) : '–'}</td>`;
+    };
+    const hdr = `<tr><th ${tl}></th><th ${th}>Shadows</th><th ${th}>Ended</th><th ${th}>Win %</th><th ${th}>Net pts</th><th ${th}>Avg</th></tr>`;
+    let h = '<div style="font-size:13px;font-weight:700;margin-bottom:4px;">Blocked setups (shadow) <span style="font-weight:400;font-size:11px;opacity:.7;">— blocked only by the VWAP stretch filter, base exits, not traded</span></div>';
+    h += '<table style="border-collapse:collapse;font-size:12px;">' + hdr + `<tr style="font-weight:700;"><td ${tl}>All</td>${agg(all)}</tr>`;
+    [['Long', (x) => x.dir === 'LONG'], ['Short', (x) => x.dir === 'SHORT'],
+      ['Stretch 4–5 ATR', (x) => x.by < 5], ['Stretch 5–6 ATR', (x) => x.by >= 5 && x.by < 6], ['Stretch 6–8 ATR', (x) => x.by >= 6 && x.by < 8], ['Stretch ≥ 8 ATR', (x) => x.by >= 8],
+      ['ER < 0.30', (x) => x.er < 0.3], ['ER ≥ 0.30', (x) => x.er >= 0.3]].forEach(([nm, f]) => {
+      const g = all.filter(f);
+      if (g.length) h += `<tr><td ${tl}>${nm}</td>${agg(g)}</tr>`;
+    });
+    h += '</table>';
+    const last = all.slice(-30).reverse();
+    h += '<div style="font-size:12px;font-weight:700;margin:8px 0 4px;">Last ' + last.length + '</div><div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:11px;">';
+    h += `<tr><th ${tl}>Day</th><th ${tl}>Start</th><th ${tl}>Symbol</th><th ${tl}>Dir</th><th ${th}>Entry</th><th ${th}>Stretch</th><th ${th}>ER</th><th ${tl}>Trigger</th><th ${tl}>Ended</th><th ${th}>Result</th></tr>`;
+    last.forEach((x) => {
+      const r = typeof x.res === 'number' && !isNaN(x.res) ? `<span style="color:${x.res >= 0 ? '#22C55E' : '#EF4444'}">${x.res >= 0 ? '+' : ''}${x.res.toFixed(2)}</span>` : '<span style="opacity:.6">open</span>';
+      h += `<tr><td ${tl}>${escapeHtml(x.day)}</td><td ${tl}>${escapeHtml(x.st)}</td><td ${tl}>${escapeHtml(x.sym + ' ' + x.tf)}</td><td ${tl}>${x.dir}</td><td ${th}>${isNaN(x.en) ? '–' : x.en}</td><td ${th}>${isNaN(x.by) ? '–' : x.by.toFixed(1)}</td><td ${th}>${isNaN(x.er) ? '–' : x.er.toFixed(2)}</td><td ${tl}>${escapeHtml(x.trig)}</td><td ${tl}>${escapeHtml(x.why || '')}</td><td ${th}>${r}</td></tr>`;
+    });
+    h += '</table></div>';
+    box.innerHTML = h;
   }
   document.getElementById('statsTbl').addEventListener('click', (e) => {
     const cb = e.target.closest && e.target.closest('.stats-inc');
