@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v145 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v146 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -223,6 +223,10 @@
      v74: HTF flip candle row adds "N× last4" (Pine v8.56 RangeX4); hover shows the 4 ranges, Avg4 and Avg20.
      v75: HTF flip candle hover lists this candle and Prev1..Prev4 (H / L / range) from Pine v8.57.
      v119: Stats detail -- ATR grid: every setup replayed from the BarFeed 3m bars with SL 1-3x / TP 1-4x ATR(14) (full exit at
+     v146: dropdown menus (Alert Types, View / Symbols to include, Markers, Voice, Beep, Simple symbols, Backup, Learn / Journal) stay open while checking or
+       unchecking several boxes -- the click re-rendered the panel, so the outside-click closer saw a detached target and closed it; closers now ignore
+       clicks whose target is no longer in the page. Click outside the menu (or its button) to close it as before. Also: unticking a symbol
+       in Symbols to include marks it as seen, so the v136 auto-add of new symbols can no longer re-tick it (happened on a fresh browser).
      v145: Stats table -- the "Avg pts" number in every trigger row and Total (Last 100 / Last 500 / All stored) is now a link:
        click it to open the list of those setups, each with its mini candle chart (same pop-up as v144), newest first.
        Each setup in the list now has the setup alert's status table (Market, Price, CBC, EMA cloud, VWAP, EMA 200, Structure,
@@ -2514,7 +2518,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v145</footer>
+<footer>tv-webhook-dashboard · v146</footer>
 
 <div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
   <div style="max-width:1240px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
@@ -2640,6 +2644,7 @@
     if (opening) { renderViewModePanel(); positionViewModePanel(); }
   });
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     if (!viewModePanel.contains(e.target) && e.target !== viewModeBtn) viewModePanel.classList.remove('open');
   });
   viewModePanel.addEventListener('click', (e) => {
@@ -2662,6 +2667,8 @@
     }
     if (e.target.matches('input[data-chrono-symbol]')) {
       const sym = decodeURIComponent(e.target.dataset.chronoSymbol);
+      // v146: mark it as seen, so the v136 "new symbol joins automatically" rule can't re-tick a symbol you just unticked
+      if (!chronoSeen.has(sym)) { chronoSeen.add(sym); try { localStorage.setItem('chronoSymbolSeen', JSON.stringify(Array.from(chronoSeen))); } catch (err) {} }
       if (e.target.checked) chronoSymbolFilter.add(sym);
       else chronoSymbolFilter.delete(sym);
       saveChronoSymbolFilter();
@@ -2741,6 +2748,7 @@
     if (opening) { renderSimpleSymbolPanel(); positionSimpleSymbolPanel(); }
   });
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     if (!simpleSymbolPanel.contains(e.target) && e.target !== simpleSymbolBtn) simpleSymbolPanel.classList.remove('open');
   });
   simpleSymbolPanel.addEventListener('click', (e) => {
@@ -2991,6 +2999,7 @@
     learnDropdown.classList.toggle('open');
   });
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     if (!journalDropdown.contains(e.target)) journalDropdown.classList.remove('open');
     if (!learnDropdown.contains(e.target)) learnDropdown.classList.remove('open');
   });
@@ -5046,6 +5055,7 @@
     if (opening) positionVoiceFilterPanel();
   });
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     if (!voiceFilterPanel.contains(e.target) && e.target !== voiceFilterBtn) {
       voiceFilterPanel.classList.remove('open');
     }
@@ -5174,6 +5184,7 @@
     }
   });
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     if (!beepFilterPanel.contains(e.target) && e.target !== beepFilterBtn) beepFilterPanel.classList.remove('open');
   });
   beepFilterPanel.addEventListener('click', (e) => {
@@ -5869,6 +5880,7 @@
     if (opening) positionMarkersPanel();
   });
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     if (!markersViewPanel.contains(e.target) && e.target !== markersViewBtn) markersViewPanel.classList.remove('open');
   });
   markersViewPanel.addEventListener('change', (e) => {
@@ -5887,6 +5899,7 @@
     if (opening) positionTypeFilterPanel();
   });
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     if (!typeFilterPanel.contains(e.target) && e.target !== typeFilterBtn) {
       typeFilterPanel.classList.remove('open');
     }
@@ -7118,6 +7131,7 @@
     if (opening) positionBackupPanel();
   });
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     if (!backupPanel.contains(e.target) && e.target !== backupBtn) {
       backupPanel.classList.remove('open');
     }
@@ -9033,6 +9047,7 @@
   }
   const chRootSym = (s) => (s || '').replace(/\s+CH\d+$/, '').replace(/\s+\d+m$/i, '').replace(/^.*:/, '').replace(/[0-9!]+$/, '').toUpperCase();
   document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // v146: the click re-rendered an open menu (checkbox row replaced) -> keep it open
     const btn = e.target && e.target.closest ? e.target.closest('.ch-goto') : null;
     if (!btn) return;
     e.preventDefault(); e.stopPropagation();
