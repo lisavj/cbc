@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v148 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v149 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -369,6 +369,10 @@
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
      v77: setup table shows the other SL method's SL1/SL2 ("SL1 ATR"/"SL2 ATR", or "SL1 Piv"/"SL2 Piv" when ATR is active; Pine v8.61) as darker info rows; all stop rows sorted by distance from Entry.
      v76: status row label is just "HTF flip candle" (no "(15m)").
+     v149 (11/06/2026): new alert type "Exit Rule" (Alert Types, in Setup markers, on by default) for the "• Exit Rule:" alerts of
+       CBC v10.79 (TP cut on high ATR / Profit lock). In the Trade Setup box the matching setup gets a badge: TC +x (TP cut hit),
+       LK +x (profit lock hit) or LK armed (stop moved, not hit yet); hover shows the full rule text. The rules do not change CBC's
+       own ENDED result, so the badge shows what the rule would have made next to it.
      v148 (11/06/2026): Trade Setup box (left) -- the "All" tab is now a "Charts ▾" pulldown with a checkbox per symbol / chart-time
        combo (MES1!, MES1! 2m, MGC1! 5m ...) plus an All master, like Alert Types. Unchecked combos lose their tab button and
        their setups leave the box's "all" view (saved in this browser; new combos start checked). The remaining buttons work as
@@ -1130,6 +1134,11 @@
   #setupBox .sb-head .sb-when { flex-basis: 100%; font-weight: 500; font-size: 12px; color: #e2e8f0; }
   #setupBox .sb-chart { text-decoration: none; font-size: 13px; margin-left: 4px; }
   #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
+  /* v149: Exit Rule badges (TC = TP cut, LK = profit lock) */
+  .xr-badge { padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 700; color: #111827; margin-left: 4px; cursor: help; }
+  .xr-badge.tc { background: #fb923c; }
+  .xr-badge.lk { background: #2dd4bf; }
+  .xr-badge.armed { background: transparent; color: #2dd4bf; border: 1px dashed #2dd4bf; }
   #setupBox .sb-item.collapsed .sb-body { display: none; }
   /* v66: shrink-wrap to the expanded setup (levels + status tables) instead of stretching across the page */
   #setupBox { width: min-content; min-width: 300px; max-width: calc(100vw - 24px); }
@@ -2562,7 +2571,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v148</footer>
+<footer>tv-webhook-dashboard · v149</footer>
 
 <div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
   <div style="max-width:1240px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
@@ -4252,6 +4261,12 @@
       def: 'v143 / CBC v10.48 ("Show blocked setups (shadow)", default OFF): a Trade Setup trigger that passed every gate except the VWAP stretch filter. "Setup Blocked" = shadow drawn (By = stretch in ATR, Trigger, Entry / TP1 / SL1, ER); "Shadow Ended" = its would-be result with the base exits. Not traded; counted only in the Stats "Blocked setups (shadow)" box.'
     },
     {
+      // v149: CBC v10.79 exit rules (TP cut on high ATR / Profit lock) -- what the rule would have done; CBC's own result unchanged
+      test: (l) => /Exit Rule:/i.test(l),
+      title: 'Exit Rule',
+      def: 'v149 / CBC v10.79 (▶ Exit rules): "TP cut hit" = after N minutes on a high-ATR setup the target became a % of TP1 and was touched; "Profit lock hit" = price reached a % of TP1, the stop moved to a smaller profit and was then touched; "Profit lock armed" = the stop moved. Result = what the rule would have made. CBC\'s own setup and Setup Ended are NOT changed. Shown as TC / LK badges on the setup in the Trade Setup box.'
+    },
+    {
       test: (l) => /Trade Setup:/i.test(l),
       title: 'Trade Setup',
       def: 'Fires once each time the CBC Auto Trade Setup draws a new setup (triggers: HTF CBC Flip, LTF EMA20 Pierce, HTF EMA9 Pierce, HTF EMA20 Pierce, HTF Pullback Structure). Lists TP2/TP1/Entry/SL1/SL2 with the pivot name and points from entry. The latest one also shows in the Trade Setup box at top left.'
@@ -4494,7 +4509,7 @@
     'Key Level Alert (PP/R1/R2/R3/S1/S2/S3)'
   ].filter(t => ALL_TYPE_TITLES.includes(t));
   // v30: the 7 split into two groups for the Alert Types panel's two master checkboxes.
-  const SETUP_MARKER_TITLES = ['Chart-TF Setups', 'Chart-TF Alerts', 'Trade Setup', 'A+ Setup (Long/Short)', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
+  const SETUP_MARKER_TITLES = ['Chart-TF Setups', 'Chart-TF Alerts', 'Trade Setup', 'Exit Rule', 'A+ Setup (Long/Short)', 'HTF CBC Flip (Long/Short)', 'LTF EMA20 Pierce - Entry (Long/Short)', 'HTF EMA9 Pierce - Entry (Long/Short)', 'HTF EMA20 Pierce - Entry (Long/Short)', 'HTF Pullback Entry - Structure Confirmed (Long/Short)'].filter(t => ALL_TYPE_TITLES.includes(t));
   // v72: Price Enters HTF EMA9/20 Zone left out of Other markers (off by default).
   const ZONE_ENTRY_TITLE = 'Price Enters HTF EMA9/20 Zone - Entry';
   const OTHER_MARKER_TITLES = SEVEN_MARKER_TITLES.filter(t => !SETUP_MARKER_TITLES.includes(t) && t !== ZONE_ENTRY_TITLE);
@@ -4509,6 +4524,7 @@
   // starting set on first visit or if nothing valid was saved yet.
   // v29: defaults are now an explicit ON list (everything else starts off), per direct request.
   const DEFAULT_ON_TYPES = [
+    'Exit Rule',
     'Chart-TF Setups',
     'Chart-TF Alerts',
     'A+ Setup (Long/Short)',
@@ -4558,6 +4574,14 @@
       ['Chart-TF Setups', 'Chart-TF Alerts'].forEach(t => enabledTypes.add(t));
       localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
       localStorage.setItem('chtTypesAdded', '1');
+    }
+    // v149: one-time add of the new Exit Rule type for browsers that already show Trade Setups.
+    if (!localStorage.getItem('exitRuleTypeAdded')) {
+      if (enabledTypes.has('Trade Setup')) {
+        enabledTypes.add('Exit Rule');
+        localStorage.setItem('enabledTypes', JSON.stringify(Array.from(enabledTypes)));
+      }
+      localStorage.setItem('exitRuleTypeAdded', '1');
     }
     if (!localStorage.getItem('aplusSetupAdded')) {
       if (enabledTypes.has('Trade Setup') && enabledTypes.has('HTF CBC Flip (Long/Short)')) {
@@ -6303,6 +6327,33 @@
     const root = String(sym || '').toUpperCase().replace(/\s+CH\d+$/, '').replace(/[0-9!]+$/, '').replace(/[FGHJKMNQUVXZ]\d{1,2}$/, '');
     return POINT_VALUE[root] || null;
   }
+  // v149: "• Exit Rule:" alerts (CBC v10.79) for this setup -- same symbol / chart timeframe / Setup Entry, newer than the setup.
+  function exitRuleBadges(idx, sym, st) {
+    const entry = st.Entry ? parseFloat(st.Entry.price) : NaN;
+    const tfS = /\nChart:\s*\S+\s+(\d+)m\b/.exec((alerts[idx] && alerts[idx].raw) || '');
+    let hit = null, armed = null;
+    for (let i = idx - 1; i >= 0; i--) {
+      const r = alerts[i] && alerts[i].raw || '';
+      if (getSymbol(r) !== sym) continue;
+      if (/•\s*Trade Setup:/.test(r)) break; // a newer setup on this chart: later rules belong to it
+      if (!/•\s*Exit Rule:/.test(r)) continue;
+      const tfE = /\nChart:\s*\S+\s+(\d+)m\b/.exec(r);
+      if (tfS && tfE && tfS[1] !== tfE[1]) continue;
+      const se = parseFloat((r.match(/\nSetup Entry:\s*([-\d.]+)/) || [])[1]);
+      if (!isNaN(entry) && !isNaN(se) && se !== entry) continue;
+      const line = (r.split('\n').find(l => /Exit Rule:/.test(l)) || '').replace(/^•\s*Exit Rule:\s*/, '').trim();
+      if (/hit/i.test(line)) hit = hit || line; else if (/armed/i.test(line)) armed = armed || line;
+    }
+    let h = '';
+    if (hit) {
+      const res = (/Result:\s*([+-]?[\d.]+)/.exec(hit) || [])[1] || '';
+      const tc = /TP cut/i.test(hit);
+      h += `<span class="xr-badge ${tc ? 'tc' : 'lk'}" title="${escapeHtml('Exit rule (CBC v10.79): ' + hit + '\nCBC\'s own result (ENDED) is unchanged -- this is what the rule would have made.')}">${tc ? 'TC' : 'LK'} ${escapeHtml(res)}</span>`;
+    } else if (armed) {
+      h += `<span class="xr-badge armed" title="${escapeHtml('Exit rule (CBC v10.79): ' + armed)}">LK armed</span>`;
+    }
+    return h;
+  }
   function setupOutcomeHtml(o, sym) {
     if (!o) return '';
     // v110: TP1 partial -- "Result: +5.2 = 0.5×6.1(TP1) + 0.5×4.3(Trail)" -> total + the split in brackets
@@ -6687,7 +6738,7 @@
         const tw = isTowardAlert(a);
         return `<div class="sb-item ${open ? '' : 'collapsed'} ${ended ? 'ended' : ''} ${tw ? 'toward' : ''}">` +
           `<div class="sb-head" data-sbkey="${escapeHtml(key)}"><span>Trade Setup</span><span>${escapeHtml(sym)}</span>` +
-          `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${fibBadge(a)}${flopBadge(a)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${chGotoBtn(a)}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
+          `<span class="sb-dir ${st.dir === 'SHORT' ? 'short' : 'long'}">${st.dir}</span>${setupOrBadge(a, i, sym, st)}${fibBadge(a)}${flopBadge(a)}${ended ? '<span class="sb-ended">ENDED</span>' : ''}${exitRuleBadges(i, sym, st)}${chGotoBtn(a)}${tw ? `<span class="sb-toward" title="${escapeHtml(TOWARD_TIP + (st.flipText ? '\n\nLast 15m flip for this setup: ' + st.flipText.replace(/^HTF \([^)]*\) flip:\s*/, '') : ''))}">TOWARD</span>` : ''}` +
 
           `<span class="sb-caret">${open ? '▾' : '▸'}</span><span class="sb-when">${when}${(() => { const u = setupChartUrl(i, sym); return u ? ` <a class="sb-chart" href="${u}" target="_blank" rel="noopener" title="Open this chart in TradingView" onclick="event.stopPropagation()">&#128200;</a>` : ''; })()}</span>${ended ? setupOutcomeHtml(setupOutcome(i, sym, st), sym) : ''}</div>` +
           `<div class="sb-body"><div class="sb-main">${setupTableHtml(st, setupFlip(i, sym, st), setupNowPrice(i, sym, st), setupOutcome(i, sym, st))}</div>${setupStatusHtml(a, i, sym)}</div></div>`;
