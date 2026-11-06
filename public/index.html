@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v151 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v152 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -369,6 +369,8 @@
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
      v77: setup table shows the other SL method's SL1/SL2 ("SL1 ATR"/"SL2 ATR", or "SL1 Piv"/"SL2 Piv" when ATR is active; Pine v8.61) as darker info rows; all stop rows sorted by distance from Entry.
      v76: status row label is just "HTF flip candle" (no "(15m)").
+     v152 (11/06/2026): Imports panel "Remove off-grid candles…" (server v12): removes candles not on the feed's own time grid,
+       e.g. 5m candles imported into a 3m feed; undoable like an import.
      v151 (11/06/2026): Chart symbol list shows the feed name in [ ] when it is not a standard 3m / 2m / 5m feed (e.g. "MGC 3m/15m [MGC_3]"),
        so a stray feed can be told apart; "Delete feed" in the Imports panel now asks which feed (typed name, current one pre-filled).
      v150 (11/06/2026): Chart tab CSV import is reversible (needs server.js v11): new "Imports" button lists every import with
@@ -2584,7 +2586,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v151</footer>
+<footer>tv-webhook-dashboard · v152</footer>
 
 <div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
   <div style="max-width:1240px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
@@ -9903,10 +9905,10 @@
     if (!p) { p = document.createElement('div'); p.id = 'chImpPanel'; document.body.appendChild(p); }
     const cur = chSymSel.value || chState.sym || '';
     const rows = list.map((l) => {
-      const what = l.type === 'drop' ? 'Feed deleted' : (l.added + ' added' + (l.replaced ? ', ' + l.replaced + ' replaced' : ''));
+      const what = l.type === 'drop' ? 'Feed deleted' : l.type === 'clean' ? l.removed + ' off-grid removed' : (l.added + ' added' + (l.replaced ? ', ' + l.replaced + ' replaced' : ''));
       return `<tr class="${l.undone ? 'undone' : ''}"><td>${escapeHtml(chFmtT(Date.parse(l.at)))}</td><td><b>${escapeHtml(l.sym)}</b></td><td>${escapeHtml(what)}<br><small>${escapeHtml(l.name || '')}</small></td><td>${l.first ? escapeHtml(chFmtT(l.first) + ' – ' + chFmtT(l.last)) : ''}</td><td>${l.undone ? 'undone ' + escapeHtml(chFmtT(Date.parse(l.undone))) : `<button data-undo="${escapeHtml(l.id)}">Undo</button>`}</td></tr>`;
     }).join('');
-    p.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b>Bar imports (times ET)</b><span><button id="chImpDrop" title="Moves the whole feed to the trash (undoable here)">Delete a feed…</button> <button id="chImpClose">Close</button></span></div>` +
+    p.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b>Bar imports (times ET)</b><span><button id="chImpDrop" title="Moves the whole feed to the trash (undoable here)">Delete a feed…</button> <button id="chImpClean" title="Remove candles not on the feed's own time grid (e.g. 5m candles in the 3m feed); undoable">Remove off-grid candles…</button> <button id="chImpClose">Close</button></span></div>` +
       (list.length ? `<table><tr><th>When</th><th>Feed</th><th>What</th><th>Candles</th><th></th></tr>${rows}</table>` : '<p>No imports logged yet (only imports made with server v11 can be undone).</p>');
     p.querySelector('#chImpClose').onclick = () => p.remove();
     p.querySelector('#chImpDrop').onclick = async () => {
@@ -9915,6 +9917,13 @@
       const r = await chPost('/bars/drop?token=' + encodeURIComponent(token) + '&sym=' + encodeURIComponent(nm));
       alert(await r.text());
       if (r.ok) { chState.sym = ''; await chLoadSymbols(); await chLoadBars(); chShowImports(); }
+    };
+    p.querySelector('#chImpClean').onclick = async () => {
+      const nm = (prompt('Remove off-grid candles from which feed? (MGC = 3m grid, MGC_2 = 2m, MGC_5 = 5m)', cur) || '').trim().toUpperCase();
+      if (!nm || !confirm('Remove every candle in ' + nm + ' whose time is not on its own grid?\n\nUndo is available here afterwards.')) return;
+      const r = await chPost('/bars/clean?token=' + encodeURIComponent(token) + '&sym=' + encodeURIComponent(nm));
+      alert(await r.text());
+      if (r.ok) { await chLoadSymbols(); await chLoadBars(); chShowImports(); }
     };
     p.querySelectorAll('[data-undo]').forEach((b) => {
       b.onclick = async () => {
