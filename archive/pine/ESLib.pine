@@ -170,6 +170,7 @@
 // now NEARER to entry (TP1/SL1) or nearer beyond TP1/SL1 (TP2/SL2). Only ever moves closer, so it is
 // idempotent. +4 trailing params (auto_t1/auto_s1/auto_t2/auto_s2), 23 -> 27.
 library("ESLib", overlay = true)
+// v99 rev39 (11/03/2026, CBC v10.59): R:R table position "Off" hides the mini reward:risk table (CBC default now Off). No signature change.
 // v99 rev38 (10/28/2026, CBC v10.44): exit-marker letters (T1, T2, S, TR, BE, F, E, R, TS) drawn at size.small (was normal) -- smaller box, less padding around the letter. Pine has no padding setting; the box scales with the text size. No signature change.
 // v99 rev37 (10/28/2026, CBC v10.43): tiny stop-exit marker letter tells the two cases apart: "S" = SL1 hit before TP1 (whole position stopped); "TR" = trailing stop hit after TP1; "BE" = breakeven stop hit after TP1. Colour unchanged (green = runner in profit, red = loss). No signature change.
 // v99 rev36 (10/26/2026, CBC v10.38): exit-marker tooltips (HTF flip / 16:00 / Time stop / Replaced / TP2 / SL2, and SL1 before TP1) end with the result: "Runner (20%): +x pts / TP1 (80%) @ price: +y pts / Result: 80% × y + 20% × x = z", or "TP1 not reached -- whole position: x pts". New exports f_ob_htf_touch / f_ob_htf_msg (OB entry alert) and f_amid_orb / f_amid_tail / f_amid_snap (CBC alert snapshot text, CE10117 relief for CBC v10.41); no existing signature changed.
@@ -2424,10 +2425,10 @@ export f_ats_draw_setup(bool new_setup, float entry, float stop, float target, c
     // Entry. v95: blank once the setup has ended, same as the Trade Levels table.
     var table rr_tbl = na
     var string rr_pos_last = ""
-    if not na(rr_tbl) and (not show_tbl or rr_pos_last != rr_pos)
+    if not na(rr_tbl) and (not show_tbl or rr_pos == "Off" or rr_pos_last != rr_pos)
         table.delete(rr_tbl)
         rr_tbl := na
-    if show_tbl and barstate.islast
+    if show_tbl and rr_pos != "Off" and barstate.islast
         if na(rr_tbl)
             rr_tbl := table.new(f_status_pos(rr_pos), 2, 4, bgcolor=color.new(#020617, 0), border_color=color.new(#334155, 0), border_width=1, frame_color=color.new(#475569, 0), frame_width=1)
             rr_pos_last := rr_pos
