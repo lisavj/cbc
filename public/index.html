@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v147 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v148 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -369,6 +369,10 @@
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
      v77: setup table shows the other SL method's SL1/SL2 ("SL1 ATR"/"SL2 ATR", or "SL1 Piv"/"SL2 Piv" when ATR is active; Pine v8.61) as darker info rows; all stop rows sorted by distance from Entry.
      v76: status row label is just "HTF flip candle" (no "(15m)").
+     v148 (11/06/2026): Trade Setup box (left) -- the "All" tab is now a "Charts ▾" pulldown with a checkbox per symbol / chart-time
+       combo (MES1!, MES1! 2m, MGC1! 5m ...) plus an All master, like Alert Types. Unchecked combos lose their tab button and
+       their setups leave the box's "all" view (saved in this browser; new combos start checked). The remaining buttons work as
+       before; clicking the active one again goes back to all. The feed's own symbol tabs are unchanged.
      v147 (11/05/2026): new top tab "Bot" (next to Chart): every "• Bot Order (preview)" alert that CBC v10.76+ posts
      (normal copy, "Bot preview" ON) = the exact CrossTrade order the bot copy sends. One row per order command
      (time ET, symbol, command, side, qty, type, limit / TP / SL, expiry, account), newest first, raw text on click;
@@ -1158,6 +1162,9 @@
   #setupBox .sb-tab { background: #0f172a; border: 1px solid #334155; color: #94a3b8; font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 6px; cursor: pointer; }
   #setupBox .sb-tab span { opacity: .7; font-weight: 500; }
   #setupBox .sb-tab.active { background: #f59e0b; border-color: #f59e0b; color: #111827; }
+  /* v148: Charts pulldown in the Trade Setup box tab row */
+  #setupBox .sb-pick { border-style: dashed; }
+  #sbPickPanel { z-index: 1200; }
   #setupBox .sb-empty { padding: 8px; color: #94a3b8; font-size: 12px; }
   .sb-table.sb-rr { width: auto; margin-top: 4px; }
   .sb-table.sb-rr td { background: #1e293b; } .sb-table.sb-rr td.rr-k { background: #15803d; }
@@ -2555,7 +2562,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v147</footer>
+<footer>tv-webhook-dashboard · v148</footer>
 
 <div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
   <div style="max-width:1240px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
@@ -6593,9 +6600,52 @@
     if (sbEl && window.ResizeObserver) new ResizeObserver(() => layoutMainBesideBox()).observe(sbEl);
     window.addEventListener('resize', () => layoutMainBesideBox());
   } catch (e) {}
+  // v148: Trade Setup box "Charts ▾" picker -- exclude list (unchecked symbol / chart-time combos), saved per browser.
+  let sbHidden;
+  try { const v = JSON.parse(localStorage.getItem('sbSymHidden') || '[]'); sbHidden = new Set(Array.isArray(v) ? v : []); } catch (e) { sbHidden = new Set(); }
+  const saveSbHidden = () => { try { localStorage.setItem('sbSymHidden', JSON.stringify(Array.from(sbHidden))); } catch (e) {} };
+  let sbPickCounts = new Map();
+  const sbPickPanel = document.createElement('div');
+  sbPickPanel.className = 'type-filter-panel';
+  sbPickPanel.id = 'sbPickPanel';
+  document.body.appendChild(sbPickPanel);
+  function renderSbPickPanel() {
+    const syms = Array.from(sbPickCounts.keys()).sort();
+    const on = syms.filter(x => !sbHidden.has(x)).length;
+    sbPickPanel.innerHTML = `<label class="type-filter-row type-filter-master" style="border-top:0;margin-top:0;padding-top:5px;"><input type="checkbox" data-sbp="__all" ${on === syms.length && syms.length ? 'checked' : ''}> All charts (${on}/${syms.length})</label>` +
+      syms.map(x => `<label class="type-filter-row type-filter-indent"><input type="checkbox" data-sbp="${encodeURIComponent(x)}" ${sbHidden.has(x) ? '' : 'checked'}> ${escapeHtml(x)}<span style="margin-left:auto;opacity:.6;">${sbPickCounts.get(x)}</span></label>`).join('') +
+      '<div class="type-filter-actions" style="justify-content:flex-start;font-size:11px;opacity:.75;">Unchecked charts get no button and no setups in this box. Click a chart button again to go back to all.</div>';
+  }
+  function positionSbPick(btn) {
+    const r = btn.getBoundingClientRect();
+    const w = sbPickPanel.offsetWidth || 260;
+    sbPickPanel.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 8 - w)) + 'px';
+    sbPickPanel.style.top = Math.min(r.bottom + 6, window.innerHeight - 48) + 'px';
+  }
+  sbPickPanel.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const inp = e.target.closest('input[data-sbp]');
+    if (!inp) return;
+    if (inp.dataset.sbp === '__all') {
+      if (inp.checked) sbHidden.clear(); else sbPickCounts.forEach((v, k) => sbHidden.add(k));
+    } else {
+      const k = decodeURIComponent(inp.dataset.sbp);
+      if (inp.checked) sbHidden.delete(k); else sbHidden.add(k);
+    }
+    saveSbHidden();
+    if (activeFilter !== 'all' && sbHidden.has(activeFilter)) activeFilter = 'all';
+    renderSbPickPanel();
+    render();
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.isConnected) return; // re-rendered row (same fix as v146) -> keep it open
+    if (!sbPickPanel.contains(e.target) && !e.target.closest('.sb-pick')) sbPickPanel.classList.remove('open');
+  });
+  window.addEventListener('resize', () => sbPickPanel.classList.remove('open'));
   function renderSetupBox() {
     const box = document.getElementById('setupBox');
     if (!box) return;
+    sbPickCounts = new Map(); // v148
     const limit = !keepSetups ? 1 : keepSetupsCount === 'all' ? Infinity : parseInt(keepSetupsCount, 10) || 5;
     // v81: two sections -- CBC (3m) setups, then Chart-TF (CHT script, symbol key "TICKER CHnn") setups.
     const isChSym = (x) => /\sCH\d+$/.test(x || '');
@@ -6606,6 +6656,7 @@
         const sym = getSymbol(a.raw) || '';
         if (isChSym(sym) !== ch) continue;
         if (!setupSymbolOk(sym)) continue;
+        if (activeFilter === 'all' && sbHidden.has(sym)) continue; // v148: unchecked in Charts ▾
         if (!showToward && isTowardAlert(a)) continue;
         const st = parseTradeSetup(a.raw);
         if (st) items.push({ a, i, sym, st });
@@ -6620,9 +6671,11 @@
         setupCounts.set(s0, (setupCounts.get(s0) || 0) + 1);
       });
       if (!setupCounts.size) return '';
-      const tabSyms = Array.from(setupCounts.keys()).sort();
+      setupCounts.forEach((v, k) => sbPickCounts.set(k, v)); // v148
+      const allSyms = Array.from(setupCounts.keys()).sort();
+      const tabSyms = allSyms.filter(k => !sbHidden.has(k)); // v148: unchecked combos get no button
       const totalSetups = tabSyms.reduce((n, k) => n + setupCounts.get(k), 0);
-      const tabsHtml = `<div class="sb-tabs"><button class="sb-tab ${activeFilter === 'all' ? 'active' : ''}" data-sbsym="all">All <span>${totalSetups}</span></button>` +
+      const tabsHtml = `<div class="sb-tabs"><button class="sb-tab sb-pick ${activeFilter === 'all' ? 'active' : ''}" data-sbsym="all" title="Choose which symbol / chart-time combos get a button and show here">Charts ${tabSyms.length}/${allSyms.length} ▾ <span>${totalSetups}</span></button>` +
         tabSyms.map(k => `<button class="sb-tab ${activeFilter === k ? 'active' : ''}" data-sbsym="${escapeHtml(k)}">${escapeHtml(k)} <span>${setupCounts.get(k)}</span></button>`).join('') + '</div>';
       const showEmpty = !items.length && (activeFilter === 'all' || isChSym(activeFilter) === ch);
       return tabsHtml + (showEmpty ? `<div class="sb-empty">No setups for ${escapeHtml(activeFilter)}</div>` : '') + items.map(({ a, i, sym, st }, n) => {
@@ -6647,7 +6700,23 @@
     box.style.display = '';
     positionSetupBox();
     box.querySelectorAll('.sb-tab').forEach(b => {
-      b.onclick = (e) => { e.stopPropagation(); activeFilter = b.dataset.sbsym; render(); };
+      b.onclick = (e) => {
+        e.stopPropagation();
+        if (b.classList.contains('sb-pick')) { // v148: Charts ▾ = back to all + open / close the picker
+          const opening = !sbPickPanel.classList.contains('open');
+          activeFilter = 'all';
+          render();
+          if (opening) {
+            renderSbPickPanel();
+            sbPickPanel.classList.add('open');
+            const nb = document.querySelector('#setupBox .sb-pick');
+            if (nb) positionSbPick(nb);
+          } else sbPickPanel.classList.remove('open');
+          return;
+        }
+        activeFilter = activeFilter === b.dataset.sbsym ? 'all' : b.dataset.sbsym; // v148: click again = all
+        render();
+      };
     });
     box.querySelectorAll('.sb-head').forEach(h => {
       h.onclick = () => {
