@@ -6,6 +6,9 @@
 //                                        v9: ?from=YYYY-MM-DD[&to=YYYY-MM-DD] (ET dates) also reads the archive
 // - GET  /bars?sym=MES&days=5          <- BarFeed bars for the Chart tab (v9: &from=YYYY-MM-DD[&to=] reads the archive)
 // - GET  /archive                      <- v9: list of archived alert days and bar months
+//   v12: POST /bars/clean?token=SECRET&sym=MGC removes candles whose open time is not on the feed's own grid (e.g. 5m
+//        candles imported into the 3m feed: 10:05, 10:10 ...), RAM + archive; logged like an import, so /bars/undo puts
+//        them back.
 //   v11: REVERSIBLE BAR IMPORTS. Every POST /bars/import writes an undo log to DATA_DIR/imports/<id>.json (candles it added +
 //        the old values of candles it replaced, RAM and archive). GET /bars/imports?token=SECRET lists them;
 //        POST /bars/undo?token=SECRET&id=<id> removes the added candles and puts the replaced ones back.
@@ -991,7 +994,7 @@ app.get('/bars/imports', (req, res) => {
   try { files = fs.readdirSync(IMPORT_DIR).filter((f) => f.endsWith('.json')); } catch (e) { /* none */ }
   const out = files.map((f) => readImportLog(f.slice(0, -5))).filter(Boolean).map((l) => {
     const ts = (l.added || []).concat((l.replaced || []).map((b) => b.t));
-    return { id: l.id, type: l.type || 'import', sym: l.sym, at: l.at, name: l.name || '', replace: !!l.replace, added: (l.added || []).length, replaced: (l.replaced || []).length, first: ts.length ? Math.min.apply(null, ts) : null, last: ts.length ? Math.max.apply(null, ts) : null, undone: l.undone || null };
+    return { id: l.id, type: l.type || 'import', sym: l.sym, at: l.at, name: l.name || '', replace: !!l.replace, added: (l.added || []).length, removed: (l.removed || []).length, replaced: (l.replaced || []).length, first: ts.length ? Math.min.apply(null, ts) : null, last: ts.length ? Math.max.apply(null, ts) : null, undone: l.undone || null };
   }).sort((x, y) => (x.at < y.at ? 1 : -1));
   res.json(out);
 });
@@ -1018,6 +1021,18 @@ app.post('/bars/undo', (req, res) => {
     console.log(`bars undo drop ${sym}: restored ${bars[sym].length} candle(s)`);
     return res.send(`Feed ${sym} restored (${bars[sym].length} candle(s) in RAM).`);
   }
+  if (log.type === 'clean') {
+    const back = log.removed || [];
+    const cut = barCutoff();
+    const recent = back.filter((b) => b.t >= cut);
+    recent.forEach((b) => upsertBar(sym, b));
+    if (recent.length) rewriteBarFile(sym);
+    const old = back.filter((b) => b.t < cut);
+    if (old.length) mergeBarsIntoArchive(sym, old, true);
+    log.undone = new Date().toISOString(); writeImportLog(log);
+    console.log(`bars undo clean ${sym}: ${back.length} candle(s) put back`);
+    return res.send(`Undone: ${back.length} candle(s) put back into ${sym}.`);
+  }
   const add = new Set(log.added || []);
   const rep = new Map((log.replaced || []).map((b) => [b.t, b]));
   const arr = bars[sym] || [];
@@ -1043,6 +1058,34 @@ app.post('/bars/undo', (req, res) => {
   writeImportLog(log);
   console.log(`bars undo ${id} ${sym}: removed ${removed} + ${arRemoved} archived, restored ${restored} + ${arRestored} archived`);
   res.send(`Undone: ${sym} -- removed ${removed + arRemoved} imported candle(s), restored ${restored + arRestored} replaced candle(s).`);
+});
+
+// v12: remove candles that are off the feed's time grid (minutes since midnight ET not divisible by the feed's minutes)
+const ET_HM = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+function offGrid(t, tf) { const [h, m] = ET_HM.format(new Date(t)).split(':').map(Number); return ((h % 24) * 60 + m) % tf !== 0; }
+app.post('/bars/clean', (req, res) => {
+  if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
+  const sym = String(req.query.sym || '').toUpperCase();
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('bad symbol');
+  const tf = feedTfMin(sym);
+  const log = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), type: 'clean', sym, at: new Date().toISOString(), name: 'off-grid candles removed (' + tf + 'm grid)', added: [], replaced: [], removed: [] };
+  const arr = bars[sym] || [];
+  const keep = [];
+  arr.forEach((b) => { if (offGrid(b.t, tf)) log.removed.push(b); else keep.push(b); });
+  const ram = arr.length - keep.length;
+  if (ram) { bars[sym] = keep; rewriteBarFile(sym); }
+  let arch = 0;
+  listBarArchiveMonths(sym).forEach((m) => {
+    const file = path.join(barArchDir(sym), m + '.ndjson.gz');
+    try {
+      const list = readGzLines(file);
+      const k = list.filter((b) => { if (offGrid(b.t, tf)) { log.removed.push(b); return false; } return true; });
+      if (k.length !== list.length) { arch += list.length - k.length; writeGzLines(file, k); }
+    } catch (e) { console.error('clean archive', sym, m, e.message); }
+  });
+  if (log.removed.length) writeImportLog(log);
+  console.log(`bars clean ${sym}: removed ${ram} + ${arch} archived off-grid candle(s)`);
+  res.send(log.removed.length ? `Removed ${ram + arch} off-grid candle(s) from ${sym} (${tf}m grid). Undo is available under Imports.` : `${sym}: no off-grid candles.`);
 });
 
 // v11: move a whole feed (e.g. MGC_3 created by mistake) to the trash; reversible with /bars/undo
@@ -1560,7 +1603,7 @@ app.get('/health', (req, res) => {
   const mem = process.memoryUsage(); // v8: watch this once the alert store grows toward 100000
   const archDays = listAlertArchiveDays();
   res.json({
-    serverVersion: 11,
+    serverVersion: 12,
     duplicates: { windowSec: DUP_WINDOW_MS / 1000, ignoredSinceStart: duplicatesIgnored, lastDedupe },
     serverStartedAt: SERVER_STARTED_AT,
     uptimeSeconds: Math.round(process.uptime()),
@@ -1587,7 +1630,7 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`TradingView webhook dashboard v11 running on port ${PORT}`);
+  console.log(`TradingView webhook dashboard v12 running on port ${PORT}`);
   console.log(`Webhook URL path: /webhook${SECRET ? '?token=' + SECRET : ''}`);
   console.log(`DATA_DIR: ${DATA_DIR} (${process.env.DATA_DIR ? 'from DATA_DIR env var' : 'default __dirname — set DATA_DIR to a mounted Disk to persist across redeploys'})`);
 });
