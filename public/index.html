@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v146 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v147 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -368,7 +368,12 @@
      v79: HTF flip candle value wraps onto 3 short lines (high / low, range pts, × avg20 · × last4) so the status column stays narrow; Potential flop wraps after "crossed".
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
      v77: setup table shows the other SL method's SL1/SL2 ("SL1 ATR"/"SL2 ATR", or "SL1 Piv"/"SL2 Piv" when ATR is active; Pine v8.61) as darker info rows; all stop rows sorted by distance from Entry.
-     v76: status row label is just "HTF flip candle" (no "(15m)"). -->
+     v76: status row label is just "HTF flip candle" (no "(15m)").
+     v147 (11/05/2026): new top tab "Bot" (next to Chart): every "• Bot Order (preview)" alert that CBC v10.76+ posts
+     (normal copy, "Bot preview" ON) = the exact CrossTrade order the bot copy sends. One row per order command
+     (time ET, symbol, command, side, qty, type, limit / TP / SL, expiry, account), newest first, raw text on click;
+     any key= value is masked. Range 1 / 7 / 30 days (fetched from /alerts?days=N), live updates from the stream.
+     The tab label shows today's count. No server change. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1187,6 +1192,7 @@
   #chLast .s { font-size: 11px; font-weight: 500; opacity: 0.8; }
   #chHost { width: 100%; height: calc(100vh - 230px); min-height: 380px; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden; }
   body.chart-mode #setupBox { display: none !important; }
+  body.bot-mode #setupBox { display: none !important; }
   body.chart-mode main { max-width: none; }
   .ch-goto { background: #2563EB; color: #fff; border: 0; padding: 1px 7px; border-radius: 9999px; font-size: 10px; font-weight: 700; margin-left: 4px; cursor: pointer; }
   .ch-goto:hover { background: #3B82F6; }
@@ -2012,6 +2018,23 @@
     .jr-cal-shell { flex-direction: column; }
     .jr-weeks { flex-direction: row; width: auto; }
   }
+  /* v147: Bot tab */
+  #botView { padding: 12px 16px; }
+  .bot-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; font-size:12px; color:var(--muted); }
+  .bot-toolbar select, .bot-toolbar button { background:var(--panel); color:var(--text); border:1px solid var(--panel-border); border-radius:5px; padding:4px 8px; font-size:12px; cursor:pointer; }
+  .bot-sum { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .bot-chip { background:var(--panel); border:1px solid var(--panel-border); border-radius:6px; padding:6px 10px; font-size:12px; }
+  .bot-chip b { font-family:var(--mono); font-size:14px; margin-left:4px; }
+  .bot-wrap { overflow-x:auto; border:1px solid var(--panel-border); border-radius:6px; }
+  table.bot-tbl { border-collapse:collapse; width:100%; font-size:12px; font-family:var(--mono); }
+  table.bot-tbl th { position:sticky; top:0; background:var(--panel); color:var(--muted); font-family:var(--sans); font-weight:600; text-align:left; padding:6px 8px; border-bottom:1px solid var(--panel-border); white-space:nowrap; }
+  table.bot-tbl td { padding:5px 8px; border-bottom:1px solid var(--panel-border); white-space:nowrap; }
+  table.bot-tbl tr.bot-row { cursor:pointer; }
+  table.bot-tbl tr.bot-row:hover td { background:rgba(255,255,255,.03); }
+  .bot-buy { color:var(--bull); font-weight:600; } .bot-sell { color:var(--bear); font-weight:600; } .bot-flat { color:var(--accent); font-weight:600; }
+  tr.bot-raw td { white-space:pre-wrap; word-break:break-all; max-width:0; color:var(--muted); background:var(--panel); font-size:11px; }
+  .bot-empty { padding:24px; text-align:center; color:var(--muted); font-size:13px; line-height:1.6; }
+  .bot-badge { display:inline-block; min-width:16px; margin-left:5px; padding:0 5px; border-radius:8px; background:rgba(255,255,255,.12); font-size:10px; line-height:16px; text-align:center; }
 </style>
 </head>
 <body>
@@ -2032,6 +2055,7 @@
     <div class="view-tabs" id="viewTabs">
       <button class="view-tab-btn active" id="tabAlertsBtn" data-view="alerts">Alerts</button>
       <button class="view-tab-btn" id="tabChartBtn" data-view="chart">Chart</button>
+      <button class="view-tab-btn" id="tabBotBtn" data-view="bot" title="Orders the CrossTrade bot sends (CBC Bot preview alerts)">Bot<span class="bot-badge" id="botBadge">0</span></button>
       <div class="nav-dropdown" id="learnDropdown">
         <button class="nav-dropdown-btn" id="learnDropdownBtn" type="button">Learn <span class="nav-dropdown-caret">▾</span></button>
         <div class="nav-dropdown-menu" id="learnDropdownMenu">
@@ -2159,6 +2183,19 @@
     <div class="big">···</div>
     Waiting for the first alert.<br />
     Point a TradingView alert's webhook URL here and it'll show up instantly.
+  </div>
+
+  <div id="botView" style="display:none;">
+    <div class="bot-toolbar">
+      <span>CrossTrade bot orders (from CBC "Bot preview" alerts)</span>
+      <select id="botDays" title="How far back"><option value="1">Today</option><option value="7" selected>7 days</option><option value="30">30 days</option></select>
+      <select id="botSymSel" title="Symbol"><option value="all">All symbols</option></select>
+      <button id="botReload" type="button">Reload</button>
+      <span id="botStatus"></span>
+    </div>
+    <div class="bot-sum" id="botSum"></div>
+    <div class="bot-wrap"><table class="bot-tbl"><thead><tr><th>Time ET</th><th>Symbol</th><th>Command</th><th>Side</th><th>Qty</th><th>Type</th><th>Limit</th><th>TP</th><th>SL</th><th>Expires / cancel</th><th>Account</th></tr></thead><tbody id="botBody"></tbody></table></div>
+    <div class="bot-empty" id="botEmpty" style="display:none;">No bot orders in this range.<br>They appear here when the normal CBC copy has <b>Bot preview</b> ON (CBC v10.76+) and the bot would send an order.</div>
   </div>
 
   <div id="faqView" style="display:none;">
@@ -2518,7 +2555,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v146</footer>
+<footer>tv-webhook-dashboard · v147</footer>
 
 <div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
   <div style="max-width:1240px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
@@ -2933,13 +2970,17 @@
     const isChecklist = view === 'checklist';
     const isAutopsy = view === 'autopsy';
     const isChart = view === 'chart';
-    const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal && !isRules && !isChecklist && !isAutopsy && !isChart;
+    const isBot = view === 'bot'; // v147
+    const isAlerts = !isFaq && !isFlash && !isVideos && !isJournal && !isRules && !isChecklist && !isAutopsy && !isChart && !isBot;
     tabAlertsBtn.classList.toggle('active', isAlerts);
     tabChartBtn.classList.toggle('active', isChart);
+    document.getElementById('tabBotBtn').classList.toggle('active', isBot);
+    document.getElementById('botView').style.display = isBot ? 'block' : 'none';
     const chV = document.getElementById('chartView');
     chV.style.display = (isChart || (isAlerts && chInlineOpen)) ? 'block' : 'none';
     chV.classList.toggle('ch-inline', !isChart);
     document.body.classList.toggle('chart-mode', isChart);
+    document.body.classList.toggle('bot-mode', isBot);
     tabFaqBtn.classList.toggle('active', isFaq);
     tabFlashBtn.classList.toggle('active', isFlash);
     tabVideosBtn.classList.toggle('active', isVideos);
@@ -2972,9 +3013,12 @@
     if (isChecklist && !checklistRendered) { pcInit(); checklistRendered = true; }
     if (isAutopsy && !autopsyRendered) { atInit(); autopsyRendered = true; }
     if (isChart || (isAlerts && chInlineOpen)) chOnShow();
+    if (isBot) botOnShow();
   }
   tabAlertsBtn.addEventListener('click', () => setView('alerts'));
   tabChartBtn.addEventListener('click', () => setView('chart'));
+  const tabBotBtn = document.getElementById('tabBotBtn');
+  tabBotBtn.addEventListener('click', () => setView('bot'));
   tabFaqBtn.addEventListener('click', () => setView('faq'));
   tabFlashBtn.addEventListener('click', () => setView('flashcards'));
   tabVideosBtn.addEventListener('click', () => setView('videos'));
@@ -7118,6 +7162,7 @@
     const alert = JSON.parse(e.data);
     alerts.unshift(alert);
     render();
+    botOnLive(alert); // v147
     flashPulse();
     if (voiceOn) speakAlert(alert);
     beepAlert(alert);
@@ -9724,6 +9769,120 @@
     if (!chState.chart) return;
     if (chartViewEl.style.display !== 'none') chRender(); else chState.dirty = true;
   });
+  // ---------------------------------------------------------------------
+  // v147: BOT TAB -- CrossTrade orders previewed by CBC ("• Bot Order (preview)" alerts).
+  // ---------------------------------------------------------------------
+  const BOT_TAG = '• Bot Order';
+  const botStore = new Map(); // id -> alert
+  let botFetchedDays = 0;
+  function botIs(a) { const r = a && (typeof a.raw === 'string' ? a.raw : JSON.stringify(a && a.raw)); return !!r && r.indexOf(BOT_TAG) !== -1; }
+  function botRaw(a) { return typeof a.raw === 'string' ? a.raw : JSON.stringify(a.raw); }
+  function botEtDay(iso) { return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); }
+  function botEtTime(iso) { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); }
+  function botMask(t) { return t.replace(/(\bkey\s*=\s*)[^;\n]*/gi, '$1•••'); }
+  // CrossTrade text = "key=value;" pairs; a new "command=" starts a new order.
+  function botParse(raw) {
+    const body = raw.slice(raw.indexOf(BOT_TAG));
+    const out = [];
+    let cur = null;
+    body.split(/[;\n]/).forEach((part) => {
+      const m = /^\s*([A-Za-z_]+)\s*=\s*(.*?)\s*$/.exec(part);
+      if (!m) return;
+      const k = m[1].toLowerCase(), v = m[2];
+      if (k === 'key') return;
+      if (k === 'command' || !cur) { cur = {}; out.push(cur); }
+      cur[k] = v;
+    });
+    return out.length ? out : [{ command: '(unparsed)' }];
+  }
+  function botFirst(o, keys) { for (const k of keys) if (o[k] !== undefined && o[k] !== '') return o[k]; return ''; }
+  function botCollect() {
+    alerts.forEach((a) => { if (a && a.id && !botStore.has(a.id) && botIs(a)) botStore.set(a.id, a); });
+  }
+  function botBadge() {
+    botCollect();
+    const today = botEtDay(Date.now());
+    let n = 0;
+    botStore.forEach((a) => { if (botEtDay(a.receivedAt) === today) n++; });
+    const el = document.getElementById('botBadge');
+    if (el) el.textContent = n;
+  }
+  function botLoad(days) {
+    const st = document.getElementById('botStatus');
+    st.textContent = 'loading…';
+    return fetch('/alerts?days=' + days).then(r => r.json()).then((list) => {
+      list.forEach((a) => { if (a && a.id && botIs(a)) botStore.set(a.id, a); });
+      botFetchedDays = Math.max(botFetchedDays, days);
+      st.textContent = '';
+    }).catch((e) => { st.textContent = 'could not load: ' + e.message; });
+  }
+  function botRender() {
+    botCollect();
+    const days = Number(document.getElementById('botDays').value) || 7;
+    const symSel = document.getElementById('botSymSel');
+    const symPick = symSel.value;
+    const from = days === 1 ? botEtDay(Date.now()) : botEtDay(Date.now() - (days - 1) * 86400000);
+    const list = Array.from(botStore.values()).filter((a) => botEtDay(a.receivedAt) >= from)
+      .sort((x, y) => (x.receivedAt < y.receivedAt ? 1 : -1));
+    const syms = Array.from(new Set(list.map((a) => getSymbol(botRaw(a))))).sort();
+    symSel.innerHTML = '<option value="all">All symbols</option>' + syms.map((s) => `<option value="${escapeHtml(s)}"${s === symPick ? ' selected' : ''}>${escapeHtml(s)}</option>`).join('');
+    const rows = [];
+    let nPlace = 0, nLong = 0, nShort = 0, nFlat = 0;
+    list.forEach((a) => {
+      const raw = botRaw(a);
+      const sym = getSymbol(raw);
+      if (symPick !== 'all' && sym !== symPick) return;
+      botParse(raw).forEach((o, k) => {
+        const cmd = (o.command || '').toUpperCase();
+        const act = (o.action || '').toUpperCase();
+        const isFlat = /FLAT|CLOSE|CANCEL/.test(cmd) && !/PLACE/.test(cmd);
+        if (/PLACE/.test(cmd)) { nPlace++; if (act === 'BUY') nLong++; else if (act === 'SELL') nShort++; }
+        if (isFlat) nFlat++;
+        const cls = isFlat ? 'bot-flat' : act === 'BUY' ? 'bot-buy' : act === 'SELL' ? 'bot-sell' : '';
+        const side = act === 'BUY' ? 'LONG' : act === 'SELL' ? 'SHORT' : act;
+        rows.push(`<tr class="bot-row" data-id="${escapeHtml(a.id)}"><td>${k ? '' : escapeHtml(botEtTime(a.receivedAt))}</td><td>${k ? '' : escapeHtml(sym)}</td>` +
+          `<td class="${cls}">${escapeHtml(cmd || '—')}</td><td class="${cls}">${escapeHtml(side)}</td><td>${escapeHtml(botFirst(o, ['qty', 'quantity']))}</td>` +
+          `<td>${escapeHtml(botFirst(o, ['order_type', 'type']))}</td><td>${escapeHtml(botFirst(o, ['limit_price', 'price']))}</td>` +
+          `<td>${escapeHtml(botFirst(o, ['take_profit', 'tp', 'target']))}</td><td>${escapeHtml(botFirst(o, ['stop_loss', 'sl', 'stop']))}</td>` +
+          `<td>${escapeHtml(botFirst(o, ['expire_time', 'cancel_after', 'tif']))}</td><td>${escapeHtml(botFirst(o, ['account']))}</td></tr>`);
+      });
+    });
+    document.getElementById('botBody').innerHTML = rows.join('');
+    document.getElementById('botEmpty').style.display = rows.length ? 'none' : 'block';
+    document.getElementById('botSum').innerHTML =
+      `<span class="bot-chip">Alerts<b>${list.filter((a) => symPick === 'all' || getSymbol(botRaw(a)) === symPick).length}</b></span>` +
+      `<span class="bot-chip">Entries<b>${nPlace}</b></span><span class="bot-chip">Long<b class="bot-buy">${nLong}</b></span>` +
+      `<span class="bot-chip">Short<b class="bot-sell">${nShort}</b></span><span class="bot-chip">Flatten / cancel<b class="bot-flat">${nFlat}</b></span>`;
+    botBadge();
+  }
+  function botOnShow() {
+    const days = Number(document.getElementById('botDays').value) || 7;
+    botRender();
+    if (botFetchedDays < days) botLoad(days).then(botRender);
+  }
+  function botOnLive(a) {
+    if (!botIs(a)) return;
+    botStore.set(a.id, a);
+    botBadge();
+    if (document.getElementById('botView').style.display === 'block') botRender();
+  }
+  document.getElementById('botDays').addEventListener('change', botOnShow);
+  document.getElementById('botSymSel').addEventListener('change', botRender);
+  document.getElementById('botReload').addEventListener('click', () => { botFetchedDays = 0; botOnShow(); });
+  document.getElementById('botBody').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr.bot-row');
+    if (!tr) return;
+    const nx = tr.nextElementSibling;
+    if (nx && nx.classList.contains('bot-raw')) { nx.remove(); return; }
+    const a = botStore.get(tr.dataset.id);
+    if (!a) return;
+    const r = document.createElement('tr');
+    r.className = 'bot-raw';
+    r.innerHTML = `<td colspan="11">${escapeHtml(botMask(botRaw(a)))}</td>`;
+    tr.after(r);
+  });
+  setTimeout(botBadge, 3000);
+  setInterval(botBadge, 60000);
 </script>
 
 </body>
