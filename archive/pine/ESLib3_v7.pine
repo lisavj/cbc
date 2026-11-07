@@ -1,0 +1,443 @@
+// This Pine Script code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//@version=6
+// ESLib3 v1 (10/29/2026, CBC v10.47): "room to the first opposing level" helpers, kept in a new small library so
+// ESLib / ESLib2 do not need a republish. Publish once (Library), then set the import number in CBC.
+// ESLib3 v2 (10/30/2026, CBC v10.48): + f_shadow (blocked "shadow" setups, see below). f_room / f_room_txt unchanged.
+// ESLib3 v3 (11/03/2026, CBC v10.63): + f_lvl, f_lvl_lbl, f_pw (see the end of the file). Nothing existing changed.
+// ESLib3 v4 (11/05/2026, CBC v10.71-10.74): + f_bot_sym, f_bot_trig, f_bot_win, f_bot (CrossTrade order bot, end of the file). Nothing existing changed.
+// ESLib3 v6 (11/06/2026, CBC v10.79): + f_xrule (TP cut on high ATR / profit lock exit rules, end of the file). Nothing existing changed. (v5 = the published v4 file.)
+// ESLib3 v7 (11/06/2026, CBC v10.80): + f_ca1, f_ca2, f_early (CBC alert-bullet builders, end of the file, CE10117 relief). Nothing existing changed.
+library("ESLib3", overlay = true)
+
+// Nearest opposing level beyond en in the trade direction (lg = long: above en; short: below en).
+// cand = the Trade Setup level pool (pivots, YD H/L, PMH/PML, HTF/LTF pivots, EQH/EQL, EMA200, VWAP, ORs ...).
+// lv = ESLib2 f_ob2_manage output (6 values per active order block: code, top, code, bottom, code, mid; 1 = OB+, 4 = OB-).
+// An opposing OB is OB- for a long (its bottom edge counts; 0 when en is inside it), OB+ for a short.
+// Returns float[3]: [distance in pts (na = nothing beyond en), kind (0 = pool level, 1 = opposing OB), index].
+export f_room(float[] cand, float[] lv, bool lg, float en) =>
+    float best = na
+    float kind = na
+    float idx = -1
+    int n = array.size(cand)
+    if n > 0 and not na(en)
+        for i = 0 to n - 1
+            float v = array.get(cand, i)
+            float d = na(v) ? na : lg ? v - en : en - v
+            if not na(d) and d > 0 and (na(best) or d < best)
+                best := d
+                kind := 0
+                idx := i
+    int m = array.size(lv)
+    if m >= 6 and not na(en)
+        for i = 0 to m - 6 by 6
+            if lg ? array.get(lv, i) == 4.0 : array.get(lv, i) == 1.0
+                float t = array.get(lv, i + 1)
+                float b = array.get(lv, i + 3)
+                float d = en >= b and en <= t ? 0.0 : lg ? b - en : en - t
+                if d >= 0 and (na(best) or d < best)
+                    best := d
+                    kind := 1
+                    idx := i
+    array.from(best, kind, idx)
+
+// Alert / tooltip line, e.g. "\nRoom: OB- 7769.75-7766.75 at +1.25 pts = 0.22 x TP1 (0.4 ATR)" or
+// "\nRoom: HTF EQH 4037.1 at +5.1 pts = 1.02 x TP1 (1.7 ATR)". r = f_room result, names parallel to cand,
+// dtp = TP1 distance from Entry (pts), atr = ATR at the setup.
+export f_room_txt(float[] r, float[] cand, string[] names, float[] lv, bool lg, float dtp, float atr) =>
+    float d = array.get(r, 0)
+    string s = "\nRoom: no opposing level"
+    if not na(d)
+        int k = int(array.get(r, 2))
+        string nm = array.get(r, 1) == 1.0 ? "OB" + (lg ? "- " : "+ ") + str.tostring(array.get(lv, k + 1), format.mintick) + "-" + str.tostring(array.get(lv, k + 3), format.mintick) : (k < array.size(names) ? array.get(names, k) + " " : "") + str.tostring(array.get(cand, k), format.mintick)
+        s := "\nRoom: " + nm + " at +" + str.tostring(d, "#.##") + " pts = " + (dtp > 0 ? str.tostring(d / dtp, "0.00") : "—") + " x TP1" + (atr > 0 ? " (" + str.tostring(d / atr, "0.0") + " ATR)" : "")
+    s
+
+// v2 (CBC v10.48 token relief): the room gate pair (was 4 CBC lines): [skip long, skip short] when the first opposing level /
+// OB beyond the close is nearer than lim pts (lim = x * TP1 distance); on = gate on for this chart.
+export f_room_bl(float[] cand, float[] lv, bool on, float lim) =>
+    float l = array.get(f_room(cand, lv, true, close), 0)
+    float s = array.get(f_room(cand, lv, false, close), 0)
+    [on and not na(l) and l < lim, on and not na(s) and s < lim]
+// v2 (CBC v10.48 token relief): moved from CBC f_ats_add_ob2 (same logic). Adds the visible Lux-style OB levels (lv =
+// ESLib2 f_ob2_manage code/price pairs) to the Trade Setup level pool cp / cn. on = ats_use_ob2 and OB Show.
+export f_add_ob2(bool on, float[] lv, float[] cp, string[] cn) =>
+    if on and array.size(lv) >= 2
+        for i = 0 to array.size(lv) / 2 - 1
+            int c = int(array.get(lv, 2 * i))
+            array.push(cp, array.get(lv, 2 * i + 1))
+            array.push(cn, c == 1 ? "OB+ H" : c == 2 ? "OB+ L" : c == 3 ? "OB+ M" : c == 4 ? "OB- H" : c == 5 ? "OB- L" : "OB- M")
+    true
+
+// v2 (CBC v10.48 token relief): moved from CBC f_nz (v9.00, same logic). Close from -a to +b of level l, signed in the HTF
+// CBC direction hb (+ = trade side); w = exception distance (low/high beyond l by >= w -> false).
+export f_nz(bool hb, float l, float a, float b, float w) =>
+    float d = hb ? close - l : l - close
+    d >= -a and d <= b and not ((hb ? low - l : l - high) >= w)
+// ESLib3 v2 (10/30/2026, CBC v10.48): blocked "shadow" setups. A Trade Setup trigger that every gate passed except the
+// VWAP stretch filter is drawn as a shadow (dashed outline boxes, faint fill, grey dashed Entry line, "✕ price" label,
+// no ⓘ) and tracked with the base exits: SL1 = max(min(sm x ATR, cap), msl), TP1 = tpd, part % at TP1, breakeven (be),
+// trail trm x ATR on the close after TP1; ends on SL / trail / breakeven, HTF CBC flip against it, 16:00 ET (eod) or an
+// opposite shadow. One active shadow at a time (same-direction triggers while it runs are ignored). It never touches the
+// real setup engine (spacing, one-per-direction, Setup Ended). Returns the alert text ("" = none): "• Setup Blocked:"
+// when one starts, "• Shadow Ended:" when one ends (both in one text when an opposite shadow replaces the old one).
+// nl / ns = new shadow long / short this bar; why = trigger text; ext = close vs VWAP in ATR (+ above); er = Efficiency Ratio; keep = shadows
+// kept on the chart. Call on every bar.
+f_sg(float x) =>
+    (x >= 0 ? "+" : "") + str.tostring(x, "#.##")
+f_tm(int t) =>
+    str.format_time(t, "MM/dd HH:mm:ss", "America/New_York")
+export f_shadow(bool nl, bool ns, float sm, float msl, float cap, float tpd, float part, bool be, float trm, float atr, bool hb, bool hs, bool eod, string tf, string why, float ext, float er, int keep) =>
+    var float en = na
+    var float sl = na
+    var float t1 = na
+    var float tp = na
+    var bool lg = false
+    var bool act = false
+    var bool hit = false
+    var int b0 = na
+    var int tt0 = na
+    var box rb = box(na)
+    var box sb = box(na)
+    var line el = line(na)
+    var box[] bxs = array.new_box()
+    var line[] lns = array.new_line()
+    var label[] lbs = array.new_label()
+    string msg = ""
+    float g = lg ? 1.0 : -1.0
+    bool nw = (nl or ns) and barstate.isconfirmed and not (act and nl == lg)
+    if act and bar_index > b0 and barstate.isconfirmed
+        string wy = ""
+        float rem = na
+        if lg ? low <= sl : high >= sl
+            rem := g * (sl - en)
+            wy := not hit ? "SL1 hit" : sl == en ? "Breakeven hit" : "Trail SL hit"
+        else
+            if not hit and (lg ? high >= t1 : low <= t1)
+                hit := true
+                if be
+                    sl := lg ? math.max(sl, en) : math.min(sl, en)
+            if hit and trm > 0
+                float ns2 = close - g * trm * atr
+                sl := lg ? math.max(sl, ns2) : math.min(sl, ns2)
+            wy := (lg ? hs : hb) ? "HTF flip" : eod ? "16:00" : nw ? "Replaced" : ""
+            rem := g * (close - en)
+        box.set_right(rb, bar_index)
+        box.set_right(sb, bar_index)
+        line.set_x2(el, bar_index)
+        if wy != ""
+            act := false
+            float p = part / 100
+            float res = hit ? p * g * (t1 - en) + (1 - p) * rem : rem
+            string rt = hit ? f_sg(res) + " = " + str.tostring(p, "0.0#") + "×" + str.tostring(g * (t1 - en), "#.##") + "(TP1) + " + str.tostring(1 - p, "0.0#") + "×" + str.tostring(rem, "#.##") + "(" + (wy == "Trail SL hit" ? "Trail" : wy == "Breakeven hit" ? "BE" : wy) + ")" : f_sg(res)
+            string tip = "Shadow " + (lg ? "LONG " : "SHORT ") + str.tostring(en, format.mintick) + "  " + str.format_time(tt0, "HH:mm", "America/New_York") + " → " + str.format_time(time_close, "HH:mm", "America/New_York") + " ET\n" + wy + "\nResult: " + rt + " pts\n(blocked setup -- not traded)"
+            array.push(lbs, label.new(bar_index, lg ? low : high, "shadow " + f_sg(res), style = lg ? label.style_label_up : label.style_label_down, color = color.new(color.white, 100), textcolor = res > 0 ? color.new(#2e7d32, 0) : color.new(#c62828, 0), size = size.small, tooltip = tip))
+            msg := syminfo.ticker + " —\n• Shadow Ended: " + (lg ? "LONG" : "SHORT") + "\nEnded: " + wy + " | Result: " + rt + "\nShadow Entry: " + str.tostring(en, format.mintick) + " | Started: " + str.format_time(tt0, "HH:mm", "America/New_York") + "\nChart: " + syminfo.ticker + " " + tf + "\nTime: " + f_tm(time_close) + " ET"
+    if nw
+        lg := nl
+        g := lg ? 1.0 : -1.0
+        float c = na(cap) or cap <= 0 ? 1e9 : cap
+        float sd = math.max(math.min(sm * atr, c), nz(msl))
+        en := close
+        sl := en - g * sd
+        t1 := en + g * tpd
+        hit := false
+        act := true
+        b0 := bar_index
+        tt0 := time_close
+        string bt = "VWAP stretch " + str.tostring(math.abs(ext), "0.0") + " ATR"
+        rb := box.new(bar_index, math.max(en, t1), bar_index, math.min(en, t1), border_color = color.new(#2e7d32, 30), border_style = line.style_dashed, bgcolor = color.new(#2e7d32, 93))
+        sb := box.new(bar_index, math.max(en, sl), bar_index, math.min(en, sl), border_color = color.new(#c62828, 30), border_style = line.style_dashed, bgcolor = color.new(#c62828, 93))
+        el := line.new(bar_index, en, bar_index, en, color = color.new(color.gray, 0), style = line.style_dashed, width = 1)
+        array.push(bxs, rb)
+        array.push(bxs, sb)
+        array.push(lns, el)
+        array.push(lbs, label.new(bar_index, en, "✕ " + str.tostring(en, format.mintick), style = label.style_label_right, color = color.new(color.white, 20), textcolor = color.gray, size = size.small, tooltip = (lg ? "LONG" : "SHORT") + " blocked by " + bt + "\nTrigger: " + why + "\nEntry " + str.tostring(en, format.mintick) + " · TP1 " + str.tostring(t1, format.mintick) + " · SL1 " + str.tostring(sl, format.mintick) + "\nER " + str.tostring(er, "0.00") + "\nShadow only: no Trade Setup, not traded"))
+        msg := (msg == "" ? syminfo.ticker + " —" : msg + "\n") + "\n• Setup Blocked: " + (lg ? "LONG" : "SHORT") + "\nBy: " + bt + "\nTrigger: " + why + "\nEntry: " + str.tostring(en, format.mintick) + "\nTP1: " + str.tostring(t1, format.mintick) + "\nSL1: " + str.tostring(sl, format.mintick) + "\nER: " + str.tostring(er, "0.00") + "\nChart: " + syminfo.ticker + " " + tf + "\nTime: " + f_tm(time_close) + " ET"
+        while array.size(bxs) > 2 * math.max(1, keep)
+            box.delete(array.shift(bxs))
+        while array.size(lns) > math.max(1, keep)
+            line.delete(array.shift(lns))
+        while array.size(lbs) > 2 * math.max(1, keep)
+            label.delete(array.shift(lbs))
+    msg
+
+// ESLib3 v3 (11/03/2026, CBC v10.63, CE10117 token relief): reference-level line / label create-or-update and the
+// close-at-TP1-% time-window parser, moved out of CBC (same behaviour).
+// Horizontal level line from t1 to t2 (bar times) at y: created on the first call (ln = na), moved / restyled after.
+export f_lvl(line ln, int t1, float y, int t2, color c, int w, string st) =>
+    line r = ln
+    if na(r)
+        r := line.new(t1, y, t2, y, xloc = xloc.bar_time, color = c, width = w, style = st)
+    else
+        line.set_xy1(r, t1, y)
+        line.set_xy2(r, t2, y)
+        line.set_color(r, c)
+        line.set_width(r, w)
+        line.set_style(r, st)
+    r
+// Level label at (t2, y): text = name and / or price (sn / sp = show name / price), same as ESLib f_levelLabel + f_level_label_text.
+export f_lvl_lbl(label lb, int t2, float y, string nm, color c, bool sn, bool sp, string sz) =>
+    string tx = sn and sp ? nm + " " + str.tostring(y, "#.##") : sn ? nm : sp ? str.tostring(y, "#.##") : ""
+    label r = lb
+    if na(r)
+        r := label.new(t2, y, tx, xloc = xloc.bar_time, color = color.new(color.white, 100), textcolor = c, style = label.style_label_left, size = sz)
+    else
+        label.set_xy(r, t2, y)
+        label.set_text(r, tx)
+        label.set_textcolor(r, c)
+    r
+// Close-at-TP1 % by New York time of day (CBC v10.56 f_pw). t = "SYM TF HHMM-HHMM %, ..." (e.g. "MES 3m 0600-1600 80");
+// the chart symbol (micro root; ES = MES ...) and timeframe must match; a window may cross midnight. No match -> dflt.
+export f_pw(string t, float dflt) =>
+    string r0 = syminfo.root
+    string k = r0 == "GC" ? "MGC" : r0 == "ES" ? "MES" : r0 == "NQ" ? "MNQ" : r0 == "RTY" ? "M2K" : r0 == "CL" ? "MCL" : r0 == "MBT" or str.contains(r0, "BTC") ? "BTC" : r0
+    string tf = str.lower(timeframe.period) + "m"
+    float r = na
+    float m = hour(time, "America/New_York") * 60 + minute(time, "America/New_York")
+    for p in str.split(t, ",")
+        string[] kv = str.split(str.trim(str.replace_all(p, "  ", " ")), " ")
+        if array.size(kv) == 4 and str.upper(array.get(kv, 0)) == k and str.lower(array.get(kv, 1)) == tf
+            string w = array.get(kv, 2)
+            float a = str.tonumber(str.substring(w, 0, 2)) * 60 + str.tonumber(str.substring(w, 2, 4))
+            float b = str.tonumber(str.substring(w, 5, 7)) * 60 + str.tonumber(str.substring(w, 7, 9))
+            float v = str.tonumber(array.get(kv, 3))
+            if v > 0 and (a <= b ? m >= a and m < b : m >= a or m < b)
+                r := v
+    nz(r, dflt)
+
+// ESLib3 v4 (11/05/2026, CBC v10.71): CrossTrade order bot (Tradovate destination). Nothing existing changed.
+// f_bot_sym: true when the chart is listed in txt, e.g. "MES 3m" or "MES 3m, MGC 3m" (micro root; ES = MES ...).
+export f_bot_sym(string txt) =>
+    string r0 = syminfo.root
+    string k = r0 == "GC" ? "MGC" : r0 == "ES" ? "MES" : r0 == "NQ" ? "MNQ" : r0 == "RTY" ? "M2K" : r0 == "CL" ? "MCL" : r0
+    string tf = str.lower(timeframe.period) + "m"
+    bool ok = false
+    for p in str.split(txt, ",")
+        string[] kv = str.split(str.trim(str.replace_all(p, "  ", " ")), " ")
+        if array.size(kv) >= 2 and str.upper(array.get(kv, 0)) == k and str.lower(array.get(kv, 1)) == tf
+            ok := true
+    ok
+// f_bot_trig: is the setup's FIRST listed trigger (CBC f_ats_why text) enabled for the bot? A setup drawn mid-candle
+// (not confirmed) counts as LTF EMA20 Touch whatever else it lists.
+export f_bot_trig(string why, bool conf, bool t_fl, bool t_ly, bool t_ln, bool t_ll, bool t_h9, bool t_h20, bool t_mo, bool t_pb, bool t_tc) =>
+    string f = str.trim(array.get(str.split(why, ","), 0))
+    not conf ? t_tc : str.startswith(f, "HTF CBC Flip") ? t_fl : str.contains(f, "LTF EMA20 Pierce (late") ? t_ll : str.contains(f, "closed beyond EMA9: yes") ? t_ly : str.startswith(f, "LTF EMA20 Pierce") ? t_ln : str.startswith(f, "HTF EMA9 Pierce") ? t_h9 : str.startswith(f, "HTF EMA20 Pierce") ? t_h20 : str.startswith(f, "Momentum") ? t_mo : str.startswith(f, "HTF Pullback") ? t_pb : str.contains(f, "Touch") ? t_tc : false
+// f_bot_win: true when the candle close time (New York) is inside one of the windows in txt, e.g. "0930-1145, 1300-1545"
+// (HHMM-HHMM, comma list, a window may cross midnight). Empty txt = always true.
+export f_bot_win(string txt) =>
+    bool any = false
+    bool ok = false
+    float m = hour(time_close, "America/New_York") * 60 + minute(time_close, "America/New_York")
+    for p in str.split(txt, ",")
+        string w = str.trim(p)
+        if str.length(w) == 9
+            any := true
+            float a = str.tonumber(str.substring(w, 0, 2)) * 60 + str.tonumber(str.substring(w, 2, 4))
+            float b = str.tonumber(str.substring(w, 5, 7)) * 60 + str.tonumber(str.substring(w, 7, 9))
+            if a <= b ? m >= a and m <= b : m >= a or m <= b
+                ok := true
+    not any or ok
+f_px(float x) =>
+    str.tostring(math.round_to_mintick(x), format.mintick)
+f_hd(string key, string acct, string cmd) =>
+    "key=" + key + ";\ncommand=" + cmd + ";\naccount=" + acct + ";\ninstrument=" + syminfo.ticker + ";\n"
+// f_bot: CrossTrade message for this bar ("" = none). Mirrors the CBC setup: new eligible setup -> place (or flatplace when a
+// bot position is still open); bot position open and CBC ends the setup by CBC flip / 16:00 / time stop / new setup -> flatten;
+// SL / TP are broker-side (bracket), so the bot marks itself flat when price touches them and sends nothing.
+// en / sl / tp = CBC Entry / SL1 / TP1 (ats_call 0 / 1 / 2). lim = limit entry at en +/- slip ticks with cancel_after cxl min and
+// absolute TP / SL prices; else market entry with atm_targets / atm_stops in ticks from the fill. eod = time to be flat
+// (flatten an open bot position, no new entry); noent = no new entries (late-day window). maxage > 0 (limit mode) = late-alert
+// cutoff: the entry is sent GTD with expire_time = now + maxage seconds (UTC), so an alert delivered later is refused / expires
+// unfilled (instead of cancel_after). Flatten messages never expire. Call on every bar.
+export f_bot(bool fire, bool new_setup, bool elig, float en, float sl, float tp, string end_msg, string key, string acct, int qty, bool lim, int slip, int cxl, string note, bool eod, bool noent, int maxage) =>
+    var bool b_in = false
+    var bool b_lg = false
+    var float b_sl = na
+    var float b_tp = na
+    var int b_bar = na
+    string msg = ""
+    if b_in and bar_index > b_bar and (b_lg ? low <= b_sl or high >= b_tp : high >= b_sl or low <= b_tp)
+        b_in := false
+    bool ended = str.contains(end_msg, "• Setup Ended:")
+    bool stop_end = str.contains(end_msg, "SL1 hit") or str.contains(end_msg, "Trail SL hit") or str.contains(end_msg, "Breakeven hit")
+    if b_in and ended and stop_end
+        b_in := false
+    bool flat_need = b_in and (ended or eod)
+    if fire and new_setup and elig and not eod and not noent and not na(en) and not na(sl) and not na(tp)
+        bool lg = tp > en
+        float t = syminfo.mintick
+        string body = "action=" + (lg ? "buy" : "sell") + ";\nqty=" + str.tostring(qty) + ";\n"
+        if lim
+            body += "order_type=limit;\nlimit_price=" + f_px(lg ? en + slip * t : en - slip * t) + ";\ntake_profit=" + f_px(tp) + ";\nstop_loss=" + f_px(sl) + ";\n" + (maxage > 0 ? "tif=gtd;\nexpire_time=" + str.format_time(timenow + maxage * 1000, "yyyy-MM-dd'T'HH:mm:ss'Z'", "UTC") + ";\n" : "cancel_after=" + str.tostring(math.max(1, cxl)) + ";\ntif=day;\n")
+        else
+            body += "order_type=market;\ntif=day;\natm_targets=" + str.tostring(math.round(math.abs(tp - en) / t)) + ";\natm_stops=" + str.tostring(math.round(math.abs(en - sl) / t)) + ";\n"
+        msg := f_hd(key, acct, flat_need or b_in ? "flatplace" : "place") + body + "notes=" + note + ";\ndestination=tradovate;"
+        b_in := true
+        b_lg := lg
+        b_sl := sl
+        b_tp := tp
+        b_bar := bar_index
+    else if fire and flat_need
+        msg := f_hd(key, acct, "flatten") + "destination=tradovate;"
+        b_in := false
+    msg
+
+// ESLib3 v6 (11/06/2026, CBC v10.79): exit rules on the latest Trade Setup (from the 11/06 exit-ideas replay). They do NOT change
+// CBC's own setup tracking / Setup Ended result; they mark the chart, send an "• Exit Rule:" alert with the result the rule would
+// have given, and return flat = true on the bar the rule closes the trade (CBC v10.79 uses it to flatten the bot).
+//  cut: TP cut -- once the setup is older than cmin minutes and ATR at the setup was >= cx x its 100-candle average, the target
+//       becomes Entry + cp x (TP1 - Entry); touched = closed there (or at the open if the candle opened beyond it).
+//  lock: profit lock -- once the best move reaches la x TP1 distance, the stop becomes Entry + lt x TP1 distance; touched = closed.
+// Both only before TP1; the setup's SL1, TP1 and a new setup end them silently. c = ats_call [entry, SL1, TP1, ...].
+// Works intrabar (high / low so far), so a live touch fires at once. Returns [alert text ("" = none), flat, level, kind (1 cut, 2 lock)].
+export f_xrule(bool new_setup, float[] c, bool cut_on, float cmin, float cp, float cx, bool lock_on, float la, float lt, float arel, string tf) =>
+    var float en = na
+    var float sl = na
+    var float tp = na
+    var bool lg = false
+    var int t0 = na
+    var bool act = false
+    var bool vok = false
+    var float mfe = 0.0
+    var float lk = na
+    var int b0 = na
+    string msg = ""
+    bool flat = false
+    float lvl = na
+    int kind = 0
+    if act and bar_index > b0
+        float g = lg ? 1.0 : -1.0
+        float d = math.abs(tp - en)
+        bool slh = lg ? low <= sl : high >= sl
+        bool tph = lg ? high >= tp : low <= tp
+        if slh or tph
+            act := false
+        else
+            float red = en + g * cp * d
+            bool cut_live = cut_on and vok and time_close - t0 > cmin * 60000
+            if cut_live and (lg ? high >= red : low <= red)
+                float px = (lg ? open >= red : open <= red) ? open : red
+                msg := "• Exit Rule: TP cut hit (" + (lg ? "LONG" : "SHORT") + ") | Result: " + (g * (px - en) >= 0 ? "+" : "") + str.tostring(g * (px - en), "#.##") + " @ " + str.tostring(px, format.mintick) + " (" + str.tostring(cp * 100, "#") + " % of TP1 after " + str.tostring(cmin, "#") + " min, ATR " + str.tostring(cx, "0.0#") + "x avg)"
+                flat := true
+                lvl := px
+                kind := 1
+                act := false
+            else if lock_on and not na(lk) and (lg ? low <= lk : high >= lk)
+                float px = (lg ? open <= lk : open >= lk) ? open : lk
+                msg := "• Exit Rule: Profit lock hit (" + (lg ? "LONG" : "SHORT") + ") | Result: " + (g * (px - en) >= 0 ? "+" : "") + str.tostring(g * (px - en), "#.##") + " @ " + str.tostring(px, format.mintick) + " (stop at +" + str.tostring(lt * 100, "#") + " % of TP1 after reaching " + str.tostring(la * 100, "#") + " %)"
+                flat := true
+                lvl := px
+                kind := 2
+                act := false
+            else
+                mfe := math.max(mfe, g * ((lg ? high : low) - en))
+                if lock_on and na(lk) and mfe >= la * d
+                    lk := en + g * lt * d
+                    lvl := lk
+                    kind := 2
+                    msg := "• Exit Rule: Profit lock armed (" + (lg ? "LONG" : "SHORT") + ") | stop -> " + str.tostring(lk, format.mintick) + " (+" + str.tostring(lt * 100, "#") + " % of TP1)"
+    if msg != ""
+        msg := syminfo.ticker + " —\n" + msg + "\nSetup Entry: " + str.tostring(en, format.mintick) + " | Started: " + str.format_time(t0, "HH:mm", "America/New_York") + "\nChart: " + syminfo.ticker + " " + tf + "\nTime: " + str.format_time(time_close, "MM/dd HH:mm:ss", "America/New_York") + " ET"
+    if new_setup and not na(array.get(c, 0))
+        en := array.get(c, 0)
+        sl := array.get(c, 1)
+        tp := array.get(c, 2)
+        lg := tp > en
+        t0 := time_close
+        act := true
+        vok := arel >= cx
+        mfe := 0.0
+        lk := na
+        b0 := bar_index
+    [msg, flat, lvl, kind]
+
+// ===== v7 (11/06/2026, CBC v10.80): CE10117 token relief -- CBC alert-bullet builders moved here. Same text as CBC v10.79. =====
+f_al(string b, string t) => b + (b != "" ? "\n" : "") + t
+f_nn(float x) => na(x) ? "—" : str.tostring(x, "#.##")
+
+// First confirmed bullets: LTF flip, HTF flip + Agreement combo, HTF flip (cautionary / partial), Agreement, A+. Returns [titles, A+ entry line].
+export f_ca1(bool ltf_on, bool bf, bool brf, string tfm, string orn, bool hf_on, bool ag_on, bool hfb, bool hfs, bool agl, bool ags, string htf, bool cau_l, bool cau_s, bool betw, string edist, bool ag_join, string ldw, string lsn, bool ap_on, bool apl, bool aps, float c, float e20, string apn) =>
+    string t = ""
+    string ap = ""
+    if ltf_on and (bf or brf)
+        t := f_al(t, "• LTF(" + tfm + "m) CBC Flip: " + (bf ? "LONG (confirmed, bar closed — was short, now long)" : "SHORT (confirmed, bar closed — was long, now short)") + orn)
+    bool cl = hf_on and hfb and ag_on and agl
+    bool cs = hf_on and hfs and ag_on and ags
+    if cl or cs
+        t := f_al(t, "• HTF(" + htf + ") CBC Flip + LTF(" + tfm + ") Agreement: " + (cl ? "LONG" : "SHORT") + " (confirmed, HTF closed)")
+    bool hf_l = hfb and not cl
+    if hf_on and (hf_l or hfs and not cs)
+        bool cau = hf_l ? cau_l : cau_s
+        t := f_al(t, "• HTF(" + htf + ") CBC Flip: " + (hf_l ? "LONG" : "SHORT") + (cau ? " - ⚠ CAUTIONARY" : betw ? " - partial confirmation" : "") + " (confirmed, HTF closed)" + orn + (cau ? (hf_l ? "\n⚠ CAUTIONARY SETUP — TREAD LIGHTLY: price still fully below HTF EMA9/20\nCaution - Possible short dont long" : "\n⚠ CAUTIONARY SETUP — TREAD LIGHTLY: price still fully above HTF EMA9/20\nCaution - Possible long dont short") : betw ? "\n— price inside HTF EMA9/20 zone, partial confirmation" : "") + "\n" + edist)
+    bool ag_l = agl and not cl
+    if ag_on and ag_join and (ag_l or ags and not cs)
+        t := f_al(t, "• LTF(" + tfm + ") " + ldw + " + HTF(" + htf + ") Agreement: " + (ag_l ? "LONG" : "SHORT") + " (confirmed, HTF closed" + lsn + ")")
+    if ap_on and (apl or aps)
+        t := f_al(t, "• A+ Setup: " + (apl ? "LONG" : "SHORT"))
+        ap := "\nEntry: " + (apl ? "below " : "above ") + f_nn(c) + " (flip candle close) — look for LTF EMA20: " + f_nn(e20) + (apn == "" ? "" : " — but close to major pivot: " + apn)
+    [t, ap]
+
+// Later confirmed bullets: Key Level (7 pivots), Outside HTF ORB (ob_new = transition, computed in CBC), ORB Pass / Fail from / Flip, Price Enters HTF EMA9/20 Zone.
+// Returns [titles, ORB retest entry line, reclaim stop line].
+export f_ca2(string t0, bool kl_on, bool[] en, string[] lb, float[] px, bool[] up, bool[] dn, bool ob_new, bool ob_up, bool rt_on, bool rl, bool rs, float c, float rhi, float rlo, bool tu, bool td, bool fu, bool fd, bool rc_ok, bool hbull, float h20) =>
+    string t = t0
+    string orl = ""
+    string rcl = ""
+    if kl_on
+        for i = 0 to 6
+            if array.get(en, i)
+                string p = str.tostring(array.get(px, i), "#.##")
+                if array.get(up, i)
+                    t := f_al(t, "• Key Level Alert: " + array.get(lb, i) + " Bullish (crossed above " + p + ")")
+                if array.get(dn, i)
+                    t := f_al(t, "• Key Level Alert: " + array.get(lb, i) + " Bearish (crossed below " + p + ")")
+    if ob_new
+        t := f_al(t, "• Outside HTF ORB: " + (ob_up ? "Above (closed above ORB high)" : "Below (closed below ORB low)"))
+    if rt_on
+        if rl
+            t := f_al(t, "• ORB Pass +: retested ORB High as new support, closed back above (breakout continues)")
+            orl := "\nEntry: above " + f_nn(c) + " (base confirmation close) — ORB High acting as support: " + f_nn(rhi)
+        if rs
+            t := f_al(t, "• ORB Pass -: retested ORB Low as new resistance, closed back below (breakout continues)")
+            orl := "\nEntry: below " + f_nn(c) + " (base confirmation close) — ORB Low acting as resistance: " + f_nn(rlo)
+        if tu
+            t := f_al(t, "• ORB Fail from +: broke above ORB High but never confirmed — stalled back inside the range before the retest window expired")
+        if td
+            t := f_al(t, "• ORB Fail from -: broke below ORB Low but never confirmed — stalled back inside the range before the retest window expired")
+        if fu
+            t := f_al(t, "• ORB Flip +: broke above ORB High but fully round-tripped back below ORB Low before confirming — failed breakout")
+        if fd
+            t := f_al(t, "• ORB Flip -: broke below ORB Low but fully round-tripped back above ORB High before confirming — failed breakout")
+    if rc_ok
+        t := f_al(t, hbull ? "• Price Enters HTF EMA9/20 Zone: LONG (HTF confirmed bullish — look for entry)" : "• Price Enters HTF EMA9/20 Zone: SHORT (HTF confirmed bearish — look for entry)")
+        rcl := "\nSuggested stop: close " + (hbull ? "below" : "above") + " HTF EMA20 " + f_nn(h20)
+    [t, orl, rcl]
+
+// Early / unconfirmed bullets (LTF flip mid-candle; HTF flip / Agreement / combo still forming in the last 20 % of the HTF candle). "" = none.
+export f_early(bool lon, bool bf, bool brf, string tfm, bool late, bool hfe, bool fbl, bool fsl, bool rvl, bool rvs, bool rv_ok, bool age, bool all, bool als, bool aj, bool wdiff, string htf, string tr, string lsn, string ldw) =>
+    string t = ""
+    if lon and bf
+        t := f_al(t, "• LTF(" + tfm + "m) CBC Flip: LONG (UNCONFIRMED, mid-candle — was short, now long)")
+    if lon and brf
+        t := f_al(t, "• LTF(" + tfm + "m) CBC Flip: SHORT (UNCONFIRMED, mid-candle — was long, now short)")
+    if late
+        bool fl = hfe and fbl and (not rvl or rv_ok)
+        bool fs = hfe and fsl and (not rvs or rv_ok)
+        bool gl = age and all and (aj or wdiff)
+        bool gs = age and als and (aj or wdiff)
+        string ns = wdiff ? lsn : ""
+        string rl = " — reverted back to the already-confirmed Bullish, not a new flip"
+        string rs = " — reverted back to the already-confirmed Bearish, not a new flip"
+        if fl and gl
+            t := f_al(t, "• HTF(" + htf + ") CBC Flip + LTF(" + tfm + ") Agreement: LONG (early/unconfirmed — " + tr + ns + (rvl ? rl : "") + ")")
+        if fs and gs
+            t := f_al(t, "• HTF(" + htf + ") CBC Flip + LTF(" + tfm + ") Agreement: SHORT (early/unconfirmed — " + tr + ns + (rvs ? rs : "") + ")")
+        if fl and not gl
+            t := f_al(t, "• HTF(" + htf + ") CBC Flip: LONG (UNCONFIRMED, still forming" + (rvl ? rl : "") + ")")
+        if fs and not gs
+            t := f_al(t, "• HTF(" + htf + ") CBC Flip: SHORT (UNCONFIRMED, still forming" + (rvs ? rs : "") + ")")
+        if gl and not fl
+            t := f_al(t, "• LTF(" + tfm + ") " + ldw + " + HTF(" + htf + ") Agreement: LONG (early/unconfirmed — " + tr + ns + ")")
+        if gs and not fs
+            t := f_al(t, "• LTF(" + tfm + ") " + ldw + " + HTF(" + htf + ") Agreement: SHORT (early/unconfirmed — " + tr + ns + ")")
+    t
