@@ -6,6 +6,9 @@
 //                                        v9: ?from=YYYY-MM-DD[&to=YYYY-MM-DD] (ET dates) also reads the archive
 // - GET  /bars?sym=MES&days=5          <- BarFeed bars for the Chart tab (v9: &from=YYYY-MM-DD[&to=] reads the archive)
 // - GET  /archive                      <- v9: list of archived alert days and bar months
+//   v13: /bars/undo refuses to undo an import/clean while a NEWER one on the same feed is still active (undo the newest
+//        first). Undoing out of order put back the values the newer import had replaced -- on 11/06 that left MGC 2m
+//        prices in M2K_2. Response 409 names the newer one(s).
 //   v12: POST /bars/clean?token=SECRET&sym=MGC removes candles whose open time is not on the feed's own grid (e.g. 5m
 //        candles imported into the 3m feed: 10:05, 10:10 ...), RAM + archive; logged like an import, so /bars/undo puts
 //        them back.
@@ -1021,6 +1024,15 @@ app.post('/bars/undo', (req, res) => {
     console.log(`bars undo drop ${sym}: restored ${bars[sym].length} candle(s)`);
     return res.send(`Feed ${sym} restored (${bars[sym].length} candle(s) in RAM).`);
   }
+  // v13: newest first -- an older import's saved values are only valid once every newer change to the feed is undone
+  let newer = [];
+  try {
+    newer = fs.readdirSync(IMPORT_DIR).filter((f) => f.endsWith('.json')).map((f) => readImportLog(f.slice(0, -5)))
+      .filter((l) => l && l.id !== log.id && l.sym === sym && l.type !== 'drop' && !l.undone && l.at > log.at);
+  } catch (e) { /* none */ }
+  if (newer.length) {
+    return res.status(409).send('Undo the newer change(s) to ' + sym + ' first (newest first): ' + newer.map((l) => (l.name || l.type) + ' at ' + l.at).join(', '));
+  }
   if (log.type === 'clean') {
     const back = log.removed || [];
     const cut = barCutoff();
@@ -1603,7 +1615,7 @@ app.get('/health', (req, res) => {
   const mem = process.memoryUsage(); // v8: watch this once the alert store grows toward 100000
   const archDays = listAlertArchiveDays();
   res.json({
-    serverVersion: 12,
+    serverVersion: 13,
     duplicates: { windowSec: DUP_WINDOW_MS / 1000, ignoredSinceStart: duplicatesIgnored, lastDedupe },
     serverStartedAt: SERVER_STARTED_AT,
     uptimeSeconds: Math.round(process.uptime()),
@@ -1630,7 +1642,7 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`TradingView webhook dashboard v12 running on port ${PORT}`);
+  console.log(`TradingView webhook dashboard v13 running on port ${PORT}`);
   console.log(`Webhook URL path: /webhook${SECRET ? '?token=' + SECRET : ''}`);
   console.log(`DATA_DIR: ${DATA_DIR} (${process.env.DATA_DIR ? 'from DATA_DIR env var' : 'default __dirname — set DATA_DIR to a mounted Disk to persist across redeploys'})`);
 });
