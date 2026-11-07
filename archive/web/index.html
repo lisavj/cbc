@@ -1,4 +1,4 @@
-<!-- FRONTEND VERSION: v149 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v152 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
@@ -369,6 +369,14 @@
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
      v77: setup table shows the other SL method's SL1/SL2 ("SL1 ATR"/"SL2 ATR", or "SL1 Piv"/"SL2 Piv" when ATR is active; Pine v8.61) as darker info rows; all stop rows sorted by distance from Entry.
      v76: status row label is just "HTF flip candle" (no "(15m)").
+     v152 (11/06/2026): Imports panel "Remove off-grid candles…" (server v12): removes candles not on the feed's own time grid,
+       e.g. 5m candles imported into a 3m feed; undoable like an import.
+     v151 (11/06/2026): Chart symbol list shows the feed name in [ ] when it is not a standard 3m / 2m / 5m feed (e.g. "MGC 3m/15m [MGC_3]"),
+       so a stray feed can be told apart; "Delete feed" in the Imports panel now asks which feed (typed name, current one pre-filled).
+     v150 (11/06/2026): Chart tab CSV import is reversible (needs server.js v11): new "Imports" button lists every import with
+       Undo (removes the candles it added, puts back the ones it replaced) and "Delete this feed" (moves a whole feed, e.g. MGC_3
+       made by mistake, to the trash; also undoable). Import now refuses a file whose candles don't match the feed's timeframe
+       (e.g. a 25m export into MNQ_5) or that has no BarFeed columns, and asks before importing anyway. Token asked once per page.
      v149 (11/06/2026): new alert type "Exit Rule" (Alert Types, in Setup markers, on by default) for the "• Exit Rule:" alerts of
        CBC v10.79 (TP cut on high ATR / Profit lock). In the Trade Setup box the matching setup gets a badge: TC +x (TP cut hit),
        LK +x (profit lock hit) or LK armed (stop moved, not hit yet); hover shows the full rule text. The rules do not change CBC's
@@ -1134,6 +1142,12 @@
   #setupBox .sb-head .sb-when { flex-basis: 100%; font-weight: 500; font-size: 12px; color: #e2e8f0; }
   #setupBox .sb-chart { text-decoration: none; font-size: 13px; margin-left: 4px; }
   #setupBox .sb-ended { background: #475569; padding: 1px 6px; border-radius: 9999px; font-size: 10px; }
+  /* v150: Imports (undo) panel */
+  #chImpPanel { position: fixed; z-index: 9999; top: 60px; left: 50%; transform: translateX(-50%); width: min(760px, calc(100vw - 32px)); max-height: 75vh; overflow: auto; background: #111827; color: #e5e7eb; border: 1px solid #374151; border-radius: 8px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.5); font-size: 13px; }
+  #chImpPanel table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  #chImpPanel td, #chImpPanel th { border-bottom: 1px solid #1f2937; padding: 5px 6px; text-align: left; vertical-align: top; }
+  #chImpPanel .undone { opacity: .5; }
+  #chImpPanel button { cursor: pointer; }
   /* v149: Exit Rule badges (TC = TP cut, LK = profit lock) */
   .xr-badge { padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 700; color: #111827; margin-left: 4px; cursor: help; }
   .xr-badge.tc { background: #fb923c; }
@@ -2177,6 +2191,7 @@
       <select id="chDays" title="How many days to load"><option value="2">2 days</option><option value="5" selected>5 days</option><option value="10">10 days</option><option value="20">20 days</option><option value="60">60 days</option></select>
       <div id="chLayers"></div>
       <button id="chImportBtn" title="Backfill history: TradingView 3m chart with BarFeed on it -> Export chart data (CSV, time as UNIX) -> import here">Import CSV</button>
+      <button id="chUndoBtn" title="v150: list CSV imports and undo one, or delete a whole feed (needs server.js v11)">Imports</button>
       <input type="file" id="chImportFile" accept=".csv,.json,text/csv,application/json" style="display:none;">
       <span id="chStatus"></span>
       <span class="ch-vz" title="Price axis: squeeze / stretch the candles vertically. You can also drag the price axis with the mouse (double-click it to reset).">
@@ -2571,7 +2586,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v149</footer>
+<footer>tv-webhook-dashboard · v152</footer>
 
 <div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
   <div style="max-width:1240px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
@@ -9688,7 +9703,7 @@
       const syms = list.map((x) => x.sym);
       ['MES', 'MGC'].forEach((s) => { if (!syms.includes(s)) syms.push(s); });
       syms.sort();
-      chSymSel.innerHTML = syms.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(chKeyRoot(s) + ' ' + chKeyTf(s) + 'm/' + chKeyTf(s) * 5 + 'm')}</option>`).join('');
+      chSymSel.innerHTML = syms.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(chKeyRoot(s) + ' ' + chKeyTf(s) + 'm/' + chKeyTf(s) * 5 + 'm' + (/_(2|5)$/.test(s) || !s.includes('_') ? '' : ' [' + s + ']'))}</option>`).join('');
       if (chState.sym && syms.includes(chState.sym)) chSymSel.value = chState.sym;
       chState.sym = chSymSel.value;
     } catch (e) { chStatusEl.textContent = 'Could not reach /bars: ' + e.message; }
@@ -9837,23 +9852,90 @@
     if (q.get('days')) chDaysSel.value = q.get('days');
     setView('chart');
   })();
+  // v150: token kept for this page only (not saved), asked once
+  let chToken = null;
+  function chGetToken() {
+    if (chToken === null) { const t = prompt('Webhook token (same as in your alert URL):', ''); if (t === null) return null; chToken = t.trim(); }
+    return chToken;
+  }
+  async function chPost(url) {
+    const r = await fetch(url, { method: 'POST' });
+    if (r.status === 401) chToken = null;
+    return r;
+  }
   chImportFile.addEventListener('change', async () => {
     const f = chImportFile.files && chImportFile.files[0];
     chImportFile.value = '';
     if (!f) return;
     const sym = (prompt('Import into which feed? MES / MGC = 3m, MES_2 / MGC_2 = 2m, MES_5 / MGC_5 = 5m', chState.sym || 'MES') || '').trim().toUpperCase();
     if (!sym) return;
-    const token = prompt('Webhook token (same as in your alert URL):', '') || '';
+    const token = chGetToken();
+    if (token === null) return;
     // v139: replace = overwrite candles already stored (needs server v7), e.g. after a BarFeed HTF fix
-    const rep = confirm('Replace candles that are already stored with the values in this file?\n\nOK = replace (fixes old data, e.g. after a BarFeed HTF change)\nCancel = only add missing candles');
+    const rep = confirm('Replace candles that are already stored with the values in this file?\n\nOK = replace (fixes old data, e.g. after a BarFeed HTF change)\nCancel = only add missing candles\n\nEither way the import can be undone (Imports button).');
     try {
       const text = await f.text();
-      const r = await fetch('/bars/import?sym=' + encodeURIComponent(sym) + '&token=' + encodeURIComponent(token) + (rep ? '&replace=1' : ''), { method: 'POST', body: text, headers: { 'Content-Type': 'text/plain' } });
-      const msg = await r.text();
-      alert(msg);
+      const base = '/bars/import?sym=' + encodeURIComponent(sym) + '&token=' + encodeURIComponent(token) + '&name=' + encodeURIComponent(f.name) + (rep ? '&replace=1' : '');
+      const send = (force) => fetch(base + (force ? '&force=1' : ''), { method: 'POST', body: text, headers: { 'Content-Type': 'text/plain' } });
+      let r = await send(false);
+      if (r.status === 409) {
+        let w = ''; try { w = (await r.json()).warn || ''; } catch (e) {}
+        if (!confirm('Check this file before importing:\n\n' + w + '\n\nOK = import anyway, Cancel = stop')) return;
+        r = await send(true);
+      }
+      if (r.status === 401) chToken = null;
+      alert(await r.text());
       if (r.ok) { await chLoadSymbols(); chSymSel.value = sym; await chLoadBars(); }
     } catch (e) { alert('Import failed: ' + e.message); }
   });
+  // v150: Imports panel -- undo an import or a feed delete, delete the current feed
+  const chUndoBtn = document.getElementById('chUndoBtn');
+  function chFmtT(t) { return t ? new Date(t).toLocaleString('en-US', { timeZone: 'America/New_York', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) : '—'; }
+  async function chShowImports() {
+    const token = chGetToken();
+    if (token === null) return;
+    let list;
+    try {
+      const r = await fetch('/bars/imports?token=' + encodeURIComponent(token));
+      if (r.status === 401) { chToken = null; alert('Wrong token.'); return; }
+      if (!r.ok) { alert('Server says: ' + (await r.text()) + '\n(needs server.js v11)'); return; }
+      list = await r.json();
+    } catch (e) { alert('Could not load imports: ' + e.message); return; }
+    let p = document.getElementById('chImpPanel');
+    if (!p) { p = document.createElement('div'); p.id = 'chImpPanel'; document.body.appendChild(p); }
+    const cur = chSymSel.value || chState.sym || '';
+    const rows = list.map((l) => {
+      const what = l.type === 'drop' ? 'Feed deleted' : l.type === 'clean' ? l.removed + ' off-grid removed' : (l.added + ' added' + (l.replaced ? ', ' + l.replaced + ' replaced' : ''));
+      return `<tr class="${l.undone ? 'undone' : ''}"><td>${escapeHtml(chFmtT(Date.parse(l.at)))}</td><td><b>${escapeHtml(l.sym)}</b></td><td>${escapeHtml(what)}<br><small>${escapeHtml(l.name || '')}</small></td><td>${l.first ? escapeHtml(chFmtT(l.first) + ' – ' + chFmtT(l.last)) : ''}</td><td>${l.undone ? 'undone ' + escapeHtml(chFmtT(Date.parse(l.undone))) : `<button data-undo="${escapeHtml(l.id)}">Undo</button>`}</td></tr>`;
+    }).join('');
+    p.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b>Bar imports (times ET)</b><span><button id="chImpDrop" title="Moves the whole feed to the trash (undoable here)">Delete a feed…</button> <button id="chImpClean" title="Remove candles not on the feed's own time grid (e.g. 5m candles in the 3m feed); undoable">Remove off-grid candles…</button> <button id="chImpClose">Close</button></span></div>` +
+      (list.length ? `<table><tr><th>When</th><th>Feed</th><th>What</th><th>Candles</th><th></th></tr>${rows}</table>` : '<p>No imports logged yet (only imports made with server v11 can be undone).</p>');
+    p.querySelector('#chImpClose').onclick = () => p.remove();
+    p.querySelector('#chImpDrop').onclick = async () => {
+      const nm = (prompt('Feed to delete (exact name, e.g. MGC_3):', cur) || '').trim().toUpperCase();
+      if (!nm || !confirm('Delete the whole feed ' + nm + ' (all its candles and archive)?\n\nIt goes to the trash and can be restored with Undo here.')) return;
+      const r = await chPost('/bars/drop?token=' + encodeURIComponent(token) + '&sym=' + encodeURIComponent(nm));
+      alert(await r.text());
+      if (r.ok) { chState.sym = ''; await chLoadSymbols(); await chLoadBars(); chShowImports(); }
+    };
+    p.querySelector('#chImpClean').onclick = async () => {
+      const nm = (prompt('Remove off-grid candles from which feed? (MGC = 3m grid, MGC_2 = 2m, MGC_5 = 5m)', cur) || '').trim().toUpperCase();
+      if (!nm || !confirm('Remove every candle in ' + nm + ' whose time is not on its own grid?\n\nUndo is available here afterwards.')) return;
+      const r = await chPost('/bars/clean?token=' + encodeURIComponent(token) + '&sym=' + encodeURIComponent(nm));
+      alert(await r.text());
+      if (r.ok) { await chLoadSymbols(); await chLoadBars(); chShowImports(); }
+    };
+    p.querySelectorAll('[data-undo]').forEach((b) => {
+      b.onclick = async () => {
+        const l = list.find((x) => x.id === b.dataset.undo);
+        if (!confirm('Undo this ' + (l.type === 'drop' ? 'feed delete' : 'import') + ' on ' + l.sym + '?')) return;
+        const r = await chPost('/bars/undo?token=' + encodeURIComponent(token) + '&id=' + encodeURIComponent(l.id));
+        alert(await r.text());
+        if (r.ok) { await chLoadSymbols(); await chLoadBars(); chShowImports(); }
+      };
+    });
+  }
+  chUndoBtn.addEventListener('click', chShowImports);
   // v100: last-price box (top-left). Change = last price vs the previous candle's close (feed timeframe).
   function chUpdateLast() {
     const el = document.getElementById('chLast');
