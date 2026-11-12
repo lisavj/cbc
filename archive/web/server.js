@@ -6,6 +6,24 @@
 //                                        v9: ?from=YYYY-MM-DD[&to=YYYY-MM-DD] (ET dates) also reads the archive
 // - GET  /bars?sym=MES&days=5          <- BarFeed bars for the Chart tab (v9: &from=YYYY-MM-DD[&to=] reads the archive)
 // - GET  /archive                      <- v9: list of archived alert days and bar months
+//   v14: LIVE NEAR-DUPLICATE GUARD. Besides identical alerts (v10), a webhook alert that is a NEAR copy of one stored
+//        within DUP_WINDOW_SEC (same first line, same "Chart:" and "Time:" lines, same set of "•" alert names -- the same
+//        alert set up twice in TradingView, e.g. two alerts on one chart, or an old alert with different settings left
+//        running) is ignored too (200 "Near duplicate ignored", logged, counted in /health duplicates.nearIgnoredSinceStart).
+//        The FIRST copy is kept. Env DUP_NEAR_LIVE=0 turns this off (identical copies are still ignored).
+//   v13: /bars/undo refuses to undo an import/clean while a NEWER one on the same feed is still active (undo the newest
+//        first). Undoing out of order put back the values the newer import had replaced -- on 11/06 that left MGC 2m
+//        prices in M2K_2. Response 409 names the newer one(s).
+//   v12: POST /bars/clean?token=SECRET&sym=MGC removes candles whose open time is not on the feed's own grid (e.g. 5m
+//        candles imported into the 3m feed: 10:05, 10:10 ...), RAM + archive; logged like an import, so /bars/undo puts
+//        them back.
+//   v11: REVERSIBLE BAR IMPORTS. Every POST /bars/import writes an undo log to DATA_DIR/imports/<id>.json (candles it added +
+//        the old values of candles it replaced, RAM and archive). GET /bars/imports?token=SECRET lists them;
+//        POST /bars/undo?token=SECRET&id=<id> removes the added candles and puts the replaced ones back.
+//        Import guard: a file whose candles are not spaced like the feed (e.g. a 25m export into MNQ_5) or that has no
+//        BarFeed columns (e9) is refused with 409 + {warn}; add &force=1 to import anyway.
+//        POST /bars/drop?token=SECRET&sym=MGC_3 moves a whole feed (file + archive) to DATA_DIR/trash and logs it, so
+//        /bars/undo with that log id brings it back.
 //   v10: DUPLICATE ALERTS. (1) A webhook alert whose text is identical to one stored within the last DUP_WINDOW_SEC
 //        seconds (env, default 60) is ignored (answered 200 "Duplicate ignored"; counted in /health).
 //        (2) GET /dedupe?token=SECRET = dry run over RAM + the whole archive; POST /dedupe?token=SECRET&apply=1
@@ -416,6 +434,20 @@ function archiveAlerts() {
 const DUP_WINDOW_MS = Math.max(1, Number(process.env.DUP_WINDOW_SEC || 60)) * 1000;
 const recentRaw = new Map(); // raw text -> last receivedAt (ms) of a STORED alert with that text
 let duplicatesIgnored = 0;
+// v14: near-duplicate live guard
+const DUP_NEAR_LIVE = process.env.DUP_NEAR_LIVE !== '0';
+const recentNear = new Map(); // nearKey -> receivedAt (ms) of the stored alert
+let nearIgnored = 0;
+function isLiveNearDuplicate(raw, nowMs) {
+  if (!DUP_NEAR_LIVE) return false;
+  for (const [k, t] of recentNear) { if (nowMs - t > DUP_WINDOW_MS) recentNear.delete(k); else break; }
+  const k = nearKey(raw);
+  if (!k) return false;
+  const t = recentNear.get(k);
+  if (t !== undefined && nowMs - t <= DUP_WINDOW_MS) return true;
+  recentNear.delete(k); recentNear.set(k, nowMs);
+  return false;
+}
 let lastDedupe = null;
 
 function isLiveDuplicate(raw, nowMs) {
@@ -731,6 +763,11 @@ app.post('/webhook', (req, res) => {
     console.log(`alert DUPLICATE ignored (identical within ${DUP_WINDOW_MS / 1000} s): ${(rawText.split('\n')[0] || '').slice(0, 60)}`);
     return res.status(200).send('Duplicate ignored');
   }
+  if (isLiveNearDuplicate(rawText, nowMs)) { // v14
+    nearIgnored++;
+    console.log(`alert NEAR DUPLICATE ignored (same chart / time / alert names within ${DUP_WINDOW_MS / 1000} s): ${(rawText.split('\n')[0] || '').slice(0, 40)} | ${((/Chart: ([^\n]*)/.exec(rawText) || [])[1] || '')} | ${((/Time: ([^\n]*)/.exec(rawText) || [])[1] || '')}`);
+    return res.status(200).send('Near duplicate ignored');
+  }
   rememberRaw(rawText, nowMs);
   const alert = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
@@ -891,6 +928,25 @@ function csvToBars(text) {
     return b;
   });
 }
+// v11: undo logs for bar imports / feed drops
+const IMPORT_DIR = path.join(DATA_DIR, 'imports');
+const TRASH_DIR = path.join(DATA_DIR, 'trash');
+[IMPORT_DIR, TRASH_DIR].forEach((d) => { try { fs.mkdirSync(d, { recursive: true }); } catch (e) { console.error('Could not create', d, e.message); } });
+const IMPORT_ID_RE = /^[0-9]{13}-[a-z0-9]{4,8}$/;
+function importLogFile(id) { return path.join(IMPORT_DIR, id + '.json'); }
+function readImportLog(id) { try { return JSON.parse(fs.readFileSync(importLogFile(id), 'utf8')); } catch (e) { return null; } }
+function writeImportLog(log) { fs.writeFileSync(importLogFile(log.id), JSON.stringify(log)); }
+function feedTfMin(sym) { return sym.includes('_') ? Number(sym.split('_')[1]) : 3; }
+function loadBarFile(sym) {
+  bars[sym] = [];
+  try {
+    fs.readFileSync(barFile(sym), 'utf8').split('\n').forEach((line) => {
+      if (!line.trim()) return;
+      try { const b = cleanBar(JSON.parse(line)); if (b) upsertBar(sym, b); } catch (e) { /* skip a bad line */ }
+    });
+  } catch (e) { if (e.code !== 'ENOENT') console.error('Could not read bars file', sym, e.message); }
+}
+
 app.post('/bars/import', (req, res) => {
   if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
   const sym = String(req.query.sym || '').toUpperCase();
@@ -902,27 +958,189 @@ app.post('/bars/import', (req, res) => {
   } catch (e) {
     return res.status(400).send('Could not read the file: ' + e.message);
   }
+  const clean = list.map((raw) => cleanBar(raw)).filter(Boolean);
+  if (!clean.length) return res.status(400).send('No candles found in the file.');
+  // v11 guard: candle spacing must match the feed's timeframe, and BarFeed columns should be present
+  const force = req.query.force === '1' || req.query.force === 'true';
+  if (!force) {
+    const ts = Array.from(new Set(clean.map((b) => b.t))).sort((x, y) => x - y);
+    const gaps = [];
+    for (let i = 1; i < ts.length; i++) gaps.push(Math.round((ts[i] - ts[i - 1]) / 60000));
+    gaps.sort((x, y) => x - y);
+    const med = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
+    const want = feedTfMin(sym);
+    const warns = [];
+    if (med && med !== want) warns.push(`The file's candles are ${med} min apart, but feed ${sym} is ${want}m. Export from a ${want}m chart, or pick the feed that matches (3m = MES, 2m = MES_2, 5m = MES_5).`);
+    if (!clean.some((b) => b.e9 !== null)) warns.push('The file has no BarFeed columns (e9, e20, h9 ...): BarFeed was not on the chart or was hidden when you exported. The candles would have no EMA / level data.');
+    if (warns.length) return res.status(409).json({ warn: warns.join('\n\n') });
+  }
   const cut = barCutoff();
   const replace = req.query.replace === '1' || req.query.replace === 'true'; // v7
-  const have = new Set((bars[sym] || []).map((b) => b.t));
+  const memMap = new Map((bars[sym] || []).map((b) => [b.t, b]));
+  const log = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), type: 'import', sym, at: new Date().toISOString(), name: String(req.query.name || '').slice(0, 120), replace, added: [], replaced: [] };
+  const seen = new Set();
   let added = 0, replaced = 0;
   const old = []; // v9: older than BAR_KEEP_DAYS -> archive
-  list.forEach((raw) => {
-    const b = cleanBar(raw);
-    if (!b) return;
+  clean.forEach((b) => {
+    if (seen.has(b.t)) return;
+    seen.add(b.t);
     if (b.t < cut) { old.push(b); return; }
-    if (have.has(b.t)) {
+    if (memMap.has(b.t)) {
       if (!replace) return;
+      log.replaced.push(memMap.get(b.t));
       upsertBar(sym, b); replaced++;
       return;
     }
-    upsertBar(sym, b); have.add(b.t); added++;
+    upsertBar(sym, b); memMap.set(b.t, b); log.added.push(b.t); added++;
   });
   if (added || replaced) rewriteBarFile(sym);
-  const archived = old.length ? mergeBarsIntoArchive(sym, old, replace) : 0;
-  console.log(`bars import ${sym}: ${added} added, ${replaced} replaced${replace ? ' (replace on)' : ''}, ${old.length} older than ${BAR_KEEP_DAYS} d -> archive (${archived} new)`);
+  let archived = 0;
+  if (old.length) {
+    // v11: note what the archive already holds before merging, so the import can be undone
+    const byMonth = {};
+    old.forEach((b) => { const m = etDay(b.t).slice(0, 7); (byMonth[m] || (byMonth[m] = [])).push(b); });
+    Object.keys(byMonth).forEach((m) => {
+      const map = new Map(readGzLines(path.join(barArchDir(sym), m + '.ndjson.gz')).map((b) => [b.t, b]));
+      byMonth[m].forEach((b) => { if (!map.has(b.t)) log.added.push(b.t); else if (replace) log.replaced.push(map.get(b.t)); });
+    });
+    archived = mergeBarsIntoArchive(sym, old, replace);
+  }
+  if (log.added.length || log.replaced.length) {
+    try { writeImportLog(log); } catch (e) { console.error('Could not write import log', e.message); }
+  }
+  console.log(`bars import ${sym}: ${added} added, ${replaced} replaced${replace ? ' (replace on)' : ''}, ${old.length} older than ${BAR_KEEP_DAYS} d -> archive (${archived} new), undo id ${log.id}`);
   res.send(`Imported ${added} new candle(s)` + (replace ? ` and replaced ${replaced} existing candle(s)` : '') + ` for ${sym} (${(bars[sym] || []).length} stored)` +
-    (old.length ? `; ${old.length} older candle(s) went to the archive (${archived} new).` : '.'));
+    (old.length ? `; ${old.length} older candle(s) went to the archive (${archived} new).` : '.') +
+    (log.added.length || log.replaced.length ? `\nUndo is available (Chart tab -> Imports).` : '\nNothing changed.'));
+});
+
+// v11: list undo logs (newest first)
+app.get('/bars/imports', (req, res) => {
+  if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
+  let files = [];
+  try { files = fs.readdirSync(IMPORT_DIR).filter((f) => f.endsWith('.json')); } catch (e) { /* none */ }
+  const out = files.map((f) => readImportLog(f.slice(0, -5))).filter(Boolean).map((l) => {
+    const ts = (l.added || []).concat((l.replaced || []).map((b) => b.t));
+    return { id: l.id, type: l.type || 'import', sym: l.sym, at: l.at, name: l.name || '', replace: !!l.replace, added: (l.added || []).length, removed: (l.removed || []).length, replaced: (l.replaced || []).length, first: ts.length ? Math.min.apply(null, ts) : null, last: ts.length ? Math.max.apply(null, ts) : null, undone: l.undone || null };
+  }).sort((x, y) => (x.at < y.at ? 1 : -1));
+  res.json(out);
+});
+
+// v11: undo one import (remove added candles, restore replaced ones) or one feed drop (move it back)
+app.post('/bars/undo', (req, res) => {
+  if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
+  const id = String(req.query.id || '');
+  if (!IMPORT_ID_RE.test(id)) return res.status(400).send('bad id');
+  const log = readImportLog(id);
+  if (!log) return res.status(404).send('No such import');
+  if (log.undone) return res.status(400).send('Already undone at ' + log.undone);
+  const sym = log.sym;
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('bad symbol in log');
+  if (log.type === 'drop') {
+    if (bars[sym] && bars[sym].length) return res.status(400).send(`Feed ${sym} has candles again; not restoring over it.`);
+    try {
+      const td = path.join(TRASH_DIR, log.trash);
+      if (fs.existsSync(path.join(td, sym + '.ndjson'))) fs.renameSync(path.join(td, sym + '.ndjson'), barFile(sym));
+      if (fs.existsSync(path.join(td, 'archive'))) fs.renameSync(path.join(td, 'archive'), barArchDir(sym));
+    } catch (e) { return res.status(500).send('Could not restore: ' + e.message); }
+    loadBarFile(sym);
+    log.undone = new Date().toISOString(); writeImportLog(log);
+    console.log(`bars undo drop ${sym}: restored ${bars[sym].length} candle(s)`);
+    return res.send(`Feed ${sym} restored (${bars[sym].length} candle(s) in RAM).`);
+  }
+  // v13: newest first -- an older import's saved values are only valid once every newer change to the feed is undone
+  let newer = [];
+  try {
+    newer = fs.readdirSync(IMPORT_DIR).filter((f) => f.endsWith('.json')).map((f) => readImportLog(f.slice(0, -5)))
+      .filter((l) => l && l.id !== log.id && l.sym === sym && l.type !== 'drop' && !l.undone && l.at > log.at);
+  } catch (e) { /* none */ }
+  if (newer.length) {
+    return res.status(409).send('Undo the newer change(s) to ' + sym + ' first (newest first): ' + newer.map((l) => (l.name || l.type) + ' at ' + l.at).join(', '));
+  }
+  if (log.type === 'clean') {
+    const back = log.removed || [];
+    const cut = barCutoff();
+    const recent = back.filter((b) => b.t >= cut);
+    recent.forEach((b) => upsertBar(sym, b));
+    if (recent.length) rewriteBarFile(sym);
+    const old = back.filter((b) => b.t < cut);
+    if (old.length) mergeBarsIntoArchive(sym, old, true);
+    log.undone = new Date().toISOString(); writeImportLog(log);
+    console.log(`bars undo clean ${sym}: ${back.length} candle(s) put back`);
+    return res.send(`Undone: ${back.length} candle(s) put back into ${sym}.`);
+  }
+  const add = new Set(log.added || []);
+  const rep = new Map((log.replaced || []).map((b) => [b.t, b]));
+  const arr = bars[sym] || [];
+  const n0 = arr.length;
+  let restored = 0;
+  const keep = arr.filter((b) => !add.has(b.t)).map((b) => { if (rep.has(b.t)) { restored++; return rep.get(b.t); } return b; });
+  const removed = n0 - keep.length;
+  bars[sym] = keep;
+  rewriteBarFile(sym);
+  let arRemoved = 0, arRestored = 0;
+  const months = new Set(Array.from(add).concat(Array.from(rep.keys())).map((t) => etDay(t).slice(0, 7)));
+  listBarArchiveMonths(sym).filter((m) => months.has(m)).forEach((m) => {
+    const file = path.join(barArchDir(sym), m + '.ndjson.gz');
+    try {
+      const map = new Map(readGzLines(file).map((b) => [b.t, b]));
+      let changed = false;
+      add.forEach((t) => { if (map.delete(t)) { arRemoved++; changed = true; } });
+      rep.forEach((b, t) => { if (map.has(t)) { map.set(t, b); arRestored++; changed = true; } });
+      if (changed) writeGzLines(file, Array.from(map.values()).sort((x, y) => x.t - y.t));
+    } catch (e) { console.error('undo archive', sym, m, e.message); }
+  });
+  log.undone = new Date().toISOString();
+  writeImportLog(log);
+  console.log(`bars undo ${id} ${sym}: removed ${removed} + ${arRemoved} archived, restored ${restored} + ${arRestored} archived`);
+  res.send(`Undone: ${sym} -- removed ${removed + arRemoved} imported candle(s), restored ${restored + arRestored} replaced candle(s).`);
+});
+
+// v12: remove candles that are off the feed's time grid (minutes since midnight ET not divisible by the feed's minutes)
+const ET_HM = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
+function offGrid(t, tf) { const [h, m] = ET_HM.format(new Date(t)).split(':').map(Number); return ((h % 24) * 60 + m) % tf !== 0; }
+app.post('/bars/clean', (req, res) => {
+  if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
+  const sym = String(req.query.sym || '').toUpperCase();
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('bad symbol');
+  const tf = feedTfMin(sym);
+  const log = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), type: 'clean', sym, at: new Date().toISOString(), name: 'off-grid candles removed (' + tf + 'm grid)', added: [], replaced: [], removed: [] };
+  const arr = bars[sym] || [];
+  const keep = [];
+  arr.forEach((b) => { if (offGrid(b.t, tf)) log.removed.push(b); else keep.push(b); });
+  const ram = arr.length - keep.length;
+  if (ram) { bars[sym] = keep; rewriteBarFile(sym); }
+  let arch = 0;
+  listBarArchiveMonths(sym).forEach((m) => {
+    const file = path.join(barArchDir(sym), m + '.ndjson.gz');
+    try {
+      const list = readGzLines(file);
+      const k = list.filter((b) => { if (offGrid(b.t, tf)) { log.removed.push(b); return false; } return true; });
+      if (k.length !== list.length) { arch += list.length - k.length; writeGzLines(file, k); }
+    } catch (e) { console.error('clean archive', sym, m, e.message); }
+  });
+  if (log.removed.length) writeImportLog(log);
+  console.log(`bars clean ${sym}: removed ${ram} + ${arch} archived off-grid candle(s)`);
+  res.send(log.removed.length ? `Removed ${ram + arch} off-grid candle(s) from ${sym} (${tf}m grid). Undo is available under Imports.` : `${sym}: no off-grid candles.`);
+});
+
+// v11: move a whole feed (e.g. MGC_3 created by mistake) to the trash; reversible with /bars/undo
+app.post('/bars/drop', (req, res) => {
+  if (SECRET && req.query.token !== SECRET) return res.status(401).send('Unauthorized');
+  const sym = String(req.query.sym || '').toUpperCase();
+  if (!BAR_SYM_RE.test(sym)) return res.status(400).send('bad symbol');
+  const log = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), type: 'drop', sym, at: new Date().toISOString(), name: 'feed deleted', added: [], replaced: [], count: (bars[sym] || []).length };
+  log.trash = log.id + '_' + sym;
+  const td = path.join(TRASH_DIR, log.trash);
+  try {
+    fs.mkdirSync(td, { recursive: true });
+    if (fs.existsSync(barFile(sym))) fs.renameSync(barFile(sym), path.join(td, sym + '.ndjson'));
+    if (fs.existsSync(barArchDir(sym))) fs.renameSync(barArchDir(sym), path.join(td, 'archive'));
+  } catch (e) { return res.status(500).send('Could not move the feed: ' + e.message); }
+  delete bars[sym];
+  writeImportLog(log);
+  console.log(`bars drop ${sym}: ${log.count} candle(s) moved to trash ${log.trash}`);
+  res.send(`Feed ${sym} deleted (${log.count} candle(s)); undo is available under Imports.`);
 });
 
 // ---- Live stream for the dashboard ----
@@ -1421,8 +1639,8 @@ app.get('/health', (req, res) => {
   const mem = process.memoryUsage(); // v8: watch this once the alert store grows toward 100000
   const archDays = listAlertArchiveDays();
   res.json({
-    serverVersion: 10,
-    duplicates: { windowSec: DUP_WINDOW_MS / 1000, ignoredSinceStart: duplicatesIgnored, lastDedupe },
+    serverVersion: 14,
+    duplicates: { windowSec: DUP_WINDOW_MS / 1000, ignoredSinceStart: duplicatesIgnored, nearLiveGuard: DUP_NEAR_LIVE, nearIgnoredSinceStart: nearIgnored, lastDedupe },
     serverStartedAt: SERVER_STARTED_AT,
     uptimeSeconds: Math.round(process.uptime()),
     pid: process.pid,
@@ -1448,7 +1666,7 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`TradingView webhook dashboard v10 running on port ${PORT}`);
+  console.log(`TradingView webhook dashboard v14 running on port ${PORT}`);
   console.log(`Webhook URL path: /webhook${SECRET ? '?token=' + SECRET : ''}`);
   console.log(`DATA_DIR: ${DATA_DIR} (${process.env.DATA_DIR ? 'from DATA_DIR env var' : 'default __dirname — set DATA_DIR to a mounted Disk to persist across redeploys'})`);
 });
