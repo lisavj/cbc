@@ -36,6 +36,12 @@ TZ = ZoneInfo('America/New_York')
 CASES = [('MES', 3), ('MGC', 3), ('MNQ', 3), ('MES', 2), ('MGC', 2)]
 PROX = 3.0          # prox_approach_dist default
 VB_AUTO = {'MES': 6, 'MGC': 6, 'MNQ': 60}
+# v10.75 vb_tw_sym default "MGC 3m 0300-1700 0.01": inside 03:00-17:00 ET no gate, else auto. Live from 11/06.
+VB_TOD = {('MGC', 3): dict(since=D.date(2026, 11, 6), win=(3 * 60, 17 * 60), inside=0, label='tod')}
+# v10.83 (11/07) vb_tw_sym default adds MGC 2m 0000-2400 0.01 (no gate), MES 3m / MES 2m 0000-2400 4 (was auto 6).
+# Validated on stored alerts from 11/08 (first session after the change); if none yet, the old value is checked on older alerts.
+VB_CUR = {('MES', 3): dict(cur=4, old=6, since=D.date(2026, 11, 8)), ('MES', 2): dict(cur=4, old=6, since=D.date(2026, 11, 8)),
+          ('MGC', 2): dict(cur=0, old=6, since=D.date(2026, 11, 8))}
 VB_GRID = {'MES': [0, 2, 4, 6, 8, 10], 'MGC': [0, 2, 4, 6, 8, 10], 'MNQ': [0, 20, 40, 60, 80]}
 TYPES = {'ltf': '• LTF EMA20 Pierce', 'h9': '• HTF EMA9 Pierce', 'h20': '• HTF EMA20 Pierce',
          'pb': '• HTF Pullback Entry - Structure Confirmed', 'fvg': '• In FVG of HTF Flip Candle', 'vb': '• VWAP Bounce'}
@@ -236,10 +242,15 @@ def rep_fvg(B, P, gap, mx):
     return out
 
 
-def rep_vb(B, P, sym, mind):
+def rep_vb(B, P, sym, mind, tod=None):
     out = {}
     for i in range(1, len(B)):
         b = B[i]
+        md = mind
+        if tod:
+            tt = et(b['t']); mm = tt.hour * 60 + tt.minute
+            if tod['win'][0] <= mm < tod['win'][1]:
+                md = tod['inside']
         if P['cbc'][i] == P['cbc'][i - 1] or b.get('vw') is None or abs(b['c'] - b['vw']) > PROX:
             continue
         pp, r1, s1 = b.get('pp'), b.get('r1'), b.get('s1')
@@ -253,7 +264,7 @@ def rep_vb(B, P, sym, mind):
         ses = 'ln' if 3 * 60 <= m < 9 * 60 + 30 else 'ny' if 9 * 60 + 30 <= m < 18 * 60 else 'as'
         lv += [b.get(ses + 'h'), b.get(ses + 'l')]
         dist = min((abs(b['c'] - x) for x in lv if x is not None), default=1e10)
-        if dist >= mind:
+        if dist >= md:
             out[i] = 1 if P['cbc'][i] else -1
     return out
 
@@ -398,21 +409,41 @@ def run(prev=None):
         except Exception as e:
             L += ['## %s %dm' % (sym, tf), '', 'bars error: %s' % e, '']; continue
         B = [b for b in B if all(b.get(k) is not None for k in ('o', 'h', 'l', 'c', 'e20', 'h9', 'h20', 'hc'))]
+        # 2026-11-06: the MGC key also receives bars from a 5m feed since 10/27 (off the chart-tf grid) -> drop them
+        n_off = sum(1 for b in B if b['t'] % (tf * 60000))
+        B = [b for b in B if b['t'] % (tf * 60000) == 0]
         P = prep(B, tf)
         mid = B[len(B) // 2]['t']
         sess = lambda f: {i: d for i, d in f.items() if in_sess(B[i]['t'])}
         L += ['## %s %dm (HTF %dm) -- %d bars %s to %s' % (sym, tf, tf * 5, len(B), et(B[0]['t']).strftime('%m/%d'), et(B[-1]['t']).strftime('%m/%d')), '']
+        if n_off:
+            L += ['Data note: dropped %d bars off the %dm grid (another timeframe is posting to the %s BarFeed key); '
+                  'bars on shared 15-minute marks may still be from that feed.' % (n_off, tf, key), '']
         case_notes = []
         cdays = {et(t).date() for k in stor for t in stor[k]}
 
-        def section(title, typ, grid, cur, fn, extra=''):
+        def section(title, typ, grid, cur, fn, extra='', vsince=None, vold=None):
             fires = {v: sess(fn(v)) for v in grid}
-            vs = [validate(B, fires[cur], {t: d for t, d in stor[k].items()}, a0, a1, cdays) for k in (typ if isinstance(typ, tuple) else (typ,))]
+            vd_ = {d for d in cdays if vsince is None or d >= vsince}
+            vs = [validate(B, fires[cur], {t: d for t, d in stor[k].items() if vsince is None or et(t).date() >= vsince}, a0, a1, vd_)
+                  for k in (typ if isinstance(typ, tuple) else (typ,))]
             vs = [v for v in vs if v]
             L.append('### %s' % title)
             L.append('')
             ok = True
-            if not vs:
+            if not vs and vold is not None and vsince is not None:
+                L.append('Validation at current (%s): no stored alerts since %s yet -- replay of the new default unchecked.' % (cur, vsince.strftime('%m/%d')))
+                vd0 = {d for d in cdays if d < vsince}
+                vs = [validate(B, fires[vold], {t: d for t, d in stor[typ].items() if et(t).date() < vsince}, a0, a1, vd0)]
+                vs = [v for v in vs if v]
+                for v in vs:
+                    bad = v['rec'] < 70 or v['prec'] < 70
+                    ok = ok and not bad
+                    L.append('Replay check at the old default %s on alerts before %s: stored %d, replayed %d, recall %.0f %%, precision %.0f %%%s' % (
+                        vold, vsince.strftime('%m/%d'), v['ns'], v['nr'], v['rec'], v['prec'], ' -- **unreliable**' if bad else ''))
+                if not vs:
+                    ok = False
+            elif not vs:
                 L.append('Validation: no stored alerts of this type for this chart -- replay unchecked.')
                 ok = False
             else:
@@ -440,8 +471,23 @@ def run(prev=None):
         # FVG full grid
         grid = [(g, m) for g in (1, 2, 3, 5) for m in (10, 15, 20, 30, 40)]
         section('In FVG of HTF Flip Candle: (min gap bars, stop after N bars)', 'fvg', grid, (2, 20), lambda v: rep_fvg(B, P, v[0], v[1]))
-        section('VWAP Bounce: min distance from major S/R (pts, 0 = no gate)', 'vb', VB_GRID[sym], VB_AUTO[sym], lambda v: rep_vb(B, P, sym, v),
-                'Current = auto %s.' % VB_AUTO[sym])
+        tod = VB_TOD.get((sym, tf))
+        if tod:
+            vgrid = VB_GRID[sym] + ['tod']
+            section('VWAP Bounce: min distance from major S/R (pts, 0 = no gate)', 'vb', vgrid, 'tod',
+                    lambda v: rep_vb(B, P, sym, VB_AUTO[sym], tod) if v == 'tod' else rep_vb(B, P, sym, v),
+                    'Current = tod: v10.75 time-of-day rule (no gate 03:00-17:00 ET, auto %s in Asia); validated on stored alerts '
+                    'from %s on (older alerts used auto %s all day). Plain values apply all day.' % (VB_AUTO[sym], tod['since'].strftime('%m/%d'), VB_AUTO[sym]),
+                    vsince=tod['since'])
+        elif (sym, tf) in VB_CUR:
+            c = VB_CUR[(sym, tf)]
+            section('VWAP Bounce: min distance from major S/R (pts, 0 = no gate)', 'vb', VB_GRID[sym], c['cur'], lambda v: rep_vb(B, P, sym, v),
+                    'Current = %s (v10.83 default changed from auto %s; vb_tw_sym "%s %dm 0000-2400 %s"). Validation uses stored alerts from %s on.' % (
+                        c['cur'], c['old'], sym, tf, '0.01' if c['cur'] == 0 else c['cur'], c['since'].strftime('%m/%d')),
+                    vsince=c['since'], vold=c['old'])
+        else:
+            section('VWAP Bounce: min distance from major S/R (pts, 0 = no gate)', 'vb', VB_GRID[sym], VB_AUTO[sym], lambda v: rep_vb(B, P, sym, v),
+                    'Current = auto %s.' % VB_AUTO[sym])
         summary.append(('%s %dm' % (sym, tf), case_notes))
     return '\n'.join(L), summary
 

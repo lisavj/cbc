@@ -3,11 +3,11 @@ triggers HTF CBC Flip (side gate + VWAP slope + flip ER min), LTF EMA20 Pierce (
 (+1-bar late); cooldown 10 bars (flip / opposite direction bypass); a new setup ends the open one at its close;
 R5 range gate on 3m, X4 stretch on MGC 3m, 1H MTF gate on MES 2m; exits per case (v10.31 defaults)."""
 import pickle, numpy as np, pandas as pd
-EXIT = {('MGC',3):dict(sl=1.3,mn=0,tp=2.0,part=.5,be=False,ts=10,tr=1.7,cap=7),
-        ('MES',3):dict(sl=1.3,mn=0,tp=2.0,part=.8,be=False,ts=0,tr=1.7,cap=8),
+EXIT = {('MGC',3):dict(sl=1.7,mn=5,tp=1.7,tcap=6,part=.5,be=True,ts=0,tr=3.5,cap=7),   # live v10.84+ (was v10.31-era 1.3 ATR / TP 2.0 / 50 % + time stop) -- 11/08 settings sync
+        ('MES',3):dict(sl=3.0,mn=5,tp=1.75,tcap=1e9,part='tod',be=True,ts=0,tr=1.7,cap=1e9),   # live v10.82+ (= mes3_ema_grid LIVE)
         ('MGC',2):dict(sl=1.7,mn=5,tp=1.7,part=.8,be=True,ts=0,tr=1.7,cap=7),
         ('MES',2):dict(sl=1.7,mn=5,tp=1.7,part=.8,be=True,ts=0,tr=1.7,cap=8)}
-GATE = {('MGC',3):dict(R5=1,X4=1,MTF=0),('MES',3):dict(R5=1,X4=0,MTF=0),('MGC',2):dict(R5=0,X4=0,MTF=0),('MES',2):dict(R5=0,X4=0,MTF=1)}
+GATE = {('MGC',3):dict(R5=1,X4=1,MTF=0),('MES',3):dict(R5=1,X4=0,MTF=0),('MGC',2):dict(R5=1,X4=0,MTF=0),('MES',2):dict(R5=0,X4=0,MTF=1)}
 
 def rma(x,n):
     o=np.full(len(x),np.nan); s=np.nan
@@ -22,7 +22,6 @@ class Case:
         s.sym,s.tf=sym,tf; B=B.reset_index(drop=True); s.B=B; n=s.n=len(B)
         O,H,L,C=[B[k].values.astype(float) for k in 'ohlc']; s.O,s.H,s.L,s.C=O,H,L,C
         s.T=B.t.values; s.e20=B.e20.values; s.vw=B.vw.values; s.e200=B.e200.values
-        # HTF EMA9/20 as seen LIVE (forming HTF candle uses the current chart close; no look-ahead)
         hkey=B.hk.values; newb=np.r_[True,hkey[1:]!=hkey[:-1]]
         for nm,n_ in (('h9',9),('h20',20)):
             fin=B[nm].values; prevfin=np.full(len(B),np.nan); pf=np.nan
@@ -32,11 +31,10 @@ class Case:
             k_=2/(n_+1); setattr(s,nm,np.where(np.isnan(prevfin),fin,prevfin+k_*(B.c.values-prevfin)))
         pc=np.r_[C[0],C[:-1]]; tr=np.maximum(H,pc)-np.minimum(L,pc); s.atr=rma(tr,14)
         et=pd.to_datetime(B.t,unit='ms',utc=True).dt.tz_convert('America/New_York')
-        s.hm=((et.dt.hour*60+et.dt.minute).values+tf)%1440  # candle CLOSE time-of-day
+        s.hm=((et.dt.hour*60+et.dt.minute).values+tf)%1440
         s.month=et.dt.month.values; s.date=et.dt.strftime('%m/%d %H:%M').values
-        hc=B.hc.values; s.hdir=np.where(np.isnan(hc),-1,hc).astype(int)  # 1 bull 0 bear -1 unknown
+        hc=B.hc.values; s.hdir=np.where(np.isnan(hc),-1,hc).astype(int)
         s.hf=B.hf.values.astype(int)
-        # features
         d=np.abs(np.diff(C,prepend=C[0]))
         s.er={}
         for k in (6,8,10,12,16,20,30):
@@ -53,7 +51,6 @@ class Case:
         s.xs=roll_sum((xe|xv).astype(float),k)
         s.slope=np.abs(s.h20-np.r_[np.full(k,np.nan),s.h20[:-k]])/s.atr
         a100=pd.Series(s.atr).rolling(100).mean().values; s.atrrel=s.atr/a100
-        # HTF ER over the last 6 closed HTF candles (5x tf), known at each HTF close bar, held
         last=B['last'].values; isc=(s.T==last)
         hcl=C[isc]; hidx=np.where(isc)[0]; herv=np.full(len(hcl),np.nan)
         for j in range(6,len(hcl)):
@@ -62,22 +59,19 @@ class Case:
         for i in range(n):
             if p<len(hidx) and hidx[p]==i: cur=herv[p]; p+=1
             s.her[i]=cur
-        # LTF swing pivots N=2 (confirmed 2 bars later)
         s.swh=np.full(n,np.nan); s.swl=np.full(n,np.nan); lh=ll2=np.nan
         for i in range(n):
             j=i-2
             if j>=2 and H[j]>max(H[j-2:j]) and H[j]>=max(H[j+1:j+3]): lh=H[j]
             if j>=2 and L[j]<min(L[j-2:j]) and L[j]<=min(L[j+1:j+3]): ll2=L[j]
             s.swh[i],s.swl[i]=lh,ll2
-        # breakout: close through last swing H/L or a session OR H/L (prev close on the other side); window 3 bars
         bo=np.zeros(n,bool)
         lv=[np.r_[np.nan,s.swh[:-1]],np.r_[np.nan,s.swl[:-1]]]+[B[c].values for c in ('nyh','nyl','lnh','lnl','ash','asl')]
         for v in lv:
             pv=np.r_[np.nan,v[:-1]]
             bo|=((C>v)&(np.r_[C[0],C[:-1]]<=pv))|((C<v)&(np.r_[C[0],C[:-1]]>=pv))
         s.bo1=bo; s.bo=bo|np.r_[False,bo[:-1]]|np.r_[False,False,bo[:-2]]
-        # 1H CBC (last closed 60m candle)
-        hb=s.T//3600000; s.mtf=np.full(n,-1); st=None; ph=pl=None; cur=-1
+        hb=s.T//3600000; s.mtf=np.full(n,-1)
         df=pd.DataFrame({'k':hb,'h':H,'l':L,'c':C}); g=df.groupby('k',sort=False).agg(h=('h','max'),l=('l','min'),c=('c','last'))
         states={}; prev=None; stt=False
         for k2,row in g.iterrows():
@@ -89,16 +83,14 @@ class Case:
         s.mtf=np.array([states.get(nxt.get(k2),-1) for k2 in hb])
         s.cands=s.gen()
     def gen(s):
-        """all trigger events with NO chop filter; returns list of dicts"""
         C,H,L,O=s.C,s.H,s.L,s.O; out=[]; n=s.n; hk=5
         e20,h9,h20=s.e20,s.h9,s.h20
         flip_ok=np.zeros(n,bool); fo=False
         for i in range(n):
             if s.hf[i]!=0: fo=(C[i]>h20[i]) if s.hf[i]==1 else (C[i]<h20[i])
             flip_ok[i]=fo
-        om=(s.hm-s.tf)%1440  # candle open minute
+        om=(s.hm-s.tf)%1440
         orf=((om>=570)&(om<600))|((om>=180)&(om<210))|((om>=1200)&(om<1230))
-        # VWAP reclaim against HTF dir blocks 5 bars: HTF short, close below VWAP then a later close back above -> no short
         vwb=np.zeros(n,int); st=0; lastb=-99; bdir=0
         for i in range(1,n):
             xd=C[i]<s.vw[i] and C[i-1]>=s.vw[i-1]; xu=C[i]>s.vw[i] and C[i-1]<=s.vw[i-1]
@@ -117,7 +109,6 @@ class Case:
             if 16*60<=hm<18*60+30 or orf[i]: continue
             dirn=s.hdir[i]==1
             if not flip_ok[i]: continue
-            # flip
             if s.hf[i]!=0:
                 lg=s.hf[i]==1; vw,e2=s.vw[i],s.e200[i]
                 side=(C[i]>max(vw,e2)+1) if lg else (C[i]<min(vw,e2)-1)
@@ -133,25 +124,30 @@ class Case:
                     if (C[i]>line[i]) if lg else (C[i]<line[i]): out.append(dict(i=i,lg=lg,trig=nm,erm=mn))
                     elif i+1<n and s.hdir[i+1]==s.hdir[i] and ((C[i+1]>line[i+1]) if lg else (C[i+1]<line[i+1])): out.append(dict(i=i+1,lg=lg,trig=nm,erm=mn,late=1))
         out.sort(key=lambda d:(d['i'],d['trig']!='flip'))
-        g=1
         for d in out:
             i=d['i']; lg=d['lg']; A=s.atr[i]; gg=1 if lg else -1
             hi=s.H[i-23:i+1].max(); lo=s.L[i-23:i+1].min(); pos=(C[i]-lo)/(hi-lo) if hi>lo else .5
             d['R5']=(pos if lg else 1-pos)>=.8 and (hi-lo)/A<5
-            d['X4']=gg*(C[i]-s.vw[i])/A>4
+            d['xv']=gg*(C[i]-s.vw[i])/A
+            d['X4']=d['xv']>4
             d['M']=s.mtf[i]>=0 and s.mtf[i]!=(1 if lg else 0)
             d['VB']=s.vwb[i]==(1 if lg else -1)
             d.update(er={k:s.er[k][i] for k in s.er}, bo=bool(s.bo[i]), bo1=bool(s.bo1[i]), chop=s.chop[i], adx=s.adx[i], xs=s.xs[i], slope=s.slope[i], rng=s.rng[i], her=s.her[i], atrrel=s.atrrel[i], month=s.month[i])
         return out
     def sim1(s,i,lg,q,stop_at):
         C,H,L=s.C,s.H,s.L; en=C[i]; A=s.atr[i]; g=1 if lg else -1
-        sd=min(max(q['sl']*A,q['mn']),q['cap']); tpd=min(q['tp']*A,6)
+        sd=min(max(q['sl']*A,q['mn']),q['cap']); tpd=min(q['tp']*A,q.get('tcap',6))
+        part=q['part']
+        if part=='tod':   # MES 3m: 80 % at TP1 for setups drawn 06:00-16:00 / 18:00-22:30 ET, else 100 %
+            mm=(s.hm[i]-s.tf)%1440; part=.8 if (360<=mm<960 or 1080<=mm<1350) else 1.0
+        q=dict(q,part=part)
         sl=en-g*sd; t1=en+g*tpd; hit=False; best=0
         for j in range(i+1,s.n):
             if (L[j]<=sl if lg else H[j]>=sl):
                 rem=g*(sl-en); return (q['part']*tpd+(1-q['part'])*rem if hit else rem),j,('trail' if hit else 'SL1')
             if not hit and (H[j]>=t1 if lg else L[j]<=t1):
                 hit=True
+                if q['part']>=1: return tpd,j,'TP1'
                 if q['be']: sl=max(sl,en) if lg else min(sl,en)
             best=max(best,g*((H[j] if lg else L[j])-en))
             if hit:
@@ -165,7 +161,6 @@ class Case:
                 rem=g*(C[j]-en); return (q['part']*tpd+(1-q['part'])*rem if hit else rem),j,why
         return 0.0,s.n-1,'end'
     def run(s, ok, q=None, gates=None):
-        """ok(cand)->bool chop filter. Event-driven: cooldown 10 (flip/opposite bypass), new setup ends the open one."""
         q=q or EXIT[(s.sym,s.tf)]; G=gates or GATE[(s.sym,s.tf)]
         res=[]; last=-999; lastlg=None; op=None
         for d in s.cands:
@@ -173,14 +168,14 @@ class Case:
             if G['X4'] and d['X4']: continue
             if G['MTF'] and d['M']: continue
             if d['VB']: continue
-            if d['trig']!='flip' and d['er'][12]<d['erm']: continue  # per-trigger minimum (not lifted by breakout)
+            if d['trig']!='flip' and d['er'][12]<d['erm']: continue
             if not ok(d): continue
             i=d['i']
             live=op is not None and i<=op['j']
             if res and res[-1]['i']==i: continue
-            if live and d['lg']==op['lg']: continue          # one live setup per direction (ats_one_on)
+            if live and d['lg']==op['lg']: continue
             if not (i-last>=10 or d['trig']=='flip' or (lastlg is not None and d['lg']!=lastlg)): continue
-            if live:                                          # opposite setup replaces the live one at this close
+            if live:
                 r,j,why=s.sim1(op['i'],op['lg'],q,i); op.update(res=r,j=j,why=why)
             r,j,why=s.sim1(i,d['lg'],q,-1); op=dict(d,res=r,why=why,j=j); res.append(op); last=i; lastlg=d['lg']
         return res

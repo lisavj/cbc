@@ -10,30 +10,34 @@ Gates (same definitions as the 10/19 analyses):
                      (also 6 ATR shown); Momentum break setups exempt (CBC v10.21)
   X  VWAP stretch    (close - VWAP) / ATR in the trade direction > 4 (6 shown); Momentum exempt
   F  flip counter    "HTF flips n/8" in the alert >= 4
-  V  side gate       HTF CBC Flip setup whose close is NOT beyond VWAP and EMA200 by 1 pt (CBC default ON ->
-                     current chart would not draw it; usually an old alert snapshot)
+  V  side gate       HTF CBC Flip setup whose close is NOT beyond VWAP and EMA200 by 1 pt
   M  MTF             1H CBC against the trade direction
   P  pattern         engulfing / tweezer in the trade direction on the setup candle or the 2 before
-Extra fields (10/27 watch items): pb = pullback since the HTF CBC (hc) turned in the trade direction, in ATR
-(highest high since then - entry close for longs, mirrored for shorts; bounded to 200 bars);
+Extra fields (10/27 watch items): pb = pullback since the HTF CBC (hc) turned in the trade direction, in ATR;
 s9 / s20 = HTF EMA9 / EMA20 slope over the last 5 chart candles, in the trade direction (pts).
-Server v9 (10/24): /alerts?from= and /bars?from= also read the long-term archive on the Render Disk, so
-"all stored" now means every archived day. Older servers ignore from= (same results as before).
+11/06: bars with null indicator fields (BarFeed gap, e.g. MES 3m 11/02 00:12-18:09) no longer crash the case:
+VWAP-based gates (X, V) are treated as unknown there; other TypeErrors skip the setup (listed in SKIP).
+11/12: duplicate alerts (claude/DATA_NOTES.md): alerts with the same Chart / Time / bullet names within 60 s count once
+(longest text kept); when one setup has two "Setup Ended" results, the one with "0.5x...(TP1)" wins (MGC 3m v10.84 exits).
+Env CBC_ALERTS_FILE=path reuses a saved /alerts?from=2000-01-01 download instead of fetching again.
 Usage: python3 cbc_daily_stats.py [days]   (default: all stored alerts, incl. the server v9 archive)
 """
-import gzip, json, re, sys, urllib.request, datetime as D
+import gzip, json, os, re, sys, urllib.request, datetime as D
 from zoneinfo import ZoneInfo
 
 BASE = 'https://tv-webhook-dashboard.onrender.com'
 TZ = ZoneInfo('America/New_York')
 TOL = {'MGC': 0.2, 'MES': 0.5}
 CASES = [('MGC', 3), ('MGC', 2), ('MES', 3), ('MES', 2)]
-DEFAULTS = {('MGC', 3): 'R5 + X4 ON, base exits SL 1.7 ATR + min 5, TP1 1.7 (cap 6) / 80 % / BE (v10.45)',
-            ('MES', 3): 'R5 ON, base exits SL 1.7 ATR + min 5, TP1 1.7 / 80 % / BE (v10.42)', ('MGC', 2): 'all off',
-            ('MES', 2): 'MTF gate ON (v10.32), flip counter 4 (v10.42)'}
+DEFAULTS = {('MGC', 3): 'R5 + X4 ON; exits SL1 1.7 ATR + min 5 cap 7, TP1 1.7 cap 6, 50 % at TP1, BE, trail 3.5 (v10.84)',
+            ('MES', 3): 'R5 ON, flip-timing gate; exits SL1 3 ATR min 5, TP1 1.75 ATR, 80 %/100 % by time, BE, trail 1.7',
+            ('MGC', 2): 'R5 ON + non-flip flop gate (v10.77); base exits',
+            ('MES', 2): 'MTF gate ON, flip counter 4; base exits'}
 
 
 def get(url):
+    if '/alerts' in url and os.environ.get('CBC_ALERTS_FILE'):
+        return json.load(open(os.environ['CBC_ALERTS_FILE']))
     req = urllib.request.Request(url, headers={'Accept-Encoding': 'gzip'})
     with urllib.request.urlopen(req, timeout=180) as r:
         b = r.read()
@@ -44,6 +48,31 @@ def get(url):
 
 def raw(x):
     return x['raw'] if isinstance(x['raw'], str) else json.dumps(x['raw'])
+
+
+def dedupe(alerts):
+    """DATA_NOTES 11/12: same chart + Time line + bullet names within 60 s = one alert (keep longest)."""
+    keep = {}
+    out = []
+    for x in sorted(alerts, key=lambda x: x['receivedAt']):
+        r = raw(x)
+        ch = re.search(r'Chart: ([^\n]+)', r)
+        tm = re.search(r'Time: ([^\n]+)', r)
+        if not ch or not tm:
+            out.append(x); continue
+        k = (ch.group(1).strip(), tm.group(1).strip(), tuple(sorted(re.findall(r'• ([^:\n]+)', r))))
+        ts = D.datetime.fromisoformat(x['receivedAt'].replace('Z', '+00:00')).timestamp()
+        if k in keep and ts - keep[k][0] <= 60:
+            j = keep[k][1]
+            o = raw(out[j])
+            # prefer the v10.84 "0.5x(TP1)" breakdown, else the longer text
+            new05, old05 = bool(re.search(r'0\.5×[\d.]+\(TP1\)', r)), bool(re.search(r'0\.5×[\d.]+\(TP1\)', o))
+            if (new05 and not old05) or (new05 == old05 and len(r) > len(o)):
+                out[j] = x
+            continue
+        keep[k] = (ts, len(out))
+        out.append(x)
+    return out
 
 
 def load_setups(alerts, sym, tf):
@@ -68,17 +97,17 @@ def load_setups(alerts, sym, tf):
             en = float(re.search(r'Setup Entry: ([\d.]+)', r).group(1))
             st = re.search(r'Started: (\d+):(\d+)', r)
             d = re.search(r'Setup Ended: (\w+)', r).group(1)
-            m = re.search(r'Ended: ([^|\n]*?) \| Result: ([+-]?[\d.]+)', r)
+            m = re.search(r'Ended: ([^|\n]*?) \| Result: ([+-]?[\d.]+)([^|\n]*)', r)
             if st and m:
-                E[(d, en, int(st.group(1)), int(st.group(2)))] = (m.group(1).strip(), float(m.group(2)))
+                k = (d, en, int(st.group(1)), int(st.group(2)))
+                is05 = bool(re.search(r'0\.5×[\d.]+\(TP1\)', m.group(3)))
+                if k in E and E[k][3] and not is05:
+                    continue
+                E[k] = (m.group(1).strip(), float(m.group(2)), m.group(3).strip(), is05, t)
     return S, E
 
 
 def ctx_flags(r, lg, en):
-    """10/29 context study rows (from the Trade Setup alert text):
-    OB = opposing Lux OB (OB- for a long, OB+ for a short) nearer than TP1, L5 = first opposing level / OB inside half the TP1
-    distance (CBC v10.47 "Room: ... = x x TP1" line when present, else rebuilt from the TP Piv / TP3 / TP4 pool lines + nearest OB),
-    FL = flip flop warning, CL = 15m (10m on 2m) EMA cloud against the trade."""
     F = set()
     s = 1 if lg else -1
     m = re.search(r'\nTP1: ([\d.]+)', r)
@@ -110,12 +139,15 @@ def ctx_flags(r, lg, en):
     return F
 
 
+BARS = {}
+
+
 def analyze(sym, tf, alerts, since):
     S, E = load_setups(alerts, sym, tf)
     key = sym if tf == 3 else '%s_%d' % (sym, tf)
-    # server v9: &from= also reads the bar archive (older servers ignore it and use days=60)
     t0 = min((t for (t, d, en) in S if not since or t >= since), default=D.datetime.now(TZ)) - D.timedelta(days=3)
     B = get('%s/bars?sym=%s&days=60&from=%s' % (BASE, key, t0.strftime('%Y-%m-%d')))['bars']
+    BARS[(sym, tf)] = B
     ix = {b['t']: i for i, b in enumerate(B)}
     atr, a = [], None
     for i, b in enumerate(B):
@@ -146,14 +178,30 @@ def analyze(sym, tf, alerts, since):
             continue
         i = ix.get(int(t.timestamp() * 1000) - tf * 60000)
         if i is None or i < 40:
+            NOBAR.append((sym, tf, t, d, en, r, res))
             continue
+        try:
+            o = _one(B, i, t, d, en, r, res, atr, c, st_hc, pat)
+        except TypeError:
+            SKIP.append((sym, tf, t)); continue
+        out.append(o)
+    return out
+
+
+SKIP = []
+NOBAR = []
+
+
+def _one(B, i, t, d, en, r, res, atr, c, st_hc, pat):
+    if True:
         x = B[i]
         lg = d == 'LONG'
         g = lambda p: (re.search(p, r).group(1) if re.search(p, r) else '')
         trg = g(r'Trigger: ([^\n]*)')
         flip, mom = 'HTF CBC Flip' in trg, 'Momentum' in trg
         A = atr[i] or 1
-        ex = ((x['c'] - x['vw']) if lg else (x['vw'] - x['c'])) / A
+        nov = x.get('vw') is None or x.get('e200') is None
+        ex = 0.0 if nov else ((x['c'] - x['vw']) if lg else (x['vw'] - x['c'])) / A
         w = B[i - 23:i + 1]
         hi, lo = max(y['h'] for y in w), min(y['l'] for y in w)
         p = (x['c'] - lo) / (hi - lo) if hi > lo else .5
@@ -161,9 +209,8 @@ def analyze(sym, tf, alerts, since):
         n = sum(abs(c[j] - c[j - 1]) for j in range(i - 11, i + 1))
         er = abs(c[i] - c[i - 12]) / n if n else 0
         fl = int(g(r'HTF flips (\d+)/8') or 0)
-        side = (x['c'] > max(x['vw'], x['e200']) + 1) if lg else (x['c'] < min(x['vw'], x['e200']) - 1)
+        side = True if nov else ((x['c'] > max(x['vw'], x['e200']) + 1) if lg else (x['c'] < min(x['vw'], x['e200']) - 1))
         mtf = g(r'MTF CBC \(1H\): (\w+)')
-        # pullback since the HTF CBC turned (in ATR) and HTF EMA slopes over 5 chart candles (trade direction)
         s0 = max(st_hc[i], i - 200)
         pb = ((max(y['h'] for y in B[s0:i + 1]) - x['c']) if lg else (x['c'] - min(y['l'] for y in B[s0:i + 1]))) / A
         sg = 1 if lg else -1
@@ -182,9 +229,8 @@ def analyze(sym, tf, alerts, since):
         if pat(i, lg): G.add('P')
         G |= ctx_flags(r, lg, en)
         trg2 = re.sub(r' \(closed beyond EMA9: \w+\)', '', trg).replace('HTF CBC Flip', 'Flip').replace('(late, 1 bars after)', '(late)')
-        out.append(dict(t=t, d=d, en=en, trg=trg2[:28], trgfull=trg, why=res[0], res=res[1], ex=ex, pd=pd, rw=rw, er=er, fl=fl,
-                        mtf=mtf, G=G, pb=pb, s9=s9, s20=s20, A=A))
-    return out
+        return (dict(t=t, d=d, en=en, trg=trg2[:28], trgfull=trg, why=res[0], res=res[1], brk=res[2], is05=res[3], tend=res[4],
+                     ex=ex, pd=pd, rw=rw, er=er, fl=fl, mtf=mtf, G=G, pb=pb, s9=s9, s20=s20, A=A, raw=r, i=i))
 
 
 def summ(g):
@@ -193,13 +239,18 @@ def summ(g):
     return '%d | %d%% | %+.1f' % (len(g), round(sum(o['res'] > 0 for o in g) / len(g) * 100), sum(o['res'] for o in g))
 
 
-def report(days=None):
+def load_alerts(days=None):
     frm = (D.datetime.now(TZ) - D.timedelta(days=days + 1)).strftime('%Y-%m-%d') if days else '2000-01-01'
     alerts = get(BASE + '/alerts?from=' + frm)
+    return dedupe(alerts)
+
+
+def report(days=None):
+    alerts = load_alerts(days)
     since = D.datetime.now(TZ) - D.timedelta(days=days) if days else None
     first = min(x['receivedAt'] for x in alerts)[:10]
     lines = ['# CBC daily stats -- %s' % D.datetime.now(TZ).strftime('%Y-%m-%d %H:%M ET'), '',
-             'Alerts stored: %d (since %s). Window: %s. Rule: decide per symbol + timeframe; >= 20 setups before changing a default.' % (len(alerts), first, ('last %d days' % days) if days else 'all stored'), '']
+             'Alerts stored: %d after dedupe (since %s). Window: %s. Rule: decide per symbol + timeframe; >= 20 setups before changing a default.' % (len(alerts), first, ('last %d days' % days) if days else 'all stored'), '']
     for sym, tf in CASES:
         try:
             out = analyze(sym, tf, alerts, since)
