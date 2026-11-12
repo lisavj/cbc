@@ -2,9 +2,6 @@
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
-     v153: (a) the control buttons under the Alerts / Chart / Bot tabs (Alert Types ... Clear all) now sit in a collapsible
-     section; a "Controls ▾/▸" button next to the tabs (or tapping the already-active Alerts tab) opens / closes it, and the choice is
-     remembered per browser. (b) The Trade Setup box "Charts ▾" picker lays its symbols out in 3 columns so every chart fits on a phone.
      v6: Checklist tab — attach an image per day (client-side compressed via canvas,
      uploaded to the new /checklist/:date/image route) with a "View image" link that
      opens it in a new tab/window, plus a Remove button. Requires the matching server.js
@@ -372,6 +369,12 @@
      v78: also the other TP method's TP1/TP2 ("TP1 ATR"/"TP2 ATR" or "TP1 Piv"/"TP2 Piv"; Pine v8.62) as darker green info rows; TP rows sorted by distance from Entry. Pivot column shows e.g. "1.5 ATR".
      v77: setup table shows the other SL method's SL1/SL2 ("SL1 ATR"/"SL2 ATR", or "SL1 Piv"/"SL2 Piv" when ATR is active; Pine v8.61) as darker info rows; all stop rows sorted by distance from Entry.
      v76: status row label is just "HTF flip candle" (no "(15m)").
+     v153 (11/12/2026): (1) BarFeed status badge in the header: polls GET /bars every 60 s (and updates from live "bar" events);
+       a feed is STALE when no candle arrived for max(3 x its timeframe, 8) minutes of OPEN market (CME Sun 18:00 - Fri 17:00 ET,
+       daily break 17:00-18:00 ignored). Green "BarFeed ✓ n" / red "BarFeed ⚠ n stale" (tab title gets a ⚠ too); click for the
+       per-feed table (last candle ET, minutes behind) and a Watch checkbox per feed (unwatched / empty feeds never count; saved in
+       this browser). (2) Backup menu "Remove duplicate alerts…": runs the server's GET /dedupe?mode=near dry run, shows what it
+       found, then POST &apply=1 after you confirm (token asked each time, never stored).
      v152 (11/06/2026): Imports panel "Remove off-grid candles…" (server v12): removes candles not on the feed's own time grid,
        e.g. 5m candles imported into a 3m feed; undoable like an import.
      v151 (11/06/2026): Chart symbol list shows the feed name in [ ] when it is not a standard 3m / 2m / 5m feed (e.g. "MGC 3m/15m [MGC_3]"),
@@ -445,6 +448,17 @@
     color: var(--muted);
   }
   .brand b { color: var(--text); }
+  /* v153: BarFeed status badge */
+  .bf-wrap { position: relative; display: inline-block; }
+  .bf-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--muted); color: var(--muted); cursor: pointer; white-space: nowrap; user-select: none; }
+  .bf-status.ok { border-color: #16A34A; color: #16A34A; }
+  .bf-status.bad { border-color: #DC2626; color: #fff; background: #DC2626; }
+  .bf-panel { text-transform: none; letter-spacing: normal; display: none; position: absolute; top: 24px; left: 0; z-index: 60; background: var(--panel, #fff); color: var(--text); border: 1px solid var(--muted); border-radius: 8px; padding: 8px; font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-height: 70vh; overflow: auto; min-width: 300px; }
+  .bf-panel.open { display: block; }
+  .bf-panel table { border-collapse: collapse; width: 100%; }
+  .bf-panel th, .bf-panel td { padding: 2px 6px; text-align: left; white-space: nowrap; }
+  .bf-panel td.bad { color: #DC2626; font-weight: 600; }
+  .bf-panel td.ok { color: #16A34A; }
   .pulse {
     width: 8px;
     height: 8px;
@@ -1191,15 +1205,6 @@
   /* v148: Charts pulldown in the Trade Setup box tab row */
   #setupBox .sb-pick { border-style: dashed; }
   #sbPickPanel { z-index: 1200; }
-  /* v153: collapsible controls + 3-column Charts picker */
-  #ctlBody { display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; }
-  #ctlBody.collapsed { display:none; }
-  #ctlToggleBtn { border:1px solid var(--panel-border); color:var(--text); font-family:var(--mono); font-size:12px; padding:6px 10px; border-radius:6px; cursor:pointer; }
-  #sbPickPanel.open { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0 6px; width:min(440px,calc(100vw - 16px)); }
-  #sbPickPanel .type-filter-master, #sbPickPanel .type-filter-actions { grid-column:1 / -1; }
-  #sbPickPanel .type-filter-indent { padding-left:2px; padding-right:2px; font-size:11px; white-space:nowrap; min-width:0; }
-  #sbPickPanel .type-filter-indent span { padding-left:4px; }
-
   #setupBox .sb-empty { padding: 8px; color: #94a3b8; font-size: 12px; }
   .sb-table.sb-rr { width: auto; margin-top: 4px; }
   .sb-table.sb-rr td { background: #1e293b; } .sb-table.sb-rr td.rr-k { background: #15803d; }
@@ -2085,6 +2090,7 @@
   <div class="brand">
     <span class="pulse" id="pulse"></span>
     <span>Alert Feed <b id="conn">connecting…</b></span>
+    <span class="bf-wrap"><span class="bf-status" id="bfStatus" title="BarFeed candle feeds -- click for details">BarFeed …</span><div class="bf-panel" id="bfPanel"></div></span>
   </div>
   <div class="stats">
     <span><strong id="count">0</strong> received <a href="#" id="loadAllLink" style="font-size:11px;opacity:.8;margin-left:4px;">(newest 1000 · load all)</a></span>
@@ -2115,8 +2121,6 @@
         </div>
       </div>
     </div>
-    <button id="ctlToggleBtn" type="button" title="Show / hide the controls below">Controls ▾</button>
-    <div id="ctlBody">
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
       <div class="type-filter-panel" id="typeFilterPanel"></div>
@@ -2172,12 +2176,12 @@
       <div class="type-filter-panel" id="backupPanel">
         <div class="type-filter-row" id="backupDownloadRow" style="cursor:pointer;">⬇ Download alerts (current filter)</div>
         <div class="type-filter-row" id="backupUploadRow" style="cursor:pointer;">⬆ Upload / restore alerts…</div>
+        <div class="type-filter-row" id="backupDedupeRow" style="cursor:pointer;" title="Removes duplicate alerts from the store (RAM + archive): identical copies, and near copies (same chart, candle time and alert names, e.g. the same alert set up twice). Dry run first.">🧹 Remove duplicate alerts…</div>
         <input type="file" id="backupUploadInput" accept="application/json,.json" style="display:none;">
       </div>
     </div>
     <button id="statsBtn" title="Setup statistics: count, wins / losses and average result per trigger, for the last 100 / 500 / all stored alerts">Stats</button>
     <button id="clearBtn">Clear all</button>
-    </div>
   </div>
 </header>
 
@@ -7368,6 +7372,26 @@
   // Upload/restore: reads the chosen file locally (never leaves the browser except in the POST
   // below), confirms since this REPLACES whatever alerts are currently stored server-side, then
   // posts to the same token-protected /restore endpoint the curl-based restore flow uses.
+  // v153: remove duplicate alerts (server v10+ /dedupe; near mode = same chart, candle time and alert names)
+  document.getElementById('backupDedupeRow').addEventListener('click', async () => {
+    backupPanel.classList.remove('open');
+    const token = prompt('Remove duplicate alerts from the store.\nEnter your webhook token (not saved; blank if you did not set one):');
+    if (token === null) return;
+    const q = '/dedupe?mode=near&token=' + encodeURIComponent(token);
+    try {
+      const r = await fetch(q);
+      if (!r.ok) { alert('Dry run failed: ' + (await r.text())); return; }
+      const d = await r.json();
+      if (!d.found) { alert('No duplicates found (' + d.scanned + ' alerts scanned).'); return; }
+      const days = Object.entries(d.perDay || {}).sort().map(([k, v]) => k + ': ' + v).join('\n');
+      if (!confirm('Dry run: ' + d.found + ' duplicate alert(s) of ' + d.scanned + ' scanned (' + d.identical + ' identical, ' + d.near + ' near copies).\n\n' + days + '\n\nRemove them now? (For near copies the longest text is kept.)')) return;
+      const r2 = await fetch(q + '&apply=1', { method: 'POST' });
+      if (!r2.ok) { alert('Remove failed: ' + (await r2.text())); return; }
+      const d2 = await r2.json();
+      alert('Removed ' + d2.found + ' duplicate alert(s) (' + d2.filesRewritten + ' archive day file(s) rewritten, ' + d2.ramRemoved + ' from RAM). Reloading…');
+      location.reload();
+    } catch (e) { alert('Could not reach /dedupe: ' + e.message); }
+  });
   backupUploadRow.addEventListener('click', () => {
     backupPanel.classList.remove('open');
     backupUploadInput.value = '';
@@ -9982,6 +10006,91 @@
     chState.lastRecv = Date.now();
     if (chartViewEl.style.display !== 'none') chRender(); else chState.dirty = true;
   });
+  // ---------------------------------------------------------------------
+  // v153: BarFeed status badge -- is every candle feed still arriving?
+  const bfEl = document.getElementById('bfStatus'), bfPanel = document.getElementById('bfPanel');
+  let bfFeeds = [], bfLastPoll = 0, bfErr = '';
+  let bfUnwatched = new Set();
+  try { bfUnwatched = new Set(JSON.parse(localStorage.getItem('bfUnwatched') || '[]')); } catch (e) {}
+  const bfSaveWatch = () => { try { localStorage.setItem('bfUnwatched', JSON.stringify([...bfUnwatched])); } catch (e) {} };
+  const BF_NY = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+  function bfMarketOpen(ms) { // CME Globex: Sun 18:00 -> Fri 17:00 ET, daily break 17:00-18:00 ET
+    const p = {}; BF_NY.formatToParts(new Date(ms)).forEach((x) => { p[x.type] = x.value; });
+    const m = (Number(p.hour) % 24) * 60 + Number(p.minute), wd = p.weekday;
+    if (wd === 'Sat') return false;
+    if (wd === 'Sun') return m >= 18 * 60;
+    if (wd === 'Fri') return m < 17 * 60;
+    return m < 17 * 60 || m >= 18 * 60;
+  }
+  function bfOpenMinutes(fromMs, toMs) { // minutes of open market between two times (capped at 4 days of scanning)
+    let n = 0;
+    const start = Math.max(fromMs, toMs - 4 * 86400000);
+    for (let t = Math.ceil(start / 60000) * 60000; t < toMs; t += 60000) if (bfMarketOpen(t)) n++;
+    return n;
+  }
+  function bfLabel(f) {
+    const tf = f.tf || 3, root = String(f.sym).split('_')[0];
+    return root + ' ' + tf + 'm';
+  }
+  function bfRender() {
+    const now = Date.now(), open = bfMarketOpen(now);
+    const rows = bfFeeds.map((f) => {
+      const tf = f.tf || 3;
+      const behind = f.last ? bfOpenMinutes(f.last + tf * 60000, now) : null; // open-market minutes since the candle closed
+      const lim = Math.max(3 * tf, 8);
+      const watched = !bfUnwatched.has(f.sym) && f.count > 0;
+      const stale = watched && f.last != null && behind > lim;
+      return { f, tf, behind, lim, watched, stale };
+    });
+    const nWatch = rows.filter((r) => r.watched).length, bad = rows.filter((r) => r.stale);
+    bfEl.classList.remove('ok', 'bad');
+    if (bfErr && !bfFeeds.length) { bfEl.textContent = 'BarFeed ?'; bfEl.title = 'Could not read /bars: ' + bfErr; }
+    else if (bad.length) { bfEl.classList.add('bad'); bfEl.textContent = 'BarFeed ⚠ ' + bad.length + ' stale'; bfEl.title = 'No new candles: ' + bad.map((r) => bfLabel(r.f) + ' (' + r.behind + ' min)').join(', '); }
+    else if (!open) { bfEl.textContent = 'BarFeed · market closed'; bfEl.title = 'CME closed (Fri 17:00 - Sun 18:00 ET, daily 17:00-18:00 ET)'; }
+    else { bfEl.classList.add('ok'); bfEl.textContent = 'BarFeed ✓ ' + nWatch; bfEl.title = 'All ' + nWatch + ' watched feeds sent a candle recently'; }
+    const base = document.title.replace(/^⚠ BarFeed · /, '');
+    document.title = bad.length ? '⚠ BarFeed · ' + base : base;
+    const fmt = (ms) => ms ? new Date(ms).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '–';
+    bfPanel.innerHTML = '<div style="margin-bottom:6px;opacity:.8;">Checked ' + (bfLastPoll ? new Date(bfLastPoll).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' ET' : '–') +
+      ' · stale = no candle for max(3 × timeframe, 8) min of open market' + (bfErr ? ' · last poll failed: ' + escapeHtml(bfErr) : '') + '</div>' +
+      '<table><tr><th>Watch</th><th>Feed</th><th>Last candle (ET)</th><th>Min behind</th><th>Status</th></tr>' +
+      rows.map((r) => '<tr><td><input type="checkbox" data-bfw="' + escapeHtml(r.f.sym) + '"' + (bfUnwatched.has(r.f.sym) ? '' : ' checked') + (r.f.count > 0 ? '' : ' disabled') + '></td><td>' + escapeHtml(bfLabel(r.f)) + '</td><td>' + fmt(r.f.last) + '</td><td>' + (r.behind == null ? '–' : r.behind) + '</td>' +
+        (r.f.count === 0 ? '<td>no data</td>' : !r.watched ? '<td>not watched</td>' : r.stale ? '<td class="bad">STALE</td>' : '<td class="ok">ok</td>') + '</tr>').join('') + '</table>' +
+      '<div style="margin-top:6px;opacity:.75;">If a feed is stale, check its BarFeed alert in TradingView (stopped / inactive alerts must be restarted).</div>';
+  }
+  async function bfPoll() {
+    try {
+      const r = await fetch('/bars', { cache: 'no-store' });
+      if (!r.ok || !/json/i.test(r.headers.get('content-type') || '')) throw new Error('HTTP ' + r.status);
+      const list = await r.json();
+      const prev = new Map(bfFeeds.map((f) => [f.sym, f.last]));
+      bfFeeds = list.map((f) => Object.assign({}, f, { last: Math.max(f.last || 0, prev.get(f.sym) || 0) || null })).sort((a, b) => (a.sym < b.sym ? -1 : 1));
+      bfErr = '';
+    } catch (e) { bfErr = e.message || String(e); }
+    bfLastPoll = Date.now();
+    bfRender();
+  }
+  bfEl.addEventListener('click', (e) => { e.stopPropagation(); bfPanel.classList.toggle('open'); });
+  bfPanel.addEventListener('click', (e) => e.stopPropagation());
+  bfPanel.addEventListener('change', (e) => {
+    const k = e.target && e.target.dataset ? e.target.dataset.bfw : null;
+    if (!k) return;
+    if (e.target.checked) bfUnwatched.delete(k); else bfUnwatched.add(k);
+    bfSaveWatch(); bfRender();
+  });
+  document.addEventListener('click', () => bfPanel.classList.remove('open'));
+  es.addEventListener('bar', (e) => { // a live candle refreshes its feed's "last" at once
+    let d; try { d = JSON.parse(e.data); } catch (err) { return; }
+    if (!d || !d.bar || !d.sym) return;
+    const f = bfFeeds.find((x) => x.sym === d.sym);
+    if (f) { if (!f.last || d.bar.t > f.last) f.last = d.bar.t; f.count = Math.max(1, f.count || 0); }
+    else bfFeeds.push({ sym: d.sym, tf: d.sym.includes('_') ? Number(d.sym.split('_')[1]) : 3, count: 1, last: d.bar.t });
+  });
+  bfPoll();
+  setInterval(bfPoll, 60000);
+  setInterval(bfRender, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - bfLastPoll > 30000) bfPoll(); });
+
   es.addEventListener('message', () => {
     if (!chState.chart) return;
     if (chartViewEl.style.display !== 'none') chRender(); else chState.dirty = true;
@@ -10102,18 +10211,5 @@
   setInterval(botBadge, 60000);
 </script>
 
-<script>
-(function(){
-  var body=document.getElementById('ctlBody'), btn=document.getElementById('ctlToggleBtn'), alertsTab=document.getElementById('tabAlertsBtn');
-  if(!body||!btn) return;
-  var collapsed=false; try{ collapsed=localStorage.getItem('ctlCollapsed')==='1'; }catch(e){}
-  function apply(){ body.classList.toggle('collapsed',collapsed); btn.textContent=collapsed?'Controls ▸':'Controls ▾'; try{ localStorage.setItem('ctlCollapsed',collapsed?'1':'0'); }catch(e){} }
-  btn.addEventListener('click',function(){ collapsed=!collapsed; apply(); });
-  if(alertsTab) alertsTab.addEventListener('click',function(){ if(alertsTab.classList.contains('was-active')){ collapsed=!collapsed; apply(); } });
-  if(alertsTab) alertsTab.addEventListener('mousedown',function(){ alertsTab.classList.toggle('was-active',alertsTab.classList.contains('active')); });
-  if(alertsTab) alertsTab.addEventListener('touchstart',function(){ alertsTab.classList.toggle('was-active',alertsTab.classList.contains('active')); },{passive:true});
-  apply();
-})();
-</script>
 </body>
 </html>
