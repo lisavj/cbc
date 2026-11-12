@@ -1,7 +1,10 @@
-<!-- FRONTEND VERSION: v152 — bump this comment + the <footer> tag below every time this file changes,
+<!-- FRONTEND VERSION: v153 — bump this comment + the <footer> tag below every time this file changes,
      so it's easy to eyeball which version is actually live at the bottom of the deployed page vs.
      what's been sent here. Started 09/18/2026 after the Checklist-dropdown-order fix went un-pushed
      and the live site kept showing a stale layout with no way to tell at a glance.
+     v153: (a) the control buttons under the Alerts / Chart / Bot tabs (Alert Types ... Clear all) now sit in a collapsible
+     section; a "Controls ▾/▸" button next to the tabs (or tapping the already-active Alerts tab) opens / closes it, and the choice is
+     remembered per browser. (b) The Trade Setup box "Charts ▾" picker lays its symbols out in 3 columns so every chart fits on a phone.
      v6: Checklist tab — attach an image per day (client-side compressed via canvas,
      uploaded to the new /checklist/:date/image route) with a "View image" link that
      opens it in a new tab/window, plus a Remove button. Requires the matching server.js
@@ -1188,6 +1191,15 @@
   /* v148: Charts pulldown in the Trade Setup box tab row */
   #setupBox .sb-pick { border-style: dashed; }
   #sbPickPanel { z-index: 1200; }
+  /* v153: collapsible controls + 3-column Charts picker */
+  #ctlBody { display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; }
+  #ctlBody.collapsed { display:none; }
+  #ctlToggleBtn { border:1px solid var(--panel-border); color:var(--text); font-family:var(--mono); font-size:12px; padding:6px 10px; border-radius:6px; cursor:pointer; }
+  #sbPickPanel.open { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0 6px; width:min(440px,calc(100vw - 16px)); }
+  #sbPickPanel .type-filter-master, #sbPickPanel .type-filter-actions { grid-column:1 / -1; }
+  #sbPickPanel .type-filter-indent { padding-left:2px; padding-right:2px; font-size:11px; white-space:nowrap; min-width:0; }
+  #sbPickPanel .type-filter-indent span { padding-left:4px; }
+
   #setupBox .sb-empty { padding: 8px; color: #94a3b8; font-size: 12px; }
   .sb-table.sb-rr { width: auto; margin-top: 4px; }
   .sb-table.sb-rr td { background: #1e293b; } .sb-table.sb-rr td.rr-k { background: #15803d; }
@@ -2103,6 +2115,8 @@
         </div>
       </div>
     </div>
+    <button id="ctlToggleBtn" type="button" title="Show / hide the controls below">Controls ▾</button>
+    <div id="ctlBody">
     <div class="type-filter-wrap">
       <button id="typeFilterBtn">Alert Types ▾</button>
       <div class="type-filter-panel" id="typeFilterPanel"></div>
@@ -2163,6 +2177,7 @@
     </div>
     <button id="statsBtn" title="Setup statistics: count, wins / losses and average result per trigger, for the last 100 / 500 / all stored alerts">Stats</button>
     <button id="clearBtn">Clear all</button>
+    </div>
   </div>
 </header>
 
@@ -2586,7 +2601,7 @@
   </div>
 </main>
 
-<footer>tv-webhook-dashboard · v152</footer>
+<footer>tv-webhook-dashboard · v153</footer>
 
 <div id="setupListModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.8);overflow:auto;">
   <div style="max-width:1240px;margin:30px auto;background:var(--panel,#0f172a);border:1px solid var(--panel-border,#334155);border-radius:10px;padding:12px 14px;color:#e2e8f0;">
@@ -10087,5 +10102,18 @@
   setInterval(botBadge, 60000);
 </script>
 
+<script>
+(function(){
+  var body=document.getElementById('ctlBody'), btn=document.getElementById('ctlToggleBtn'), alertsTab=document.getElementById('tabAlertsBtn');
+  if(!body||!btn) return;
+  var collapsed=false; try{ collapsed=localStorage.getItem('ctlCollapsed')==='1'; }catch(e){}
+  function apply(){ body.classList.toggle('collapsed',collapsed); btn.textContent=collapsed?'Controls ▸':'Controls ▾'; try{ localStorage.setItem('ctlCollapsed',collapsed?'1':'0'); }catch(e){} }
+  btn.addEventListener('click',function(){ collapsed=!collapsed; apply(); });
+  if(alertsTab) alertsTab.addEventListener('click',function(){ if(alertsTab.classList.contains('was-active')){ collapsed=!collapsed; apply(); } });
+  if(alertsTab) alertsTab.addEventListener('mousedown',function(){ alertsTab.classList.toggle('was-active',alertsTab.classList.contains('active')); });
+  if(alertsTab) alertsTab.addEventListener('touchstart',function(){ alertsTab.classList.toggle('was-active',alertsTab.classList.contains('active')); },{passive:true});
+  apply();
+})();
+</script>
 </body>
 </html>
