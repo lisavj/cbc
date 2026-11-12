@@ -1,54 +1,54 @@
-# MGC 3m stop / take-profit grid -- Thu 10/29/2026 17:28 ET
+# MGC 3m stop / take-profit grid -- 2026-11-12 08:45 ET
 
-Setups with results: **48** (10/19 – 10/29), 4 without a Trade Setup alert (levels estimated). Halves split at 10/23 07:30.
-Actual result -28.9 pts · replay with own levels -28.9 · win/loss agreement 48/48.
-Median actual SL1 4.7 pts · median ATR 2.99 · 2 ATR > 6 pts on 48% of setups.
+Setups with results: **81** (10/19 – 11/11), 7 without a Trade Setup alert (levels estimated). Halves split at 10/28 21:09.
+Actual result -9.5 pts · replay with own levels +22.1 · win/loss agreement 80/81.
+Median actual SL1 5.1 pts · median ATR 3.25 · 2 ATR > 6 pts on 59% of setups.
 
 ## Net pts by take-profit method × stop (✱ = positive in both halves)
 
 | Method | current | 3 pts | 4 pts | 5 pts | 6 pts | 8 pts | 10 pts |
 |---|---|---|---|---|---|---|---|
-| Current: TP1 2 ATR cap 6, 50% + trail 1.7 + time stop | -28.7 | -16.1 | -22.8 | -14.9 | -9.6 | -20.7 | -27.4 |
-| TP1 2 ATR no cap, 50% + trail | -22.9 | -15.0 | -20.8 | -10.5 | -5.9 | -19.0 | -19.7 |
-| TP1 2 ATR cap 6, 80% + trail | -30.7 | -15.9 | -22.1 | -19.3 | -15.2 | -28.3 | -29.0 |
-| TP1 4 pts, 50% + trail | -37.2 | -18.6 | -29.1 | -24.2 | -20.9 | -34.0 | -34.7 |
-| TP1 6 pts, 80% + trail | -28.1 | -10.2 | -14.6 | -11.8 | -7.7 | -20.8 | -21.5 |
-| TP1 8 pts, 80% + trail | -24.9 | -7.4 | -11.2 | -6.2 | -1.5 | -10.8 | -11.5 |
-| TP 4 pts, 100% | -38.8 | -13.9 | -22.6 | -26.6 | -24.6 | -37.7 | -38.4 |
-| TP 6 pts, 100% | -25.9 | -5.9 | -9.2 | -9.2 | -5.2 | -18.3 | -19.0 |
-| TP 8 pts, 100% | -21.7 | -2.5 | -4.8 | -1.8 | +3.2 | -6.1 | -6.8 |
-| TP 10 pts, 100% | -19.7 | -42.3 | -32.6 | -28.6 | -24.6 | -35.4 | -28.1 |
-| TP 1R (= stop), 100% | -36.3 | -23.9 | -22.6 | -17.9 | -5.2 | -6.1 | -28.1 |
-| TP1 1R 50% + trail | -37.0 | -24.3 | -29.1 | -21.2 | -11.5 | -17.9 | -40.5 |
-| TP 1.5R, 100% | -10.7 | -7.6 | -9.2 | +10.5 | -18.6 | -44.7 | -59.9 |
-| No TP: trail 1.7 ATR from entry | -33.7 | -37.3 | -46.6 | -28.6 | -19.1 | -27.9 | -32.6 |
-| No TP: hold to 15m flip / 16:00 | -84.7 | -71.8 | -82.4 | -92.8 | -94.7 | -109.5 | -105.2 |
+| Current: TP1 2 ATR cap 6, 50% + trail 1.7 + time stop | +21.8 | +24.8 | +14.7 | +14.2 | +35.4 ✱ | +34.5 | +24.3 |
+| TP1 2 ATR no cap, 50% + trail | +29.8 | +28.7 | +16.2 | +16.9 | +37.7 ✱ | +35.9 | +26.7 |
+| TP1 2 ATR cap 6, 80% + trail | -13.9 | -3.9 | -11.3 | -17.0 | +1.1 | -6.2 | -13.4 |
+| TP1 4 pts, 50% + trail | +1.6 | +11.2 | -2.8 | -8.7 | +7.0 | +7.3 | +2.1 |
+| TP1 6 pts, 80% + trail | -9.1 | +4.0 | -1.7 | -7.4 | +10.7 ✱ | +3.4 | -3.8 |
+| TP1 8 pts, 80% + trail | -9.1 | +0.7 | -2.2 | -6.8 | +14.2 ✱ | +5.7 | -3.5 |
+| TP 4 pts, 100% | -43.7 | -25.1 | -35.8 | -50.6 | -37.2 | -37.7 | -42.9 |
+| TP 6 pts, 100% | -27.0 | -10.3 | -13.6 | -22.1 | -3.7 | -12.7 | -19.9 |
+| TP 8 pts, 100% | -23.9 | -12.7 | -12.0 | -18.5 | +3.9 | -5.8 | -15.0 |
+| TP 10 pts, 100% | -13.1 | -43.0 | -35.0 | -40.5 | -15.1 | -24.3 | -25.5 |
+| TP 1R (= stop), 100% | -36.5 | -30.4 | -35.8 | -42.8 | -3.7 | -5.8 | -25.5 |
+| TP1 1R 50% + trail | +2.2 | +8.7 | -2.8 | -7.0 | +32.4 ✱ | +23.0 | -5.9 |
+| TP 1.5R, 100% | -1.5 | -20.8 | -13.6 | -4.9 | -9.8 | -33.8 | -55.6 |
+| No TP: trail 1.7 ATR from entry | +57.2 | +36.7 | +25.2 | +34.3 | +54.8 | +63.5 | +55.0 |
+| No TP: hold to 15m flip / 16:00 | +33.2 | +74.1 | +45.6 | +23.0 | +20.9 | -3.7 | -9.9 |
 
 ## Top 8
 
 | Method | Stop | Net | Halves | PF | Win % | Worst | All 3 thirds + |
 |---|---|---|---|---|---|---|---|
-| TP 1.5R, 100% | 5 | +10.5 | +15.3 / -4.8 | 1.09 | 44% | -5.0 | no |
-| TP 8 pts, 100% | 6 | +3.2 | +10.0 / -6.8 | 1.03 | 44% | -6.0 | no |
-| TP1 8 pts, 80% + trail | 6 | -1.5 | +10.4 / -11.9 | 0.99 | 44% | -6.0 | no |
-| TP 8 pts, 100% | 5 | -1.8 | -0.5 / -1.3 | 0.98 | 42% | -5.0 | no |
-| TP 8 pts, 100% | 3 | -2.5 | +0.8 / -3.3 | 0.97 | 33% | -3.0 | no |
-| TP 8 pts, 100% | 4 | -4.8 | -2.5 / -2.3 | 0.95 | 38% | -4.0 | no |
-| TP 6 pts, 100% | 6 | -5.2 | +15.6 / -20.8 | 0.95 | 46% | -6.0 | no |
-| TP 1R (= stop), 100% | 6 | -5.2 | +15.6 / -20.8 | 0.95 | 46% | -6.0 | no |
+| No TP: hold to 15m flip / 16:00 | 3 | +74.1 | -63.0 / +137.1 | 1.43 | 22% | -3.0 | no |
+| No TP: trail 1.7 ATR from entry | 8 | +63.5 | -6.9 / +70.5 | 1.34 | 38% | -8.0 | no |
+| No TP: trail 1.7 ATR from entry | current | +57.2 | -15.5 / +72.7 | 1.31 | 37% | -7.0 | no |
+| No TP: trail 1.7 ATR from entry | 10 | +55.0 | -10.7 / +65.7 | 1.28 | 38% | -10.0 | no |
+| No TP: trail 1.7 ATR from entry | 6 | +54.8 | -1.7 / +56.5 | 1.31 | 37% | -6.0 | no |
+| No TP: hold to 15m flip / 16:00 | 4 | +45.6 | -69.8 / +115.4 | 1.22 | 26% | -4.0 | no |
+| TP1 2 ATR no cap, 50% + trail | 6 | +37.7 | +7.1 / +30.6 | 1.19 | 44% | -6.0 | no |
+| No TP: trail 1.7 ATR from entry | 3 | +36.7 | -30.3 / +67.0 | 1.25 | 27% | -3.0 | no |
 
 ## Robustness: uncapped ATR TP1 (+ trail 1.7) — net pts, ✱ both halves, T all thirds
 
 | TP1 | 3 pts | 4 pts | 5 pts | 6 pts | 8 pts | 10 pts |
 |---|---|---|---|---|---|---|
-| 1.5 ATR, 50% | -24.0 | -32.6 | -24.7 | -21.0 | -34.1 | -34.8 |
-| 1.5 ATR, 80% | -19.4 | -26.0 | -21.7 | -18.4 | -31.5 | -32.2 |
-| 2.0 ATR, 50% | -15.0 | -20.8 | -10.5 | -5.9 | -19.0 | -19.7 |
-| 2.0 ATR, 80% | -11.1 | -14.0 | -5.9 | -1.3 | -14.4 | -15.1 |
-| 2.5 ATR, 50% | -23.7 | -30.1 | -19.6 | -16.2 | -27.5 | -29.2 |
-| 2.5 ATR, 80% | -19.1 | -23.5 | -13.8 | -9.8 | -21.1 | -22.8 |
-| 3.0 ATR, 50% | -21.2 | -29.5 | -16.6 | -12.4 | -23.7 | -25.4 |
-| 3.0 ATR, 80% | -14.6 | -22.9 | -9.4 | -4.2 | -15.5 | -17.2 |
+| 1.5 ATR, 50% | +13.1 | +2.0 | -1.9 | +16.6 | +14.8 | +7.6 |
+| 1.5 ATR, 80% | -2.9 | -10.1 | -17.5 | +1.9 | -0.6 | -7.8 |
+| 2.0 ATR, 50% | +28.7 | +16.2 | +16.9 | +37.7 ✱ | +35.9 | +26.7 |
+| 2.0 ATR, 80% | +7.1 | -1.2 | -2.6 | +21.0 ✱ | +19.8 | +10.6 |
+| 2.5 ATR, 50% | +33.2 | +20.9 | +22.0 | +43.3 ✱ | +40.8 | +30.6 |
+| 2.5 ATR, 80% | +14.7 | +6.3 | +6.6 ✱ | +33.1 ✱ | +32.5 ✱ | +22.3 ✱ |
+| 3.0 ATR, 50% | +32.0 | +16.2 | +19.6 | +33.7 ✱ | +31.3 | +19.1 |
+| 3.0 ATR, 80% | +16.3 | +3.2 | +7.2 ✱ | +24.3 ✱ | +24.9 ✱ | +12.7 ✱ |
 
 ## Stop floor: own SL1, minimum X pts — net pts, ✱ both halves, T all thirds
 
@@ -56,20 +56,28 @@ Stop = max(setup's own SL1 distance, floor). "none" = own SL1 as-is. Neighbours 
 
 | Method | none | min 3 pts | min 4 pts | min 5 pts | min 6 pts |
 |---|---|---|---|---|---|
-| Current: TP1 2 ATR cap 6, 50% + trail 1.7 + time stop | -28.7 | -16.7 | -17.4 | -22.7 | -12.7 |
-| TP1 2 ATR no cap, 50% + trail | -22.9 | -10.9 | -12.1 | -18.3 | -9.1 |
-| TP1 2 ATR no cap, 80% + trail | -17.3 | -6.3 | -7.5 | -13.7 | -4.5 |
-| TP1 2.5 ATR no cap, 50% + trail | -34.0 | -21.2 | -22.4 | -29.4 | -20.3 |
-| No TP: trail 1.7 ATR from entry | -33.7 | -33.0 | -32.3 | -36.3 | -22.2 |
+| Current: TP1 2 ATR cap 6, 50% + trail 1.7 + time stop | +21.8 | +33.9 | +33.2 | +27.9 | +45.1 ✱ |
+| TP1 2 ATR no cap, 50% + trail | +29.8 | +41.9 ✱ | +40.7 ✱ | +34.4 | +51.8 ✱ |
+| TP1 2 ATR no cap, 80% + trail | +12.0 | +23.1 ✱ | +22.0 ✱ | +15.7 | +35.7 ✱ |
+| TP1 2.5 ATR no cap, 50% + trail | +36.3 | +49.2 ✱ | +48.1 ✱ | +41.0 | +58.4 ✱ |
+| No TP: trail 1.7 ATR from entry | +57.2 | +58.0 | +58.7 | +54.6 | +70.8 |
 
 Rule: only act on a combination that is positive in both halves AND all three thirds, with neighbours (±0.5 ATR, ±2 pts stop) also positive, on 60+ setups.
 
-## Verdict (17:28 ET run, 10/29)
+## Verdict (run 2026-11-12 08:45 ET; "was" = 11/09 17:28 ET run)
 
-**No change yet.** 48 setups (< 60 needed), and no cell anywhere is ✱ and T together; the robustness and stop-floor tables are now entirely negative.
+Settings check: claude/settings_sync_report.md (11/09 14:43 ET) shows no MISMATCH, so study settings are current.
 
-- **Current (v10.31-style) settings:** −28.7 replayed (was −11.8 on 10/28); actual −28.9 pts (was −15.9). The 8 new setups cost ~13–17 pts.
-- **Leading candidate:** top cell **TP 1.5R, 100 % @ 5 pts** +10.5 (was +17.3), halves +15.3 / −4.8, no ✱ — R-multiple rows still flip sign across stops (noise). **TP 8 pts, 100 % @ 6 pts** fell to +3.2 (was +14.0 ✱) and lost ✱. **TP1 2 ATR no cap + trail, 6 pt stop** fell to −5.9 (50 %) / −1.3 (80 %) (was +8.0 ✱ / +9.3). Last run's **2.5 ATR 80 % @ 6 pts** (+13.3 ✱ T) is now −9.8.
-- **6 pt stop:** still the best fixed stop in 13 of 15 methods, but only 1 cell is positive.
-- **Stop floor:** every cell negative. Best floor for every method is still **min 6 pts** (Current −12.7; 2 ATR no cap 50 % −9.1; 80 % −4.5; 2.5 ATR 50 % −20.3; no-TP trail −22.2), then min 3. **Floors 3–5 are negative for every method, none ✱.** Min 5 (closest proxy to the live base min-5 stop) −13.7…−36.3.
-- **Recommendation:** keep the live base exits (v10.45 went live today, so no live-base data yet).
+**No change yet.** Results improved again, but **no cell anywhere is T**: the middle third (10/26 10:12 – 11/03 11:03) is −24 … −61 for every candidate.
+
+- **Data:** 81 setups (was 77). 4 new: 11/10 15:36 −5.0, 11/11 05:03 +3.9, 06:15 −5.0, 09:00 +11.3 (net +5.2). Own-levels replay +22.1 (was +8.5).
+- **Actual results by exit version:** before 10/29 (v10.31) 42 setups −18.0 · 10/29–11/07 (80 % / trail 1.7) 31 setups −11.0 · **11/08 onward (v10.84: 50 % / trail 3.5) 8 setups +19.5** (was 4 / +14.3). Total actual −9.5 (was −14.7).
+- **"Current" (v10.31-style):** +21.8 replayed (was +7.8).
+- **Main grid:** 6 ✱ cells (was 10), all at the 6 pt stop: TP1 2 ATR no cap 50 % = **+37.7 ✱** (best ✱, was +22.1), Current +35.4 ✱, TP1 1R 50 % +32.4 ✱, TP1 8 pts 80 % +14.2 ✱, TP1 6 pts 80 % +10.7 ✱. The 8 / 10 pt stops lost ✱. Top cell: hold-to-flip @ 3 pts +74.1 (halves −63.0 / +137.1).
+- **Stop floor:**
+  - **Best floor is min 6 for every method:** Current +45.1 ✱, 2 ATR 50 % +51.8 ✱, 2 ATR 80 % +35.7 ✱, 2.5 ATR 50 % **+58.4 ✱**, no-TP trail +70.8 (not ✱).
+  - **Floors 3 and 4 are ✱ for the three uncapped TP methods** (+22 … +49) but Current lost ✱ there (first half −0.7 / −1.4). **Min 5 is not ✱ for any method** (first half −4.2 … −6.7). Min 7 (extra check) is not ✱ either.
+  - **Live proxy (min 5, TP1 1.7 ATR cap 6, 50 %, trail 3.5)** = +14.5 (halves −28.8 / +43.3, thirds −15.7 / −50.3 / +80.5); with trail 1.7 it is +18.6. Uncapped 1.7 ATR 50 %: +30.0 (trail 3.5) / +35.3 (trail 1.7). None ✱ or T. In replay, trail 3.5 is 4–5 pts worse than 1.7 at 50 %.
+- **50 % vs 80 %:** **50 % beats 80 % in every floor** (2 ATR: by 16–19 pts), in the robustness table (every TP1 × stop) and in the min-5 live proxies (by 19–28 pts). Supports the v10.84 switch to 50 %.
+- **Leading candidate:** stop floor **min 6 + TP1 2.5 ATR no cap, 50 % = +58.4 ✱** (was +41.4; thirds +5.9 / −37.7 / +90.1, not T). Neighbours min 5 (+41.0) and min 7 (+46.4) are positive but not ✱.
+- **Recommendation:** keep v10.84. Watch the min-6 floor with an uncapped 2–2.5 ATR TP1 at 50 %; it needs the 10/26–11/03 third to turn positive and min 5 / 7 to become ✱.

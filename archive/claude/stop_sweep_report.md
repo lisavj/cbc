@@ -1,559 +1,570 @@
-# CBC Stop Management sweep -- 2026-10-28 18:20 ET
+# CBC Stop Management sweep -- 2026-11-07 09:50 ET (rerun after data repair)
 
 Replay of the **HTF CBC Flip + LTF Agreement** entry alert (the Agreement alert your feed receives; 94-100 % of stored ones are reproduced) managed by CBC's **LTF Trailing Stop**. S = "Breakeven + Step Trail -> Custom points" (0 in CBC = auto: MES/MGC 5, MNQ 30; **off** = BE+Step unchecked). X = "Max Loss Per Trade" points (skip the entry when |close - stop| > X; **off** = unchecked). Exit "touch" = stop touched (fill at stop/open); "close" = candle closes beyond it; both also exit on an LTF CBC flip, 17:00 ET or a data gap. Points per contract; "net after costs" subtracts 1 tick exit slippage + ~$1.24 commission per trade (MES 0.5, MGC 0.22, MNQ 0.87 pts). ✱ = positive in both halves, T = positive in all three thirds. Recent = last 20 calendar days.
 
 > Note: with the Max Loss box **checked and Points = 0**, every Agreement entry alert whose stop is not exactly at the close is skipped (i.e. almost all of them). Leave it unchecked or set a real number.
 
-## Since last week (vs report of 2026-10-25 12:53 ET; bars now run to 10/28)
+## Since last week -- rerun after data repair (replaces the 11/06 16:29 ET run)
 
-**Validation:** all 8 cases still match CBC's stored HTF-flip + Agreement alerts at 96-100 % (MES 3m 96 %, MGC 3m 96 %, MNQ 3m 99 %, MES 2m 96 %, MGC 2m 98 %, MES 5m 100 %, MGC 5m 100 %, MNQ 5m 97 %). No case below 80 %; the replay still reproduces CBC.
+This run replaces the 11/06 report. It was rerun after the BarFeed bars were repaired: MGC 3m had 5m candles mixed in, and MES 2m/5m and MNQ had gaps. All bars end 11/06; MNQ 5m now reaches 11/06 (the 11/06 run stopped at 11/05). A first run earlier this morning (09:47 ET) already used the repaired data and got identical numbers; this report supersedes it.
 
-Current = S auto, Max Loss off, touch exits. "AC" = net after costs. Points per contract.
+**Validation** (repaired data): MES 3m 97 %, MGC 3m 98 %, MNQ 3m 100 %, MES 2m 99 %, MGC 2m 99 %, MES 5m 100 %, MGC 5m 91 %, MNQ 5m 96 %. All are 90 % or better (11/06 pre-repair: 90-100 %). None is below 80 %, so the replay still reproduces CBC.
 
-| case | current gross / AC (last wk → now) | best S, gross (last wk → now) | best AC (S, X) cell (last wk → now) |
+Current = S auto, Max Loss off, touch exits. "AC" = net after costs. Points per contract. Columns: last week's report (10/30) → the 11/06 run on pre-repair data → now (repaired).
+
+| case | current gross / AC | best S, gross | best AC (S, X) cell |
 |---|---|---|---|
-| MES 3m | -382.0 / -1655.0 → -405.0 / -1704.0 | 0.5: -61.5 → 0.5: -59.8 | off/2: -841.5 → off/2: -861.8 |
-| MGC 3m | -422.1 / -979.8 → -432.9 / -998.1 | 0.5: -47.6 → 0.5: -46.6 | 6/2: -141.5 → 6/2: -149.8 |
-| MNQ 3m | -2527.2 / -4765.8 → -2456.2 / -4743.5 | 8: +240.5 → **3: +219.2** (8 now +209.0) | 3/10: -1450.2 → 3/10: -1469.3 |
-| MES 2m | -307.0 / -2239.5 → -325.5 / -2291.0 | 0.5: -147.5 → 0.5: -148.0 | 15/2: -1425.0 → 15/2: -1453.8 |
-| MGC 2m | -405.8 / -1249.7 → -391.9 / -1247.0 | 0.5: -63.5 → 0.5: -56.5 | 5/2: -387.8 → 5/2: -405.3 |
-| MES 5m | -102.8 / -910.8 → -108.2 / -933.2 | 0.5: -16.8 → 0.5: -23.5 | 10/2: -367.8 → **6/2**: -387.5 |
-| MGC 5m | -0.4 / -356.4 → -11.9 / -372.7 | 0.5: +1.3 → 0.5: +0.6 | 5/2: -95.9 → 5/2: -97.1 |
-| MNQ 5m | -792.2 / -2196.4 → -751.5 / -2182.7 | 8: +509.5 → 8: +439.0 | off/15: **+263.3 → +190.2** |
+| MES 3m | -408.5 / -1718.0 → -411.0 / -1744.0 → **-410.2 / -1742.8** | 0.5: -58.5 → -63.0 → **0.5: -62.8** | off/2: -871.5 → -881.0 → **off/2: -879.8** |
+| MGC 3m | -433.4 / -1005.6 → -446.0 / -1031.6 → **-460.0 / -1046.1** | 0.5: -43.8 → -43.7 → **0.5: -44.6** | 6/2: -158.1 → -187.0 → **6/2: -188.8** |
+| MNQ 3m | -2449.2 / -4759.1 → -2127.0 / -4486.4 → **-2155.5 / -4518.4** | 3: +235.8 → +225.2 → **3: +223.5** | 3/10: -1465.6 → 80/10: -865.2 → **80/10: -884.7** |
+| MES 2m | -345.5 / -2330.5 → -397.2 / -2425.2 → **-379.8 / -2408.8** | 0.5: -150.0 → -153.0 → **0.5: -152.8** | 15/2: -1468.8 → -1488.5 → **15/2: -1490.8** |
+| MGC 2m | -384.3 / -1248.5 → -372.0 / -1256.8 → **-370.9 / -1256.0** | 0.5: -60.8 → -67.3 → **0.5: -65.3** | 5/2: -414.0 → -415.9 → **5/2: -417.0** |
+| MES 5m | -76.2 / -907.2 → +3.2 / -841.8 → **-70.0 / -915.0** | 4: -14.0 → 8: +78.8 → **8: +5.5** | 6/2: -389.2 → 10/2: -415.2 → **10/2: -415.2** |
+| MGC 5m | -16.3 / -381.1 → -30.3 / -402.3 → **-29.2 / -401.2** | 0.5: -2.0 → -7.2 → **0.5: -7.2** | 5/2: -86.8 → -89.8 → **5/2: -89.8** |
+| MNQ 5m | -771.2 / -2213.7 → -875.5 / -2345.8 → **-874.0 / -2351.3** | 8: +409.2 → 10: +354.5 → **8: +330.0** | off/15: +228.1 → +189.8 → **off/15: +170.7** |
 
-**Recent (last 20 days) for the leading candidates**
+**What the repair changed vs the 11/06 run:**
+- MES 5m moved the most. Trade count is the same (1690), but current fell about 73 points (+3.2 → -70.0 gross), and S 8 fell from +78.8 to +5.5. MES 5m had gaps filled, and Friday's last half hour is now included; the 73-point drop most likely comes from a late-session trade.
+- MGC 3m (the case that had 5m candles mixed in) barely moved: current -446 → -460 gross, and the leader S 6 / X 2 is unchanged.
+- MES 2m improved slightly (-397 → -380 gross). MNQ 3m got 4 more trades and is a little worse (-2127 → -2156).
+- MNQ 5m now reaches 11/06 (8 more trades). Best S switched from 10 to 8, and S off / X 15 slipped from +190 to +171 AC.
+- None of these changes alters a verdict.
 
-- MNQ 3m, Max Loss off, touch (gross / AC, 210 trades): S 2 +2.8 / -180; **S 3 +82.5 / -100**; **S 5 +86.8 / -96**; S 8 -38.5 / -221; S 10 +36.2 / -146; current S 30 -314.0 / -497. S 3-5 stayed gross-positive recently; S 8 slipped (its 2nd half is now -45 gross, so it lost the ✱ flag; best S moved 8 → 3). S 3 / X 10: +76.8 gross / -54.6 AC over 151 trades.
-- MNQ 5m S off / X 15: 41 recent trades, -344.5 gross / **-380.2 AC** (current: -442.2 gross / -541 AC over 114). Its last third after costs is now -394 (time split) / -472 (trade split), and overall AC fell +263 → +190 in one week. S off / X 10: -85 gross / -106 AC (24 trades). S 8 / X off: -220.8 gross (114).
+**Week vs 10/30:** MNQ 3m current improved by about 290 gross because wide stops did well in last week's trend. Most other cases were flat to slightly worse.
 
-**Recommendation check** (rule: better than current after costs, positive in both halves and all three thirds after costs, neighbours agreeing):
+**Recent (last 20 days) for the leading candidates** (gross / AC, touch exits)
 
-- Every case: **no change yet.** No (S, X) cell is positive after costs in both halves and all three thirds.
-- What *is* robust: on MES 2/3/5m and MGC 2/3m, X = 2 (any S) and on MNQ 3m S 2-5 (± X 10-15) lose less than the current settings in every half and third, and their neighbours agree (not MGC 5m: X 2 there is worse than current in the middle third). But they're still net losers after costs. Most of the MES/MGC gain comes from simply taking about half as many trades, so you pay half the costs.
-- MNQ 5m S off / X 15 is the only cell that's positive after costs overall (+190), and it beats current in every segment. It fails on its own sign: AC halves +411 / -221 and last third -394. It has weakened two weeks running. Leading candidate, not a change.
-- MNQ 3m: if you keep trading this alert, S 3 (Custom points = 3) is far less bad than auto 30 (-2068 vs -4744 AC, better in every half/third, neighbours S 2/5/8 agree). It still loses after costs, so it doesn't meet the rule.
+- MNQ 3m, Max Loss off (214 trades): S 2 -18.8 / -204.9; **S 3 +27.8 / -158.4**; **S 5 +34.0 / -152.2**; S 8 -26.2 / -212.4. Current S 30: **+293.5 / +107.3**, so S 3-8 still trail current over this window. S 3 / X 10: +32.8 / -77.7 (127 trades); S 3 / X 15: +31.2 / -101.9 (153). S 80 / X 10: +881.2 / +831.7 (57).
+- MNQ 5m S off / X 15: 40 recent trades, -171.5 gross / **-206.3 AC**. Current: -179.0 / -286.9 (124). S off / X 10: -74.0 / -96.6 (26). S 8 / X off: -173.2 gross; S 10: -165.8.
+
+**Recommendation check** (rule: better than current after costs, positive after costs in both halves and all three thirds, neighbours agreeing). Every (S, X) cell in every case was checked, with the data split both by trade count and by time.
+
+- Every case: **no change yet.** No cell in any case is positive after costs in both halves and all three thirds.
+- MES 2/3/5m and MGC 2/3/5m: the X = 2 cells lose much less than current after costs, mostly because they take about half as many trades, but they are still negative after costs. Leading candidates: MES 3m S off / X 2, MGC 3m S 6 / X 2, MES 2m S 15 / X 2, MGC 2m S 5 / X 2, MES 5m S 10 / X 2, MGC 5m S 5 / X 2.
+- MNQ 3m: S 3 (Custom points = 3) is the steadiest improvement: -2139 vs -4518 AC, and S 2/5 agree. But its AC halves (-1123 / -1016) and thirds (-651 / -887 / -601) are all negative, and the last 20 days favour current S 30. S 80 / X 10 is the top AC cell (-885), but its gain sits almost entirely in the last third (AC thirds -621 / -545 / +281), and neighbours S 50/60 / X 10 are much worse. Leading candidate: S 3. Not a change.
+- MNQ 5m: S off / X 15 is the best AC cell (+171, neighbour S 80 / X 15 agrees at +151). It beats current in every segment, but its own AC 2nd half (-215), last third (-500) and recent (-206) are negative. S off / X 10 (+83 AC) also has a negative AC 2nd half and last two thirds. Leading candidate, not a change.
 - Reminder: Max Loss **ticked with Points = 0** skips nearly every Agreement alert. Leave it unticked or set a real number.
 
 ## Summary
 
-- **MES 3m** -- current (S auto 5, no max loss) 2598 trades, -405.0 pts gross (-0.16/trade), -1704.0 after costs; best after costs S off / X 2: 1238 trades, -861.8 after costs (-242.8 gross) . Gross: best S = 0.5: -59.8 ; best grid S 0.5 / X 10: 2569 trades -59.0 .
-- **MGC 3m** -- current (S auto 5, no max loss) 2569 trades, -432.9 pts gross (-0.17/trade), -998.1 after costs; best after costs S 6 / X 2: 975 trades, -149.8 after costs (+64.7 gross) ✱. Gross: best S = 0.5: -46.6 ; best grid S 6 / X 2: 975 trades +64.7 ✱.
-- **MNQ 3m** -- current (S auto 30, no max loss) 2629 trades, -2456.2 pts gross (-0.93/trade), -4743.5 after costs; best after costs S 3 / X 10: 1907 trades, -1469.3 after costs (+189.8 gross) ✱. Gross: best S = 3: +219.2 ✱; best grid S 3 / X 50: 2596 trades +224.0 ✱.
-- **MES 2m** -- current (S auto 5, no max loss) 3931 trades, -325.5 pts gross (-0.08/trade), -2291.0 after costs; best after costs S 15 / X 2: 2220 trades, -1453.8 after costs (-343.8 gross) . Gross: best S = 0.5: -148.0 ; best grid S 0.5 / X off: 3931 trades -148.0 .
-- **MGC 2m** -- current (S auto 5, no max loss) 3887 trades, -391.9 pts gross (-0.10/trade), -1247.0 after costs; best after costs S 5 / X 2: 1778 trades, -405.3 after costs (-14.1 gross) . Gross: best S = 0.5: -56.5 ; best grid S 5 / X 2: 1778 trades -14.1 .
-- **MES 5m** -- current (S auto 5, no max loss) 1650 trades, -108.2 pts gross (-0.07/trade), -933.2 after costs; best after costs S 6 / X 2: 704 trades, -387.5 after costs (-35.5 gross) . Gross: best S = 0.5: -23.5 ; best grid S 12 / X 12: 1576 trades +47.8 .
-- **MGC 5m** -- current (S auto 5, no max loss) 1640 trades, -11.9 pts gross (-0.01/trade), -372.7 after costs; best after costs S 5 / X 2: 580 trades, -97.1 after costs (+30.5 gross) ✱. Gross: best S = 0.5: +0.6 ; best grid S 5 / X 2: 580 trades +30.5 ✱.
-- **MNQ 5m** -- current (S auto 30, no max loss) 1645 trades, -751.5 pts gross (-0.46/trade), -2182.7 after costs; best after costs S off / X 15: 740 trades, +190.2 after costs (+834.0 gross) ✱. Gross: best S = 8: +439.0 ✱; best grid S off / X 15: 740 trades +834.0 ✱.
+- **MES 3m** -- current (S auto 5, no max loss) 2665 trades, -410.2 pts gross (-0.15/trade), -1742.8 after costs; best after costs S off / X 2: 1263 trades, -879.8 after costs (-248.2 gross) . Gross: best S = 0.5: -62.8 ; best grid S 0.5 / X 10: 2635 trades -62.0 .
+- **MGC 3m** -- current (S auto 5, no max loss) 2664 trades, -460.0 pts gross (-0.17/trade), -1046.1 after costs; best after costs S 6 / X 2: 1021 trades, -188.8 after costs (+35.8 gross) ✱. Gross: best S = 0.5: -44.6 ; best grid S 6 / X 2: 1021 trades +35.8 ✱.
+- **MNQ 3m** -- current (S auto 30, no max loss) 2716 trades, -2155.5 pts gross (-0.79/trade), -4518.4 after costs; best after costs S 80 / X 10: 1077 trades, -884.7 after costs (+52.2 gross) . Gross: best S = 3: +223.5 ✱; best grid S 3 / X 50: 2679 trades +227.5 ✱.
+- **MES 2m** -- current (S auto 5, no max loss) 4058 trades, -379.8 pts gross (-0.09/trade), -2408.8 after costs; best after costs S 15 / X 2: 2273 trades, -1490.8 after costs (-354.2 gross) . Gross: best S = 0.5: -152.8 ; best grid S 0.5 / X off: 4058 trades -152.8 .
+- **MGC 2m** -- current (S auto 5, no max loss) 4023 trades, -370.9 pts gross (-0.09/trade), -1256.0 after costs; best after costs S 5 / X 2: 1849 trades, -417.0 after costs (-10.2 gross) . Gross: best S = 0.5: -65.3 ; best grid S 5 / X 2: 1849 trades -10.2 .
+- **MES 5m** -- current (S auto 5, no max loss) 1690 trades, -70.0 pts gross (-0.04/trade), -915.0 after costs; best after costs S 10 / X 2: 685 trades, -415.2 after costs (-72.8 gross) . Gross: best S = 8: +5.5 ; best grid S 12 / X 12: 1614 trades +98.5 .
+- **MGC 5m** -- current (S auto 5, no max loss) 1691 trades, -29.2 pts gross (-0.02/trade), -401.2 after costs; best after costs S 5 / X 2: 597 trades, -89.8 after costs (+41.5 gross) ✱. Gross: best S = 0.5: -7.2 ; best grid S 5 / X 2: 597 trades +41.5 ✱.
+- **MNQ 5m** -- current (S auto 30, no max loss) 1698 trades, -874.0 pts gross (-0.51/trade), -2351.3 after costs; best after costs S off / X 15: 757 trades, +170.7 after costs (+829.2 gross) ✱. Gross: best S = 8: +330.0 ; best grid S off / X 15: 757 trades +829.2 ✱.
 
-## MES 3m  (bars 01/04 → 10/28, HTF 15m)
+## MES 3m  (bars 01/04 → 11/06, HTF 15m)
 
-All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 9373 trades, net -2092.5, avg -0.22, win 27 % at S auto / no max loss.
+All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 9673 trades, net -1836.0, avg -0.19, win 28 % at S auto / no max loss.
 
-Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 91 · replayed 121 · matched 87 (96 % of stored).
+Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 136 · replayed 187 · matched 132 (97 % of stored).
 
 **A. Custom points sweep (Max Loss off)**
 
 | S | mode | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| off | touch | 2598 | 23 | -0.26 | -675.2 | -1974.2 | 0.80 | -694.8 | -403 / -272 | -292 / -186 / -198 | -125.8 (204) |  |
-| 0.5 | touch | 2598 | 22 | -0.02 | -59.8 | -1358.8 | 0.80 | -72.2 | -29 / -31 | -6 / -26 / -28 | -7.0 (204) |  |
-| 1 | touch | 2598 | 23 | -0.04 | -111.0 | -1410.0 | 0.84 | -158.5 | -50 / -61 | -4 / -71 / -37 | -4.5 (204) |  |
-| 2 | touch | 2598 | 23 | -0.07 | -175.2 | -1474.2 | 0.88 | -193.5 | -44 / -132 | -21 / -61 / -93 | -67.5 (204) |  |
-| 3 | touch | 2598 | 24 | -0.08 | -215.5 | -1514.5 | 0.89 | -231.5 | -33 / -183 | +1 / -73 / -144 | -60.2 (204) |  |
-| 4 | touch | 2598 | 23 | -0.13 | -328.2 | -1627.2 | 0.86 | -329.8 | -56 / -273 | -35 / -71 / -223 | -91.5 (204) |  |
-| 5 (auto) | touch | 2598 | 23 | -0.16 | -405.0 | -1704.0 | 0.85 | -409.2 | -74 / -331 | -10 / -156 / -239 | -128.0 (204) |  |
-| 6 | touch | 2598 | 23 | -0.20 | -518.8 | -1817.8 | 0.82 | -520.5 | -185 / -334 | -116 / -176 / -227 | -133.8 (204) |  |
-| 8 | touch | 2598 | 23 | -0.21 | -546.2 | -1845.2 | 0.82 | -552.5 | -230 / -317 | -148 / -170 / -229 | -131.5 (204) |  |
-| 10 | touch | 2598 | 23 | -0.24 | -623.2 | -1922.2 | 0.81 | -642.8 | -304 / -320 | -200 / -213 / -210 | -131.2 (204) |  |
-| 12 | touch | 2598 | 23 | -0.25 | -653.0 | -1952.0 | 0.80 | -672.5 | -355 / -298 | -246 / -184 / -222 | -136.8 (204) |  |
-| 15 | touch | 2598 | 23 | -0.24 | -612.2 | -1911.2 | 0.81 | -631.8 | -348 / -264 | -253 / -156 / -203 | -131.5 (204) |  |
-| off | close | 2598 | 31 | -0.21 | -544.0 | -1843.0 | 0.89 | -635.5 | -406 / -138 | -360 / -34 / -151 | -147.2 (204) |  |
-| 0.5 | close | 2598 | 38 | -0.13 | -336.8 | -1635.8 | 0.89 | -375.8 | -265 / -72 | -189 / -48 / -100 | -86.2 (204) |  |
-| 1 | close | 2598 | 35 | -0.19 | -483.5 | -1782.5 | 0.85 | -497.5 | -314 / -170 | -206 / -127 / -151 | -80.5 (204) |  |
-| 2 | close | 2598 | 33 | -0.19 | -483.8 | -1782.8 | 0.88 | -504.0 | -240 / -244 | -164 / -94 / -225 | -93.5 (204) |  |
-| 3 | close | 2598 | 32 | -0.15 | -381.0 | -1680.0 | 0.91 | -419.5 | -152 / -229 | -104 / -76 / -201 | -129.0 (204) |  |
-| 4 | close | 2598 | 31 | -0.16 | -403.8 | -1702.8 | 0.91 | -469.5 | -206 / -198 | -165 / -20 / -218 | -102.8 (204) |  |
-| 5 (auto) | close | 2598 | 31 | -0.16 | -420.0 | -1719.0 | 0.91 | -493.2 | -249 / -171 | -219 / +16 / -217 | -122.2 (204) |  |
-| 6 | close | 2598 | 31 | -0.18 | -465.5 | -1764.5 | 0.90 | -550.8 | -300 / -165 | -250 / -40 / -175 | -134.8 (204) |  |
-| 8 | close | 2598 | 31 | -0.18 | -465.8 | -1764.8 | 0.90 | -557.2 | -357 / -109 | -317 / -6 / -142 | -150.0 (204) |  |
-| 10 | close | 2598 | 31 | -0.17 | -440.8 | -1739.8 | 0.91 | -532.2 | -343 / -98 | -301 / +12 / -152 | -150.0 (204) |  |
-| 12 | close | 2598 | 31 | -0.20 | -527.8 | -1826.8 | 0.89 | -619.2 | -400 / -128 | -368 / -9 / -151 | -147.2 (204) |  |
-| 15 | close | 2598 | 31 | -0.20 | -526.8 | -1825.8 | 0.89 | -618.2 | -396 / -130 | -350 / -23 / -154 | -150.0 (204) |  |
+| off | touch | 2665 | 23 | -0.27 | -711.5 | -2044.0 | 0.79 | -743.0 | -411 / -300 | -296 / -127 / -288 | -110.8 (191) |  |
+| 0.5 | touch | 2665 | 22 | -0.02 | -62.8 | -1395.2 | 0.80 | -72.2 | -33 / -30 | -5 / -28 / -30 | -4.8 (191) |  |
+| 1 | touch | 2665 | 22 | -0.04 | -110.0 | -1442.5 | 0.84 | -158.5 | -59 / -51 | -3 / -65 / -42 | +2.2 (191) |  |
+| 2 | touch | 2665 | 23 | -0.07 | -178.2 | -1510.8 | 0.88 | -197.8 | -41 / -137 | -20 / -48 / -111 | -36.0 (191) |  |
+| 3 | touch | 2665 | 24 | -0.09 | -228.2 | -1560.8 | 0.89 | -255.2 | -29 / -200 | +5 / -60 / -173 | -47.8 (191) |  |
+| 4 | touch | 2665 | 23 | -0.12 | -326.0 | -1658.5 | 0.87 | -360.0 | -62 / -264 | -34 / -68 / -224 | -58.8 (191) |  |
+| 5 (auto) | touch | 2665 | 23 | -0.15 | -410.2 | -1742.8 | 0.85 | -434.5 | -86 / -324 | -10 / -144 / -257 | -90.2 (191) |  |
+| 6 | touch | 2665 | 23 | -0.20 | -522.8 | -1855.2 | 0.82 | -552.8 | -197 / -326 | -117 / -170 / -236 | -101.0 (191) |  |
+| 8 | touch | 2665 | 23 | -0.21 | -568.5 | -1901.0 | 0.82 | -591.0 | -241 / -328 | -146 / -138 / -284 | -106.0 (191) |  |
+| 10 | touch | 2665 | 23 | -0.25 | -653.8 | -1986.2 | 0.80 | -685.2 | -328 / -326 | -204 / -166 / -284 | -111.8 (191) |  |
+| 12 | touch | 2665 | 23 | -0.26 | -691.5 | -2024.0 | 0.79 | -723.0 | -359 / -333 | -251 / -142 / -298 | -125.2 (191) |  |
+| 15 | touch | 2665 | 23 | -0.24 | -647.8 | -1980.2 | 0.81 | -679.2 | -352 / -296 | -258 / -97 / -293 | -115.8 (191) |  |
+| off | close | 2665 | 31 | -0.14 | -380.5 | -1713.0 | 0.92 | -698.0 | -380 / +0 | -361 / +81 / -101 | +73.0 (191) |  |
+| 0.5 | close | 2665 | 38 | -0.13 | -354.0 | -1686.5 | 0.89 | -411.8 | -258 / -96 | -193 / -10 / -151 | -70.8 (191) |  |
+| 1 | close | 2665 | 35 | -0.15 | -396.5 | -1729.0 | 0.88 | -527.0 | -315 / -82 | -215 / -90 / -91 | +35.0 (191) |  |
+| 2 | close | 2665 | 33 | -0.16 | -424.8 | -1757.2 | 0.89 | -549.5 | -229 / -196 | -175 / -43 / -207 | +12.0 (191) |  |
+| 3 | close | 2665 | 32 | -0.12 | -322.5 | -1655.0 | 0.93 | -465.0 | -149 / -173 | -112 / -32 / -179 | -13.8 (191) |  |
+| 4 | close | 2665 | 31 | -0.13 | -345.8 | -1678.2 | 0.92 | -513.5 | -201 / -144 | -162 / +5 / -190 | +15.0 (191) |  |
+| 5 (auto) | close | 2665 | 31 | -0.15 | -388.2 | -1720.8 | 0.92 | -549.5 | -232 / -156 | -218 / +46 / -216 | -42.8 (191) |  |
+| 6 | close | 2665 | 31 | -0.17 | -440.8 | -1773.2 | 0.91 | -615.2 | -288 / -152 | -250 / +30 / -220 | -63.2 (191) |  |
+| 8 | close | 2665 | 31 | -0.12 | -323.8 | -1656.2 | 0.93 | -620.8 | -326 / +2 | -318 / +110 / -116 | +48.8 (191) |  |
+| 10 | close | 2665 | 31 | -0.10 | -278.2 | -1610.8 | 0.94 | -595.8 | -318 / +40 | -302 / +128 / -104 | +69.2 (191) |  |
+| 12 | close | 2665 | 31 | -0.13 | -359.8 | -1692.2 | 0.93 | -681.8 | -374 / +15 | -369 / +106 / -96 | +77.5 (191) |  |
+| 15 | close | 2665 | 31 | -0.14 | -364.2 | -1696.8 | 0.93 | -681.8 | -371 / +6 | -351 / +92 / -104 | +69.2 (191) |  |
 
 **B. Max Loss sweep (S = auto 5, touch exits)**
 
 | X | trades | skipped | win % | avg | net | net after costs | PF | max DD | halves | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 2598 | 0 | 23 | -0.16 | -405.0 | -1704.0 | 0.85 | -409.2 | -74 / -331 | -128.0 (204) |  |
-| 2 | 1320 | 1278 | 15 | -0.24 | -321.2 | -981.2 | 0.60 | -323.0 | -90 / -232 | -37.8 (90) |  |
-| 3 | 1749 | 849 | 18 | -0.22 | -376.8 | -1251.2 | 0.71 | -385.5 | -93 / -284 | -76.5 (130) |  |
-| 4 | 2053 | 545 | 20 | -0.17 | -351.0 | -1377.5 | 0.79 | -408.0 | -52 / -299 | -84.0 (157) |  |
-| 5 | 2288 | 310 | 22 | -0.17 | -389.8 | -1533.8 | 0.81 | -392.2 | -85 / -304 | -94.0 (171) |  |
-| 6 | 2414 | 184 | 22 | -0.15 | -373.0 | -1580.0 | 0.84 | -394.5 | -80 / -293 | -122.2 (186) |  |
-| 8 | 2557 | 41 | 23 | -0.14 | -365.5 | -1644.0 | 0.86 | -378.2 | -59 / -306 | -130.0 (200) |  |
-| 10 | 2586 | 12 | 23 | -0.16 | -403.5 | -1696.5 | 0.85 | -406.0 | -85 / -318 | -129.2 (203) |  |
-| 12 | 2592 | 6 | 23 | -0.15 | -397.2 | -1693.2 | 0.85 | -400.2 | -77 / -320 | -128.0 (204) |  |
-| 15 | 2593 | 5 | 23 | -0.15 | -397.2 | -1693.8 | 0.85 | -400.2 | -76 / -322 | -128.0 (204) |  |
+| off | 2665 | 0 | 23 | -0.15 | -410.2 | -1742.8 | 0.85 | -434.5 | -86 / -324 | -90.2 (191) |  |
+| 2 | 1350 | 1315 | 15 | -0.24 | -322.8 | -997.8 | 0.60 | -332.0 | -95 / -228 | -21.2 (81) |  |
+| 3 | 1790 | 875 | 18 | -0.22 | -395.2 | -1290.2 | 0.70 | -410.0 | -102 / -294 | -70.5 (113) |  |
+| 4 | 2106 | 559 | 20 | -0.17 | -357.8 | -1410.8 | 0.79 | -443.2 | -60 / -298 | -48.2 (141) |  |
+| 5 | 2347 | 318 | 22 | -0.17 | -387.8 | -1561.2 | 0.82 | -413.8 | -86 / -302 | -44.8 (158) |  |
+| 6 | 2476 | 189 | 22 | -0.15 | -371.5 | -1609.5 | 0.84 | -416.5 | -88 / -283 | -67.8 (173) |  |
+| 8 | 2623 | 42 | 23 | -0.14 | -372.5 | -1684.0 | 0.86 | -403.5 | -61 / -311 | -94.0 (186) |  |
+| 10 | 2653 | 12 | 23 | -0.15 | -408.8 | -1735.2 | 0.85 | -431.2 | -97 / -312 | -91.5 (190) |  |
+| 12 | 2659 | 6 | 23 | -0.15 | -402.5 | -1732.0 | 0.85 | -425.5 | -87 / -315 | -90.2 (191) |  |
+| 15 | 2660 | 5 | 23 | -0.15 | -402.5 | -1732.5 | 0.85 | -425.5 | -87 / -315 | -90.2 (191) |  |
 
-**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 2598 trades, net -405.0, avg -0.16)**
+**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 2665 trades, net -410.2, avg -0.15)**
 
 | S | X | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 0.5 | 10 | 2569 | 22 | -0.02 | -59.0 | -1343.5 | 0.81 | -71.8 | -30 / -30 | -7 / -25 / -28 |  |
-| 0.5 | off | 2598 | 22 | -0.02 | -59.8 | -1358.8 | 0.80 | -72.2 | -29 / -31 | -6 / -26 / -28 |  |
-| 0.5 | 12 | 2581 | 22 | -0.02 | -60.2 | -1350.8 | 0.80 | -73.0 | -30 / -30 | -7 / -25 / -28 |  |
-| 0.5 | 8 | 2542 | 22 | -0.02 | -60.5 | -1331.5 | 0.80 | -73.2 | -31 / -30 | -8 / -26 / -27 |  |
-| 0.5 | 15 | 2591 | 22 | -0.02 | -60.5 | -1356.0 | 0.80 | -73.0 | -30 / -30 | -8 / -25 / -28 |  |
-| 0.5 | 6 | 2491 | 22 | -0.03 | -62.5 | -1308.0 | 0.79 | -73.0 | -34 / -29 | -7 / -28 / -28 |  |
-| 0.5 | 5 | 2442 | 22 | -0.03 | -63.8 | -1284.8 | 0.78 | -74.2 | -34 / -30 | -9 / -26 / -28 |  |
-| 0.5 | 4 | 2346 | 21 | -0.03 | -68.5 | -1241.5 | 0.76 | -78.8 | -39 / -30 | -12 / -28 / -28 |  |
+| 0.5 | 10 | 2635 | 22 | -0.02 | -62.0 | -1379.5 | 0.80 | -71.8 | -34 / -28 | -6 / -27 / -29 |  |
+| 0.5 | off | 2665 | 22 | -0.02 | -62.8 | -1395.2 | 0.80 | -72.2 | -33 / -30 | -5 / -28 / -30 |  |
+| 0.5 | 12 | 2647 | 22 | -0.02 | -63.2 | -1386.8 | 0.80 | -73.0 | -34 / -29 | -6 / -27 / -30 |  |
+| 0.5 | 8 | 2608 | 22 | -0.02 | -63.5 | -1367.5 | 0.79 | -73.2 | -35 / -28 | -7 / -26 / -30 |  |
+| 0.5 | 15 | 2658 | 22 | -0.02 | -63.5 | -1392.5 | 0.80 | -73.0 | -34 / -29 | -7 / -27 / -30 |  |
+| 0.5 | 6 | 2554 | 22 | -0.03 | -65.5 | -1342.5 | 0.79 | -73.0 | -38 / -28 | -9 / -27 / -30 |  |
+| 0.5 | 5 | 2500 | 22 | -0.03 | -66.2 | -1316.2 | 0.78 | -74.2 | -38 / -28 | -10 / -27 / -29 |  |
+| 0.5 | 4 | 2401 | 21 | -0.03 | -71.0 | -1271.5 | 0.76 | -78.8 | -42 / -30 | -14 / -29 / -28 |  |
 
-## MGC 3m  (bars 01/04 → 10/28, HTF 15m)
+## MGC 3m  (bars 01/04 → 11/06, HTF 15m)
 
-All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 9712 trades, net -1236.0, avg -0.13, win 30 % at S auto / no max loss.
+All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 10029 trades, net -1280.1, avg -0.13, win 29 % at S auto / no max loss.
 
-Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 70 · replayed 93 · matched 67 (96 % of stored).
+Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 127 · replayed 188 · matched 125 (98 % of stored).
 
 **A. Custom points sweep (Max Loss off)**
 
 | S | mode | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| off | touch | 2569 | 26 | -0.13 | -326.1 | -891.3 | 0.92 | -560.1 | -312 / -14 | -344 / -12 / +30 | -62.2 (187) |  |
-| 0.5 | touch | 2569 | 34 | -0.02 | -46.6 | -611.8 | 0.87 | -57.3 | -28 / -19 | -20 / -8 / -19 | -6.5 (187) |  |
-| 1 | touch | 2569 | 32 | -0.02 | -54.6 | -619.8 | 0.92 | -73.9 | -29 / -26 | -40 / -5 / -10 | -18.7 (187) |  |
-| 2 | touch | 2569 | 28 | -0.06 | -146.9 | -712.1 | 0.91 | -167.8 | -90 / -57 | -91 / -39 / -17 | -29.8 (187) |  |
-| 3 | touch | 2569 | 28 | -0.05 | -121.9 | -687.1 | 0.95 | -235.1 | -69 / -53 | -56 / -83 / +18 | -4.9 (187) |  |
-| 4 | touch | 2569 | 27 | -0.09 | -224.9 | -790.1 | 0.92 | -307.8 | -160 / -65 | -148 / -115 / +38 | -40.7 (187) |  |
-| 5 (auto) | touch | 2569 | 27 | -0.17 | -432.9 | -998.1 | 0.86 | -456.6 | -270 / -163 | -237 / -163 / -33 | -48.4 (187) |  |
-| 6 | touch | 2569 | 27 | -0.06 | -151.2 | -716.4 | 0.95 | -323.6 | -172 / +21 | -215 / +47 / +17 | -64.2 (187) |  |
-| 8 | touch | 2569 | 27 | -0.14 | -348.7 | -913.9 | 0.90 | -483.0 | -327 / -22 | -364 / +21 / -6 | -62.2 (187) |  |
-| 10 | touch | 2569 | 26 | -0.17 | -424.9 | -990.1 | 0.89 | -548.8 | -373 / -52 | -430 / +13 / -8 | -62.2 (187) |  |
-| 12 | touch | 2569 | 27 | -0.16 | -406.7 | -971.9 | 0.89 | -559.4 | -391 / -15 | -437 / +8 / +23 | -62.2 (187) |  |
-| 15 | touch | 2569 | 26 | -0.21 | -539.0 | -1104.2 | 0.86 | -679.5 | -516 / -23 | -554 / -2 / +17 | -62.2 (187) |  |
-| off | close | 2569 | 32 | -0.11 | -286.2 | -851.4 | 0.95 | -768.3 | -147 / -139 | -163 / -75 / -49 | -22.2 (187) |  |
-| 0.5 | close | 2569 | 41 | -0.15 | -388.7 | -953.9 | 0.89 | -544.8 | -364 / -25 | -469 / +70 / +9 | -35.2 (187) |  |
-| 1 | close | 2569 | 39 | -0.15 | -386.0 | -951.2 | 0.90 | -488.7 | -314 / -73 | -371 / +10 / -25 | -49.2 (187) |  |
-| 2 | close | 2569 | 35 | -0.19 | -498.9 | -1064.1 | 0.89 | -545.0 | -308 / -191 | -403 / -7 / -89 | -55.0 (187) |  |
-| 3 | close | 2569 | 34 | -0.19 | -487.3 | -1052.5 | 0.90 | -536.0 | -271 / -216 | -394 / +18 / -112 | -40.5 (187) |  |
-| 4 | close | 2569 | 33 | -0.16 | -408.9 | -974.1 | 0.92 | -506.4 | -270 / -138 | -324 / -49 / -36 | -20.2 (187) |  |
-| 5 (auto) | close | 2569 | 33 | -0.14 | -369.3 | -934.5 | 0.93 | -479.8 | -255 / -114 | -339 / +38 / -68 | -43.8 (187) |  |
-| 6 | close | 2569 | 32 | -0.22 | -555.3 | -1120.5 | 0.90 | -645.1 | -447 / -109 | -487 / -26 / -42 | -20.8 (187) |  |
-| 8 | close | 2569 | 32 | -0.24 | -603.9 | -1169.1 | 0.89 | -691.3 | -457 / -146 | -515 / -25 / -65 | -22.2 (187) |  |
-| 10 | close | 2569 | 32 | -0.22 | -573.9 | -1139.1 | 0.90 | -743.7 | -407 / -167 | -442 / -61 / -71 | -22.2 (187) |  |
-| 12 | close | 2569 | 32 | -0.22 | -578.0 | -1143.2 | 0.90 | -736.8 | -408 / -170 | -441 / -66 / -71 | -22.2 (187) |  |
-| 15 | close | 2569 | 32 | -0.16 | -419.4 | -984.6 | 0.93 | -753.2 | -282 / -137 | -298 / -73 / -49 | -22.2 (187) |  |
+| off | touch | 2664 | 26 | -0.13 | -350.1 | -936.2 | 0.92 | -560.1 | -400 / +50 | -360 / +25 / -15 | -46.4 (197) |  |
+| 0.5 | touch | 2664 | 34 | -0.02 | -44.6 | -630.7 | 0.87 | -57.7 | -30 / -14 | -20 / -9 / -16 | -0.7 (197) |  |
+| 1 | touch | 2664 | 32 | -0.02 | -51.8 | -637.9 | 0.93 | -73.9 | -36 / -16 | -33 / -12 / -7 | -6.1 (197) |  |
+| 2 | touch | 2664 | 28 | -0.05 | -133.2 | -719.3 | 0.92 | -167.8 | -113 / -20 | -92 / -32 / -10 | +2.3 (197) |  |
+| 3 | touch | 2664 | 28 | -0.05 | -129.9 | -716.0 | 0.95 | -235.1 | -107 / -23 | -64 / -69 / +3 | -15.6 (197) |  |
+| 4 | touch | 2664 | 27 | -0.09 | -249.5 | -835.6 | 0.91 | -307.8 | -206 / -44 | -159 / -83 / -7 | -38.4 (197) |  |
+| 5 (auto) | touch | 2664 | 27 | -0.17 | -460.0 | -1046.1 | 0.86 | -460.0 | -334 / -126 | -250 / -146 / -64 | -43.7 (197) |  |
+| 6 | touch | 2664 | 27 | -0.07 | -183.8 | -769.9 | 0.95 | -323.6 | -249 / +65 | -231 / +83 / -35 | -61.3 (197) |  |
+| 8 | touch | 2664 | 26 | -0.14 | -383.5 | -969.6 | 0.90 | -483.0 | -409 / +25 | -378 / +57 / -62 | -57.2 (197) |  |
+| 10 | touch | 2664 | 26 | -0.17 | -448.9 | -1035.0 | 0.88 | -548.8 | -453 / +4 | -446 / +50 / -54 | -46.4 (197) |  |
+| 12 | touch | 2664 | 27 | -0.16 | -428.7 | -1014.8 | 0.89 | -559.4 | -480 / +51 | -453 / +45 / -20 | -44.4 (197) |  |
+| 15 | touch | 2664 | 26 | -0.21 | -563.0 | -1149.1 | 0.86 | -679.5 | -603 / +40 | -570 / +35 / -28 | -46.4 (197) |  |
+| off | close | 2664 | 32 | -0.13 | -348.9 | -935.0 | 0.94 | -768.3 | -242 / -106 | -151 / -51 / -147 | -15.8 (197) |  |
+| 0.5 | close | 2664 | 41 | -0.15 | -397.8 | -983.9 | 0.89 | -544.8 | -406 / +8 | -479 / +56 / +25 | -0.5 (197) |  |
+| 1 | close | 2664 | 39 | -0.15 | -387.6 | -973.7 | 0.90 | -488.7 | -364 / -24 | -391 / +8 / -5 | +16.9 (197) |  |
+| 2 | close | 2664 | 35 | -0.19 | -517.9 | -1104.0 | 0.89 | -545.0 | -387 / -131 | -416 / -12 / -90 | +13.8 (197) |  |
+| 3 | close | 2664 | 34 | -0.20 | -541.3 | -1127.4 | 0.89 | -541.3 | -347 / -194 | -370 / -7 / -164 | -25.7 (197) |  |
+| 4 | close | 2664 | 33 | -0.18 | -468.0 | -1054.1 | 0.91 | -506.4 | -376 / -92 | -317 / -27 / -124 | -11.6 (197) |  |
+| 5 (auto) | close | 2664 | 33 | -0.16 | -432.9 | -1019.0 | 0.92 | -479.8 | -366 / -66 | -336 / +53 / -150 | -39.8 (197) |  |
+| 6 | close | 2664 | 32 | -0.23 | -618.0 | -1204.1 | 0.89 | -645.1 | -542 / -76 | -482 / +6 / -142 | -15.8 (197) |  |
+| 8 | close | 2664 | 32 | -0.25 | -666.6 | -1252.7 | 0.88 | -691.3 | -553 / -114 | -503 / -1 / -163 | -15.8 (197) |  |
+| 10 | close | 2664 | 32 | -0.24 | -636.6 | -1222.7 | 0.89 | -743.7 | -502 / -134 | -430 / -37 / -169 | -15.8 (197) |  |
+| 12 | close | 2664 | 32 | -0.24 | -640.7 | -1226.8 | 0.89 | -736.8 | -504 / -137 | -429 / -43 / -169 | -15.8 (197) |  |
+| 15 | close | 2664 | 32 | -0.18 | -482.1 | -1068.2 | 0.92 | -753.2 | -378 / -104 | -286 / -49 / -147 | -15.8 (197) |  |
 
 **B. Max Loss sweep (S = auto 5, touch exits)**
 
 | X | trades | skipped | win % | avg | net | net after costs | PF | max DD | halves | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 2569 | 0 | 27 | -0.17 | -432.9 | -998.1 | 0.86 | -456.6 | -270 / -163 | -48.4 (187) |  |
-| 2 | 1029 | 1540 | 20 | -0.04 | -36.1 | -262.5 | 0.94 | -120.0 | -70 / +34 | +13.5 (103) |  |
-| 3 | 1514 | 1055 | 24 | -0.01 | -20.8 | -353.9 | 0.98 | -105.3 | -62 / +42 | -5.4 (138) |  |
-| 4 | 1857 | 712 | 25 | -0.08 | -143.0 | -551.5 | 0.92 | -194.4 | -184 / +41 | -0.9 (154) |  |
-| 5 | 2126 | 443 | 26 | -0.07 | -158.2 | -625.9 | 0.93 | -191.7 | -161 / +3 | -16.2 (172) |  |
-| 6 | 2320 | 249 | 26 | -0.13 | -293.9 | -804.3 | 0.89 | -309.5 | -228 / -66 | -25.4 (177) |  |
-| 8 | 2491 | 78 | 27 | -0.19 | -469.2 | -1017.2 | 0.84 | -513.6 | -373 / -97 | -35.0 (183) |  |
-| 10 | 2542 | 27 | 27 | -0.21 | -525.4 | -1084.6 | 0.83 | -551.4 | -398 / -127 | -46.1 (186) |  |
-| 12 | 2552 | 17 | 27 | -0.17 | -424.4 | -985.8 | 0.86 | -448.1 | -284 / -140 | -48.4 (187) |  |
-| 15 | 2562 | 7 | 27 | -0.17 | -424.5 | -988.1 | 0.86 | -448.2 | -268 / -156 | -48.4 (187) |  |
+| off | 2664 | 0 | 27 | -0.17 | -460.0 | -1046.1 | 0.86 | -460.0 | -334 / -126 | -43.7 (197) |  |
+| 2 | 1076 | 1588 | 19 | -0.06 | -66.5 | -303.2 | 0.90 | -120.0 | -72 / +5 | -25.2 (101) |  |
+| 3 | 1576 | 1088 | 23 | -0.03 | -48.8 | -395.5 | 0.96 | -105.3 | -64 / +15 | -27.7 (137) |  |
+| 4 | 1931 | 733 | 25 | -0.09 | -176.1 | -600.9 | 0.90 | -194.4 | -180 / +4 | -34.5 (156) |  |
+| 5 | 2206 | 458 | 26 | -0.09 | -188.4 | -673.7 | 0.92 | -191.7 | -171 / -18 | -33.8 (171) |  |
+| 6 | 2408 | 256 | 26 | -0.13 | -314.2 | -844.0 | 0.88 | -315.0 | -252 / -62 | -33.1 (184) |  |
+| 8 | 2585 | 79 | 26 | -0.19 | -498.6 | -1067.3 | 0.84 | -513.6 | -428 / -70 | -43.2 (194) |  |
+| 10 | 2637 | 27 | 27 | -0.21 | -552.5 | -1132.6 | 0.83 | -552.5 | -457 / -95 | -43.7 (197) |  |
+| 12 | 2647 | 17 | 27 | -0.17 | -451.5 | -1033.8 | 0.86 | -451.5 | -348 / -104 | -43.7 (197) |  |
+| 15 | 2657 | 7 | 27 | -0.17 | -451.6 | -1036.1 | 0.86 | -451.6 | -329 / -123 | -43.7 (197) |  |
 
-**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 2569 trades, net -432.9, avg -0.17)**
+**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 2664 trades, net -460.0, avg -0.17)**
 
 | S | X | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 6 | 2 | 975 | 20 | +0.07 | +64.7 | -149.8 | 1.11 | -76.4 | +37 / +28 | +27 / -37 / +75 | ✱ |
-| 6 | 3 | 1452 | 24 | +0.03 | +37.9 | -281.5 | 1.03 | -105.5 | -2 / +40 | -69 / +60 / +47 |  |
-| 4 | 2 | 1113 | 21 | +0.03 | +34.1 | -210.8 | 1.05 | -90.6 | +14 / +21 | +44 / -63 / +52 | ✱ |
-| 3 | 2 | 1314 | 23 | +0.02 | +27.5 | -261.6 | 1.04 | -101.4 | -30 / +58 | +2 / -60 / +86 |  |
-| 15 | 2 | 921 | 19 | +0.01 | +7.6 | -195.0 | 1.01 | -83.1 | -29 / +37 | -27 / -27 / +62 |  |
-| off | 2 | 921 | 19 | +0.01 | +7.5 | -195.1 | 1.01 | -84.3 | -29 / +37 | -27 / -27 / +62 |  |
-| 10 | 2 | 932 | 20 | +0.01 | +5.2 | -199.8 | 1.01 | -84.5 | -28 / +33 | -25 / -31 / +61 |  |
-| 8 | 2 | 937 | 19 | -0.00 | -0.6 | -206.7 | 1.00 | -87.4 | -42 / +42 | -38 / -44 / +81 |  |
+| 6 | 2 | 1021 | 20 | +0.04 | +35.8 | -188.8 | 1.06 | -76.4 | +21 / +15 | +35 / -47 / +47 | ✱ |
+| 6 | 3 | 1511 | 23 | +0.01 | +16.1 | -316.3 | 1.01 | -105.5 | -9 / +25 | -65 / +57 / +24 |  |
+| 4 | 2 | 1161 | 20 | +0.01 | +8.0 | -247.4 | 1.01 | -90.6 | +30 / -22 | +41 / -61 / +28 |  |
+| 3 | 2 | 1366 | 23 | +0.00 | +4.5 | -296.0 | 1.01 | -101.4 | -31 / +36 | -13 / -56 / +73 |  |
+| 1 | 2 | 1985 | 30 | -0.01 | -11.5 | -448.2 | 0.98 | -51.5 | -17 / +5 | -18 / +3 / +3 |  |
+| 15 | 2 | 966 | 19 | -0.02 | -20.5 | -233.0 | 0.97 | -83.1 | -20 / -1 | -30 / -8 / +18 |  |
+| off | 2 | 966 | 19 | -0.02 | -20.6 | -233.1 | 0.97 | -84.3 | -20 / -1 | -30 / -8 / +18 |  |
+| 1 | 3 | 2233 | 31 | -0.01 | -22.3 | -513.6 | 0.96 | -56.6 | -18 / -5 | -9 / -13 / -0 |  |
 
-## MNQ 3m  (bars 01/04 → 10/28, HTF 15m)
+## MNQ 3m  (bars 01/04 → 11/06, HTF 15m)
 
-All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 9695 trades, net -3304.5, avg -0.34, win 30 % at S auto / no max loss.
+All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 10015 trades, net -2172.0, avg -0.22, win 31 % at S auto / no max loss.
 
-Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 86 · replayed 109 · matched 85 (99 % of stored).
+Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 139 · replayed 196 · matched 139 (100 % of stored).
 
 **A. Custom points sweep (Max Loss off)**
 
 | S | mode | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| off | touch | 2629 | 24 | -1.55 | -4088.0 | -6375.2 | 0.79 | -4238.5 | -2650 / -1438 | -1944 / -1513 / -630 | -328.2 (210) |  |
-| 2 | touch | 2629 | 34 | +0.02 | +53.2 | -2234.0 | 1.06 | -198.0 | +36 / +17 | +108 / -129 / +74 | +2.8 (210) | ✱ |
-| 3 | touch | 2629 | 33 | +0.08 | +219.2 | -2068.0 | 1.15 | -182.2 | +56 / +163 | +121 / -102 / +201 | +82.5 (210) | ✱ |
-| 5 | touch | 2629 | 31 | +0.06 | +164.8 | -2122.5 | 1.05 | -419.8 | -79 / +244 | +56 / -190 / +299 | +86.8 (210) |  |
-| 8 | touch | 2629 | 29 | +0.08 | +209.0 | -2078.2 | 1.04 | -385.8 | +254 / -45 | +29 / +174 / +6 | -38.5 (210) | T |
-| 10 | touch | 2629 | 29 | -0.04 | -98.2 | -2385.5 | 0.99 | -693.5 | +93 / -191 | -13 / -88 / +3 | +36.2 (210) |  |
-| 15 | touch | 2629 | 27 | -0.31 | -808.0 | -3095.2 | 0.93 | -1036.5 | -158 / -650 | -213 / -124 / -471 | -201.8 (210) |  |
-| 20 | touch | 2629 | 25 | -0.57 | -1506.2 | -3793.5 | 0.89 | -1849.2 | -516 / -991 | -402 / -582 / -522 | -208.5 (210) |  |
-| 25 | touch | 2629 | 25 | -0.82 | -2150.2 | -4437.5 | 0.86 | -2408.8 | -953 / -1197 | -775 / -517 / -858 | -223.0 (210) |  |
-| 30 (auto) | touch | 2629 | 25 | -0.93 | -2456.2 | -4743.5 | 0.85 | -2690.0 | -1258 / -1199 | -927 / -716 / -813 | -314.0 (210) |  |
-| 40 | touch | 2629 | 25 | -1.29 | -3384.8 | -5672.0 | 0.81 | -3533.8 | -1847 / -1538 | -1360 / -1138 / -887 | -347.8 (210) |  |
-| 50 | touch | 2629 | 24 | -1.60 | -4193.8 | -6481.0 | 0.77 | -4392.2 | -2153 / -2040 | -1516 / -1678 / -1001 | -315.8 (210) |  |
-| 60 | touch | 2629 | 24 | -1.53 | -4033.8 | -6321.0 | 0.79 | -4136.5 | -2322 / -1712 | -1732 / -1263 / -1039 | -395.2 (210) |  |
-| 80 | touch | 2629 | 24 | -1.56 | -4102.8 | -6390.0 | 0.79 | -4253.2 | -2516 / -1587 | -1849 / -1630 / -623 | -328.2 (210) |  |
-| off | close | 2629 | 33 | -0.76 | -2005.0 | -4292.2 | 0.93 | -2796.2 | -1933 / -72 | -1322 / -234 / -449 | -433.0 (210) |  |
-| 2 | close | 2629 | 41 | -0.70 | -1853.0 | -4140.2 | 0.89 | -2596.5 | -1476 / -378 | -1013 / -701 / -138 | -237.2 (210) |  |
-| 3 | close | 2629 | 40 | -0.77 | -2013.2 | -4300.5 | 0.88 | -2598.5 | -1446 / -567 | -1012 / -737 / -264 | -276.2 (210) |  |
-| 5 | close | 2629 | 37 | -0.76 | -2001.5 | -4288.7 | 0.89 | -2419.8 | -1192 / -810 | -765 / -756 / -480 | -407.0 (210) |  |
-| 8 | close | 2629 | 36 | -0.87 | -2288.5 | -4575.7 | 0.89 | -2750.0 | -1140 / -1148 | -802 / -656 / -830 | -417.8 (210) |  |
-| 10 | close | 2629 | 35 | -0.68 | -1797.5 | -4084.7 | 0.92 | -2467.8 | -973 / -825 | -466 / -562 / -770 | -358.8 (210) |  |
-| 15 | close | 2629 | 33 | -0.87 | -2292.2 | -4579.5 | 0.90 | -2945.2 | -1450 / -842 | -1061 / -524 / -707 | -353.8 (210) |  |
-| 20 | close | 2629 | 33 | -0.88 | -2318.8 | -4606.0 | 0.91 | -2841.2 | -1706 / -613 | -1307 / -458 / -553 | -417.2 (210) |  |
-| 25 | close | 2629 | 33 | -0.84 | -2209.5 | -4496.7 | 0.91 | -2658.2 | -1466 / -744 | -1088 / -172 / -950 | -396.0 (210) |  |
-| 30 (auto) | close | 2629 | 33 | -0.90 | -2371.2 | -4658.5 | 0.91 | -2642.8 | -1758 / -613 | -1248 / -109 / -1014 | -445.0 (210) |  |
-| 40 | close | 2629 | 33 | -0.84 | -2203.2 | -4490.5 | 0.92 | -2601.0 | -2120 / -83 | -1520 / -67 / -616 | -486.5 (210) |  |
-| 50 | close | 2629 | 33 | -0.97 | -2554.5 | -4841.7 | 0.91 | -2968.0 | -1822 / -732 | -1304 / -386 / -864 | -463.0 (210) |  |
-| 60 | close | 2629 | 33 | -0.75 | -1977.8 | -4265.0 | 0.93 | -2695.8 | -1832 / -145 | -1287 / +9 / -700 | -433.0 (210) |  |
-| 80 | close | 2629 | 33 | -0.73 | -1924.2 | -4211.5 | 0.93 | -2732.8 | -1870 / -55 | -1259 / -217 / -449 | -433.0 (210) |  |
+| off | touch | 2716 | 25 | -1.22 | -3324.5 | -5687.4 | 0.84 | -4485.8 | -2660 / -664 | -2025 / -1373 / +74 | +744.2 (214) |  |
+| 2 | touch | 2716 | 34 | +0.02 | +52.8 | -2310.2 | 1.06 | -198.0 | +39 / +14 | +102 / -142 / +93 | -18.8 (214) | ✱ |
+| 3 | touch | 2716 | 34 | +0.08 | +223.5 | -2139.4 | 1.15 | -182.2 | +58 / +166 | +136 / -99 / +187 | +27.8 (214) | ✱ |
+| 5 | touch | 2716 | 31 | +0.05 | +128.8 | -2234.2 | 1.04 | -419.8 | -44 / +173 | +52 / -190 / +268 | +34.0 (214) |  |
+| 8 | touch | 2716 | 29 | +0.07 | +178.5 | -2184.4 | 1.03 | -385.8 | +338 / -159 | +37 / +260 / -118 | -26.2 (214) |  |
+| 10 | touch | 2716 | 28 | -0.07 | -198.5 | -2561.4 | 0.97 | -693.5 | +152 / -351 | -29 / -16 / -153 | -4.8 (214) |  |
+| 15 | touch | 2716 | 27 | -0.35 | -946.0 | -3308.9 | 0.92 | -1117.0 | -11 / -935 | -247 / -9 / -690 | -168.2 (214) |  |
+| 20 | touch | 2716 | 26 | -0.52 | -1412.2 | -3775.2 | 0.90 | -1849.2 | -387 / -1025 | -457 / -590 / -365 | +108.5 (214) |  |
+| 25 | touch | 2716 | 25 | -0.81 | -2205.5 | -4568.4 | 0.86 | -2408.8 | -654 / -1552 | -764 / -686 / -756 | -7.0 (214) |  |
+| 30 (auto) | touch | 2716 | 25 | -0.79 | -2155.5 | -4518.4 | 0.87 | -2726.8 | -999 / -1156 | -959 / -803 / -393 | +293.5 (214) |  |
+| 40 | touch | 2716 | 25 | -1.17 | -3184.5 | -5547.4 | 0.83 | -3638.5 | -1635 / -1550 | -1432 / -1272 / -480 | +107.8 (214) |  |
+| 50 | touch | 2716 | 25 | -1.35 | -3673.0 | -6035.9 | 0.81 | -4538.5 | -2074 / -1600 | -1627 / -1817 / -229 | +477.0 (214) |  |
+| 60 | touch | 2716 | 25 | -1.35 | -3670.8 | -6033.7 | 0.81 | -4321.5 | -2296 / -1374 | -1824 / -1464 / -382 | +276.8 (214) |  |
+| 80 | touch | 2716 | 25 | -1.22 | -3315.2 | -5678.2 | 0.84 | -4494.2 | -2520 / -795 | -1930 / -1483 / +98 | +768.2 (214) |  |
+| off | close | 2716 | 33 | -0.39 | -1067.2 | -3430.2 | 0.96 | -2796.2 | -1854 / +786 | -1484 / +268 / +148 | +772.5 (214) |  |
+| 2 | close | 2716 | 42 | -0.66 | -1793.0 | -4155.9 | 0.89 | -2596.5 | -1406 / -387 | -1093 / -846 / +146 | +148.0 (214) |  |
+| 3 | close | 2716 | 40 | -0.69 | -1883.5 | -4246.4 | 0.89 | -2598.5 | -1330 / -553 | -1092 / -864 / +72 | +178.8 (214) |  |
+| 5 | close | 2716 | 38 | -0.49 | -1317.5 | -3680.4 | 0.93 | -2419.8 | -998 / -320 | -846 / -914 / +442 | +682.8 (214) |  |
+| 8 | close | 2716 | 36 | -0.60 | -1636.8 | -3999.7 | 0.92 | -2754.2 | -959 / -678 | -864 / -911 / +138 | +620.8 (214) |  |
+| 10 | close | 2716 | 35 | -0.38 | -1026.2 | -3389.2 | 0.95 | -2467.8 | -830 / -196 | -528 / -868 / +370 | +684.8 (214) |  |
+| 15 | close | 2716 | 34 | -0.49 | -1317.8 | -3680.7 | 0.95 | -2945.2 | -1183 / -135 | -1060 / -934 / +676 | +909.0 (214) |  |
+| 20 | close | 2716 | 33 | -0.52 | -1412.8 | -3775.7 | 0.95 | -2841.2 | -1436 / +23 | -1358 / -672 / +617 | +749.0 (214) |  |
+| 25 | close | 2716 | 33 | -0.47 | -1274.5 | -3637.4 | 0.95 | -2658.2 | -1072 / -202 | -1147 / -550 / +422 | +807.0 (214) |  |
+| 30 (auto) | close | 2716 | 33 | -0.53 | -1441.5 | -3804.4 | 0.95 | -2658.2 | -1475 / +34 | -1372 / -299 / +229 | +748.2 (214) |  |
+| 40 | close | 2716 | 33 | -0.51 | -1376.2 | -3739.2 | 0.95 | -2601.0 | -1835 / +458 | -1680 / +182 / +122 | +619.8 (214) |  |
+| 50 | close | 2716 | 33 | -0.60 | -1616.8 | -3979.7 | 0.94 | -2968.0 | -1677 / +60 | -1466 / -332 / +181 | +754.0 (214) |  |
+| 60 | close | 2716 | 33 | -0.38 | -1042.2 | -3405.2 | 0.96 | -2695.8 | -1622 / +580 | -1449 / +260 / +146 | +770.2 (214) |  |
+| 80 | close | 2716 | 33 | -0.36 | -986.5 | -3349.4 | 0.97 | -2732.8 | -1790 / +804 | -1420 / +286 / +148 | +772.5 (214) |  |
 
 **B. Max Loss sweep (S = auto 30, touch exits)**
 
 | X | trades | skipped | win % | avg | net | net after costs | PF | max DD | halves | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 2629 | 0 | 25 | -0.93 | -2456.2 | -4743.5 | 0.85 | -2690.0 | -1258 / -1199 | -314.0 (210) |  |
-| 10 | 1116 | 1513 | 19 | -0.62 | -688.0 | -1658.9 | 0.80 | -840.8 | -237 / -451 | +97.8 (67) |  |
-| 15 | 1545 | 1084 | 21 | -0.78 | -1210.0 | -2554.2 | 0.80 | -1466.5 | -453 / -757 | -65.8 (101) |  |
-| 20 | 1858 | 771 | 22 | -0.86 | -1600.8 | -3217.2 | 0.80 | -1864.2 | -338 / -1263 | -197.8 (132) |  |
-| 25 | 2072 | 557 | 23 | -0.87 | -1806.5 | -3609.1 | 0.82 | -2038.2 | -387 / -1420 | -296.5 (152) |  |
-| 30 | 2284 | 345 | 24 | -1.09 | -2481.2 | -4468.3 | 0.79 | -2705.0 | -725 / -1756 | -302.2 (168) |  |
-| 40 | 2489 | 140 | 24 | -1.02 | -2540.8 | -4706.2 | 0.82 | -3008.0 | -1060 / -1480 | -308.2 (193) |  |
-| 50 | 2589 | 40 | 25 | -0.77 | -1981.5 | -4233.9 | 0.87 | -2322.8 | -1095 / -886 | -258.8 (204) |  |
-| 60 | 2621 | 8 | 25 | -0.94 | -2454.2 | -4734.5 | 0.85 | -2688.0 | -1228 / -1226 | -311.8 (209) |  |
-| 80 | 2627 | 2 | 25 | -0.93 | -2455.5 | -4741.0 | 0.85 | -2689.2 | -1227 / -1228 | -314.0 (210) |  |
+| off | 2716 | 0 | 25 | -0.79 | -2155.5 | -4518.4 | 0.87 | -2726.8 | -999 / -1156 | +293.5 (214) |  |
+| 10 | 1141 | 1575 | 19 | -0.49 | -563.0 | -1555.7 | 0.84 | -840.8 | -230 / -333 | +225.0 (68) |  |
+| 15 | 1591 | 1125 | 21 | -0.76 | -1210.5 | -2594.7 | 0.80 | -1482.5 | -489 / -721 | -8.5 (110) |  |
+| 20 | 1918 | 798 | 22 | -0.80 | -1535.8 | -3204.4 | 0.82 | -1869.5 | -453 / -1083 | -4.8 (141) |  |
+| 25 | 2137 | 579 | 23 | -0.77 | -1642.8 | -3501.9 | 0.84 | -2104.8 | -384 / -1258 | +56.8 (153) |  |
+| 30 | 2356 | 360 | 24 | -0.99 | -2324.0 | -4373.7 | 0.81 | -2793.8 | -770 / -1554 | +81.8 (169) |  |
+| 40 | 2568 | 148 | 25 | -0.89 | -2296.2 | -4530.4 | 0.84 | -3008.0 | -1129 / -1167 | +254.2 (193) |  |
+| 50 | 2675 | 41 | 25 | -0.65 | -1732.0 | -4059.2 | 0.89 | -2322.8 | -1034 / -698 | +297.5 (207) |  |
+| 60 | 2708 | 8 | 25 | -0.80 | -2153.5 | -4509.5 | 0.87 | -2724.8 | -1148 / -1005 | +295.8 (213) |  |
+| 80 | 2714 | 2 | 25 | -0.79 | -2154.8 | -4515.9 | 0.87 | -2726.0 | -1032 / -1122 | +293.5 (214) |  |
 
-**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 2629 trades, net -2456.2, avg -0.93)**
+**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 2716 trades, net -2155.5, avg -0.79)**
 
 | S | X | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 3 | 50 | 2596 | 33 | +0.09 | +224.0 | -2034.5 | 1.15 | -178.0 | +61 / +163 | +130 / -109 / +203 | ✱ |
-| 3 | 60 | 2610 | 33 | +0.09 | +223.8 | -2046.9 | 1.15 | -179.0 | +60 / +164 | +123 / -109 / +210 | ✱ |
-| 3 | 40 | 2561 | 33 | +0.09 | +221.2 | -2006.8 | 1.15 | -181.2 | +64 / +158 | +127 / -115 / +209 | ✱ |
-| 3 | 80 | 2625 | 33 | +0.08 | +219.8 | -2064.0 | 1.15 | -182.0 | +57 / +163 | +120 / -104 / +204 | ✱ |
-| 3 | off | 2629 | 33 | +0.08 | +219.2 | -2068.0 | 1.15 | -182.2 | +56 / +163 | +121 / -102 / +201 | ✱ |
-| 3 | 20 | 2341 | 33 | +0.09 | +217.5 | -1819.2 | 1.15 | -186.8 | +69 / +149 | +108 / -102 / +212 | ✱ |
-| 3 | 15 | 2185 | 32 | +0.10 | +212.2 | -1688.7 | 1.16 | -192.8 | +72 / +140 | +108 / -104 / +209 | ✱ |
-| 8 | off | 2629 | 29 | +0.08 | +209.0 | -2078.2 | 1.04 | -385.8 | +254 / -45 | +29 / +174 / +6 | T |
+| 3 | 50 | 2679 | 34 | +0.08 | +227.5 | -2103.2 | 1.15 | -178.0 | +63 / +164 | +139 / -97 / +186 | ✱ |
+| 3 | 60 | 2695 | 34 | +0.08 | +227.2 | -2117.4 | 1.15 | -179.0 | +61 / +166 | +139 / -98 / +186 | ✱ |
+| 3 | 40 | 2641 | 33 | +0.08 | +224.0 | -2073.7 | 1.15 | -181.2 | +60 / +164 | +143 / -105 / +186 | ✱ |
+| 3 | 80 | 2711 | 33 | +0.08 | +223.8 | -2134.8 | 1.15 | -182.0 | +58 / +166 | +136 / -98 / +187 | ✱ |
+| 3 | off | 2716 | 34 | +0.08 | +223.5 | -2139.4 | 1.15 | -182.2 | +58 / +166 | +136 / -99 / +187 | ✱ |
+| 3 | 20 | 2402 | 33 | +0.09 | +221.5 | -1868.2 | 1.15 | -186.8 | +55 / +166 | +112 / -80 / +189 | ✱ |
+| 3 | 15 | 2238 | 32 | +0.10 | +216.2 | -1730.8 | 1.16 | -192.8 | +49 / +167 | +123 / -95 / +188 | ✱ |
+| 3 | 25 | 2513 | 33 | +0.08 | +208.2 | -1978.1 | 1.14 | -195.0 | +43 / +165 | +131 / -108 / +185 | ✱ |
 
-## MES 2m  (bars 01/04 → 10/28, HTF 10m)
+## MES 2m  (bars 01/04 → 11/06, HTF 10m)
 
-All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 13834 trades, net -2336.5, avg -0.17, win 27 % at S auto / no max loss.
+All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 14277 trades, net -2339.8, avg -0.16, win 27 % at S auto / no max loss.
 
-Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 122 · replayed 168 · matched 117 (96 % of stored).
+Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 201 · replayed 295 · matched 198 (99 % of stored).
 
 **A. Custom points sweep (Max Loss off)**
 
 | S | mode | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| off | touch | 3931 | 21 | -0.06 | -245.8 | -2211.2 | 0.94 | -339.8 | -54 / -192 | +15 / -69 / -192 | -79.2 (284) |  |
-| 0.5 | touch | 3931 | 20 | -0.04 | -148.0 | -2113.5 | 0.71 | -149.2 | -66 / -82 | -50 / -37 / -61 | -14.0 (284) |  |
-| 1 | touch | 3931 | 21 | -0.08 | -301.8 | -2267.2 | 0.74 | -318.8 | -141 / -160 | -78 / -122 / -102 | -40.0 (284) |  |
-| 2 | touch | 3931 | 21 | -0.09 | -347.8 | -2313.2 | 0.85 | -353.5 | -144 / -204 | -171 / +29 / -206 | -83.0 (284) |  |
-| 3 | touch | 3931 | 21 | -0.10 | -402.5 | -2368.0 | 0.86 | -416.2 | -181 / -222 | -155 / -71 / -176 | -54.0 (284) |  |
-| 4 | touch | 3931 | 21 | -0.11 | -414.5 | -2380.0 | 0.87 | -435.8 | -202 / -213 | -192 / -88 / -134 | -59.0 (284) |  |
-| 5 (auto) | touch | 3931 | 21 | -0.08 | -325.5 | -2291.0 | 0.91 | -383.0 | -62 / -264 | -26 / -111 / -189 | -77.2 (284) |  |
-| 6 | touch | 3931 | 21 | -0.06 | -240.0 | -2205.5 | 0.93 | -302.2 | -56 / -184 | -43 / -48 / -149 | -62.5 (284) |  |
-| 8 | touch | 3931 | 21 | -0.07 | -275.8 | -2241.2 | 0.93 | -314.5 | -91 / -185 | -47 / -48 / -180 | -71.2 (284) |  |
-| 10 | touch | 3931 | 21 | -0.07 | -292.2 | -2257.8 | 0.92 | -345.5 | -80 / -212 | -30 / -81 / -181 | -75.0 (284) |  |
-| 12 | touch | 3931 | 21 | -0.07 | -284.5 | -2250.0 | 0.92 | -353.0 | -78 / -206 | -18 / -78 / -188 | -77.2 (284) |  |
-| 15 | touch | 3931 | 21 | -0.07 | -275.5 | -2241.0 | 0.93 | -348.2 | -74 / -202 | -6 / -70 / -200 | -84.0 (284) |  |
-| off | close | 3931 | 31 | +0.06 | +248.2 | -1717.2 | 1.04 | -426.2 | +366 / -118 | +266 / +92 / -110 | -48.2 (284) |  |
-| 0.5 | close | 3931 | 37 | +0.06 | +227.0 | -1738.5 | 1.07 | -136.8 | +117 / +110 | +42 / +176 / +10 | -33.8 (284) | ✱T |
-| 1 | close | 3931 | 35 | +0.07 | +265.0 | -1700.5 | 1.07 | -199.5 | +188 / +78 | +72 / +226 / -32 | -46.8 (284) | ✱ |
-| 2 | close | 3931 | 32 | +0.05 | +208.0 | -1757.5 | 1.04 | -348.0 | +326 / -118 | +174 / +132 / -97 | -56.5 (284) |  |
-| 3 | close | 3931 | 31 | -0.01 | -37.2 | -2002.8 | 0.99 | -386.8 | +118 / -155 | +33 / +38 / -108 | -30.5 (284) |  |
-| 4 | close | 3931 | 31 | +0.07 | +275.0 | -1690.5 | 1.05 | -400.2 | +371 / -96 | +241 / +132 / -98 | -13.0 (284) |  |
-| 5 (auto) | close | 3931 | 31 | +0.05 | +181.8 | -1783.8 | 1.03 | -422.8 | +294 / -113 | +200 / +64 / -83 | -24.0 (284) |  |
-| 6 | close | 3931 | 31 | +0.05 | +211.8 | -1753.8 | 1.04 | -470.5 | +393 / -181 | +296 / +38 / -122 | -34.5 (284) |  |
-| 8 | close | 3931 | 31 | +0.07 | +285.0 | -1680.5 | 1.05 | -393.8 | +370 / -85 | +283 / +100 / -98 | -46.5 (284) |  |
-| 10 | close | 3931 | 31 | +0.07 | +288.0 | -1677.5 | 1.05 | -417.5 | +397 / -109 | +301 / +94 / -106 | -48.2 (284) |  |
-| 12 | close | 3931 | 31 | +0.06 | +252.8 | -1712.8 | 1.05 | -426.5 | +365 / -112 | +265 / +92 / -105 | -48.2 (284) |  |
-| 15 | close | 3931 | 31 | +0.07 | +257.0 | -1708.5 | 1.05 | -426.2 | +374 / -118 | +275 / +92 / -110 | -48.2 (284) |  |
+| off | touch | 4058 | 21 | -0.08 | -332.0 | -2361.0 | 0.92 | -412.8 | -66 / -266 | +9 / -111 / -230 | -88.0 (298) |  |
+| 0.5 | touch | 4058 | 20 | -0.04 | -152.8 | -2181.8 | 0.71 | -155.5 | -70 / -83 | -54 / -40 / -58 | -6.2 (298) |  |
+| 1 | touch | 4058 | 21 | -0.08 | -318.8 | -2347.8 | 0.73 | -335.8 | -156 / -163 | -90 / -123 / -106 | -32.5 (298) |  |
+| 2 | touch | 4058 | 21 | -0.09 | -381.5 | -2410.5 | 0.84 | -385.8 | -156 / -225 | -191 / +28 / -219 | -65.8 (298) |  |
+| 3 | touch | 4058 | 21 | -0.11 | -440.8 | -2469.8 | 0.85 | -446.2 | -186 / -255 | -166 / -78 / -198 | -37.0 (298) |  |
+| 4 | touch | 4058 | 21 | -0.12 | -489.0 | -2518.0 | 0.86 | -489.0 | -216 / -273 | -204 / -109 / -176 | -67.8 (298) |  |
+| 5 (auto) | touch | 4058 | 21 | -0.09 | -379.8 | -2408.8 | 0.90 | -423.0 | -79 / -301 | -31 / -152 / -196 | -58.2 (298) |  |
+| 6 | touch | 4058 | 21 | -0.08 | -307.5 | -2336.5 | 0.92 | -349.5 | -66 / -241 | -48 / -80 / -179 | -58.2 (298) |  |
+| 8 | touch | 4058 | 21 | -0.08 | -336.5 | -2365.5 | 0.91 | -357.8 | -103 / -233 | -53 / -85 / -198 | -52.8 (298) |  |
+| 10 | touch | 4058 | 21 | -0.09 | -366.2 | -2395.2 | 0.91 | -404.5 | -92 / -274 | -36 / -122 / -208 | -71.5 (298) |  |
+| 12 | touch | 4058 | 21 | -0.09 | -366.5 | -2395.5 | 0.91 | -421.8 | -91 / -276 | -24 / -120 / -223 | -81.8 (298) |  |
+| 15 | touch | 4058 | 21 | -0.09 | -359.8 | -2388.8 | 0.91 | -419.2 | -86 / -274 | -12 / -112 / -236 | -90.8 (298) |  |
+| off | close | 4058 | 31 | +0.06 | +262.5 | -1766.5 | 1.05 | -426.2 | +427 / -164 | +254 / +42 / -34 | +66.0 (298) |  |
+| 0.5 | close | 4058 | 37 | +0.06 | +225.0 | -1804.0 | 1.07 | -136.8 | +126 / +99 | +23 / +159 / +43 | +21.5 (298) | ✱T |
+| 1 | close | 4058 | 35 | +0.07 | +265.5 | -1763.5 | 1.07 | -199.5 | +188 / +77 | +47 / +203 / +16 | +19.0 (298) | ✱T |
+| 2 | close | 4058 | 32 | +0.04 | +178.2 | -1850.8 | 1.04 | -348.0 | +327 / -148 | +152 / +120 / -94 | +14.2 (298) |  |
+| 3 | close | 4058 | 31 | -0.01 | -47.0 | -2076.0 | 0.99 | -386.8 | +134 / -181 | +18 / +4 / -70 | +53.2 (298) |  |
+| 4 | close | 4058 | 31 | +0.06 | +247.2 | -1781.8 | 1.04 | -400.2 | +408 / -160 | +238 / +83 / -73 | +37.5 (298) |  |
+| 5 (auto) | close | 4058 | 31 | +0.03 | +111.5 | -1917.5 | 1.02 | -422.8 | +342 / -230 | +197 / +6 / -91 | -14.5 (298) |  |
+| 6 | close | 4058 | 31 | +0.04 | +160.2 | -1868.8 | 1.03 | -470.5 | +430 / -270 | +284 / -12 / -112 | +4.2 (298) |  |
+| 8 | close | 4058 | 31 | +0.07 | +283.0 | -1746.0 | 1.05 | -393.8 | +436 / -154 | +271 / +49 / -38 | +51.5 (298) |  |
+| 10 | close | 4058 | 31 | +0.07 | +302.2 | -1726.8 | 1.05 | -417.5 | +458 / -156 | +289 / +43 / -30 | +66.0 (298) |  |
+| 12 | close | 4058 | 31 | +0.07 | +267.0 | -1762.0 | 1.05 | -426.5 | +426 / -159 | +253 / +42 / -28 | +66.0 (298) |  |
+| 15 | close | 4058 | 31 | +0.07 | +271.2 | -1757.8 | 1.05 | -426.2 | +436 / -164 | +263 / +42 / -34 | +66.0 (298) |  |
 
 **B. Max Loss sweep (S = auto 5, touch exits)**
 
 | X | trades | skipped | win % | avg | net | net after costs | PF | max DD | halves | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 3931 | 0 | 21 | -0.08 | -325.5 | -2291.0 | 0.91 | -383.0 | -62 / -264 | -77.2 (284) |  |
-| 2 | 2280 | 1651 | 16 | -0.14 | -319.8 | -1459.8 | 0.74 | -357.5 | -78 / -242 | -64.8 (144) |  |
-| 3 | 2917 | 1014 | 18 | -0.16 | -461.0 | -1919.5 | 0.76 | -494.8 | -135 / -326 | -84.2 (198) |  |
-| 4 | 3330 | 601 | 19 | -0.18 | -613.8 | -2278.8 | 0.75 | -628.0 | -218 / -396 | -100.8 (226) |  |
-| 5 | 3609 | 322 | 20 | -0.16 | -560.8 | -2365.2 | 0.80 | -575.0 | -303 / -258 | -66.8 (263) |  |
-| 6 | 3757 | 174 | 20 | -0.15 | -550.0 | -2428.5 | 0.82 | -564.2 | -283 / -267 | -61.8 (270) |  |
-| 8 | 3895 | 36 | 21 | -0.09 | -369.2 | -2316.8 | 0.89 | -437.8 | -64 / -306 | -90.8 (280) |  |
-| 10 | 3922 | 9 | 21 | -0.08 | -314.5 | -2275.5 | 0.91 | -374.5 | -56 / -258 | -74.0 (283) |  |
-| 12 | 3924 | 7 | 21 | -0.08 | -311.0 | -2273.0 | 0.91 | -371.0 | -56 / -255 | -74.0 (283) |  |
-| 15 | 3928 | 3 | 21 | -0.08 | -326.8 | -2290.8 | 0.91 | -384.2 | -61 / -266 | -77.2 (284) |  |
+| off | 4058 | 0 | 21 | -0.09 | -379.8 | -2408.8 | 0.90 | -423.0 | -79 / -301 | -58.2 (298) |  |
+| 2 | 2336 | 1722 | 16 | -0.14 | -328.2 | -1496.2 | 0.74 | -367.0 | -88 / -240 | -46.5 (137) |  |
+| 3 | 2994 | 1064 | 18 | -0.16 | -482.0 | -1979.0 | 0.76 | -501.5 | -150 / -332 | -66.0 (195) |  |
+| 4 | 3418 | 640 | 19 | -0.18 | -629.2 | -2338.2 | 0.75 | -633.0 | -241 / -388 | -64.5 (222) |  |
+| 5 | 3719 | 339 | 20 | -0.16 | -593.0 | -2452.5 | 0.80 | -596.5 | -318 / -274 | -39.5 (264) |  |
+| 6 | 3874 | 184 | 20 | -0.15 | -599.2 | -2536.2 | 0.82 | -599.2 | -302 / -297 | -51.5 (278) |  |
+| 8 | 4020 | 38 | 21 | -0.10 | -420.0 | -2430.0 | 0.88 | -474.2 | -83 / -337 | -74.2 (294) |  |
+| 10 | 4049 | 9 | 21 | -0.09 | -368.8 | -2393.2 | 0.90 | -414.5 | -75 / -294 | -58.2 (298) |  |
+| 12 | 4051 | 7 | 21 | -0.09 | -365.2 | -2390.8 | 0.90 | -411.0 | -75 / -290 | -58.2 (298) |  |
+| 15 | 4055 | 3 | 21 | -0.09 | -381.0 | -2408.5 | 0.90 | -424.2 | -78 / -303 | -58.2 (298) |  |
 
-**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 3931 trades, net -325.5, avg -0.08)**
+**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 4058 trades, net -379.8, avg -0.09)**
 
 | S | X | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 0.5 | off | 3931 | 20 | -0.04 | -148.0 | -2113.5 | 0.71 | -149.2 | -66 / -82 | -50 / -37 / -61 |  |
-| 0.5 | 12 | 3922 | 20 | -0.04 | -148.5 | -2109.5 | 0.71 | -149.8 | -66 / -82 | -50 / -38 / -61 |  |
-| 0.5 | 15 | 3928 | 20 | -0.04 | -148.8 | -2112.8 | 0.71 | -150.0 | -66 / -82 | -50 / -38 / -61 |  |
-| 0.5 | 10 | 3916 | 20 | -0.04 | -149.5 | -2107.5 | 0.71 | -150.8 | -68 / -82 | -51 / -37 / -61 |  |
-| 0.5 | 8 | 3888 | 20 | -0.04 | -150.0 | -2094.0 | 0.71 | -151.2 | -69 / -81 | -52 / -37 / -61 |  |
-| 0.5 | 6 | 3832 | 20 | -0.04 | -150.2 | -2066.2 | 0.70 | -151.8 | -69 / -81 | -53 / -36 / -60 |  |
-| 0.5 | 5 | 3773 | 20 | -0.04 | -150.5 | -2037.0 | 0.70 | -152.2 | -68 / -83 | -51 / -40 / -59 |  |
-| 0.5 | 3 | 3543 | 19 | -0.04 | -152.2 | -1923.8 | 0.69 | -155.5 | -72 / -80 | -53 / -46 / -53 |  |
+| 0.5 | off | 4058 | 20 | -0.04 | -152.8 | -2181.8 | 0.71 | -155.5 | -70 / -83 | -54 / -40 / -58 |  |
+| 0.5 | 12 | 4048 | 20 | -0.04 | -153.2 | -2177.2 | 0.71 | -156.0 | -70 / -84 | -55 / -40 / -58 |  |
+| 0.5 | 15 | 4055 | 20 | -0.04 | -153.5 | -2181.0 | 0.71 | -156.2 | -70 / -84 | -54 / -41 / -58 |  |
+| 0.5 | 10 | 4042 | 20 | -0.04 | -154.2 | -2175.2 | 0.71 | -157.0 | -70 / -84 | -56 / -40 / -58 |  |
+| 0.5 | 8 | 4014 | 20 | -0.04 | -154.8 | -2161.8 | 0.71 | -157.5 | -71 / -84 | -56 / -40 / -59 |  |
+| 0.5 | 6 | 3955 | 20 | -0.04 | -155.0 | -2132.5 | 0.70 | -157.8 | -72 / -83 | -57 / -38 / -59 |  |
+| 0.5 | 5 | 3894 | 20 | -0.04 | -155.5 | -2102.5 | 0.70 | -157.8 | -70 / -86 | -56 / -42 / -57 |  |
+| 0.5 | 3 | 3649 | 19 | -0.04 | -158.5 | -1983.0 | 0.68 | -160.2 | -73 / -85 | -55 / -48 / -55 |  |
 
-## MGC 2m  (bars 01/04 → 10/28, HTF 10m)
+## MGC 2m  (bars 01/04 → 11/06, HTF 10m)
 
-All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 14735 trades, net -398.1, avg -0.03, win 30 % at S auto / no max loss.
+All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 15213 trades, net -313.9, avg -0.02, win 30 % at S auto / no max loss.
 
-Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 87 · replayed 136 · matched 85 (98 % of stored).
+Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 172 · replayed 268 · matched 170 (99 % of stored).
 
 **A. Custom points sweep (Max Loss off)**
 
 | S | mode | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| off | touch | 3887 | 25 | -0.14 | -540.4 | -1395.5 | 0.89 | -610.1 | -449 / -91 | -369 / -196 / +25 | +12.9 (260) |  |
-| 0.5 | touch | 3887 | 34 | -0.01 | -56.5 | -911.6 | 0.89 | -72.0 | -16 / -41 | +1 / -32 / -25 | +3.4 (260) |  |
-| 1 | touch | 3887 | 32 | -0.05 | -189.5 | -1044.6 | 0.82 | -214.4 | -102 / -87 | -62 / -69 / -59 | -4.2 (260) |  |
-| 2 | touch | 3887 | 28 | -0.09 | -331.0 | -1186.1 | 0.86 | -372.4 | -309 / -22 | -220 / -108 / -3 | +4.6 (260) |  |
-| 3 | touch | 3887 | 26 | -0.12 | -450.5 | -1305.6 | 0.86 | -545.1 | -408 / -42 | -315 / -163 / +27 | +7.0 (260) |  |
-| 4 | touch | 3887 | 26 | -0.11 | -420.4 | -1275.5 | 0.89 | -550.8 | -419 / -2 | -289 / -236 / +105 | +28.7 (260) |  |
-| 5 (auto) | touch | 3887 | 25 | -0.10 | -391.9 | -1247.0 | 0.90 | -507.0 | -337 / -55 | -227 / -242 / +78 | +27.9 (260) |  |
-| 6 | touch | 3887 | 25 | -0.15 | -577.0 | -1432.1 | 0.87 | -671.2 | -494 / -83 | -372 / -276 / +71 | +17.2 (260) |  |
-| 8 | touch | 3887 | 25 | -0.13 | -514.5 | -1369.6 | 0.89 | -609.6 | -427 / -87 | -328 / -252 / +66 | +17.2 (260) |  |
-| 10 | touch | 3887 | 25 | -0.16 | -621.8 | -1476.9 | 0.87 | -708.6 | -555 / -66 | -444 / -228 / +50 | +17.2 (260) |  |
-| 12 | touch | 3887 | 25 | -0.13 | -521.4 | -1376.5 | 0.89 | -592.9 | -426 / -96 | -342 / -213 / +34 | +12.9 (260) |  |
-| 15 | touch | 3887 | 25 | -0.15 | -596.8 | -1451.9 | 0.88 | -666.5 | -486 / -110 | -406 / -212 / +22 | +12.9 (260) |  |
-| off | close | 3887 | 31 | -0.21 | -804.0 | -1659.1 | 0.88 | -1024.9 | -680 / -124 | -488 / -394 / +78 | +40.9 (260) |  |
-| 0.5 | close | 3887 | 40 | -0.06 | -230.1 | -1085.2 | 0.95 | -410.1 | -150 / -80 | -36 / -234 / +40 | +22.1 (260) |  |
-| 1 | close | 3887 | 37 | -0.06 | -223.3 | -1078.4 | 0.95 | -487.0 | -231 / +7 | -91 / -259 / +127 | +58.8 (260) |  |
-| 2 | close | 3887 | 34 | -0.12 | -458.1 | -1313.2 | 0.92 | -685.1 | -378 / -80 | -233 / -354 / +129 | +58.2 (260) |  |
-| 3 | close | 3887 | 32 | -0.16 | -628.9 | -1484.0 | 0.90 | -873.3 | -472 / -157 | -301 / -469 / +141 | +56.1 (260) |  |
-| 4 | close | 3887 | 32 | -0.19 | -746.6 | -1601.7 | 0.88 | -987.0 | -599 / -147 | -398 / -474 / +126 | +65.2 (260) |  |
-| 5 (auto) | close | 3887 | 31 | -0.22 | -843.8 | -1698.9 | 0.87 | -1130.1 | -705 / -139 | -470 / -484 / +111 | +59.1 (260) |  |
-| 6 | close | 3887 | 31 | -0.23 | -890.0 | -1745.1 | 0.87 | -1100.1 | -732 / -158 | -538 / -449 / +97 | +40.9 (260) |  |
-| 8 | close | 3887 | 31 | -0.20 | -761.2 | -1616.3 | 0.89 | -982.0 | -641 / -120 | -451 / -390 / +79 | +40.9 (260) |  |
-| 10 | close | 3887 | 31 | -0.20 | -762.0 | -1617.1 | 0.89 | -987.3 | -638 / -124 | -452 / -392 / +82 | +40.9 (260) |  |
-| 12 | close | 3887 | 31 | -0.20 | -769.6 | -1624.7 | 0.89 | -990.5 | -648 / -121 | -456 / -391 / +78 | +40.9 (260) |  |
-| 15 | close | 3887 | 31 | -0.17 | -645.3 | -1500.4 | 0.91 | -897.7 | -521 / -124 | -329 / -394 / +78 | +40.9 (260) |  |
+| off | touch | 4023 | 25 | -0.13 | -522.6 | -1407.7 | 0.90 | -610.1 | -500 / -23 | -382 / -162 / +22 | +13.6 (281) |  |
+| 0.5 | touch | 4023 | 34 | -0.02 | -65.3 | -950.4 | 0.88 | -72.0 | -20 / -45 | -1 / -37 / -28 | -0.9 (281) |  |
+| 1 | touch | 4023 | 32 | -0.05 | -192.3 | -1077.4 | 0.83 | -214.4 | -109 / -83 | -67 / -58 / -67 | -4.3 (281) |  |
+| 2 | touch | 4023 | 28 | -0.09 | -344.3 | -1229.4 | 0.86 | -372.4 | -331 / -14 | -234 / -94 / -17 | -17.3 (281) |  |
+| 3 | touch | 4023 | 26 | -0.11 | -428.5 | -1313.6 | 0.87 | -545.1 | -446 / +18 | -319 / -150 / +41 | +31.0 (281) |  |
+| 4 | touch | 4023 | 26 | -0.10 | -412.0 | -1297.1 | 0.89 | -550.8 | -475 / +63 | -290 / -200 / +78 | +22.1 (281) |  |
+| 5 (auto) | touch | 4023 | 25 | -0.09 | -370.9 | -1256.0 | 0.91 | -507.0 | -384 / +13 | -234 / -207 / +71 | +29.5 (281) |  |
+| 6 | touch | 4023 | 25 | -0.14 | -557.6 | -1442.7 | 0.87 | -671.2 | -551 / -7 | -373 / -252 / +68 | +23.0 (281) |  |
+| 8 | touch | 4023 | 25 | -0.12 | -496.7 | -1381.8 | 0.89 | -609.6 | -477 / -20 | -340 / -218 / +61 | +14.8 (281) |  |
+| 10 | touch | 4023 | 25 | -0.15 | -604.0 | -1489.1 | 0.87 | -708.6 | -605 / +1 | -457 / -193 / +46 | +16.8 (281) |  |
+| 12 | touch | 4023 | 25 | -0.13 | -503.6 | -1388.7 | 0.90 | -592.9 | -476 / -28 | -355 / -179 / +30 | +13.6 (281) |  |
+| 15 | touch | 4023 | 25 | -0.14 | -579.0 | -1464.1 | 0.88 | -666.5 | -537 / -42 | -419 / -178 / +18 | +13.6 (281) |  |
+| off | close | 4023 | 31 | -0.19 | -757.0 | -1642.1 | 0.89 | -1024.9 | -754 / -3 | -522 / -327 / +92 | +55.9 (281) |  |
+| 0.5 | close | 4023 | 40 | -0.05 | -193.9 | -1079.0 | 0.96 | -410.1 | -176 / -18 | -14 / -248 / +69 | +35.7 (281) |  |
+| 1 | close | 4023 | 37 | -0.05 | -205.2 | -1090.3 | 0.96 | -487.0 | -263 / +58 | -70 / -261 / +127 | +36.4 (281) |  |
+| 2 | close | 4023 | 33 | -0.10 | -416.3 | -1301.4 | 0.93 | -685.1 | -437 / +21 | -237 / -298 / +119 | +57.1 (281) |  |
+| 3 | close | 4023 | 32 | -0.14 | -565.5 | -1450.6 | 0.91 | -873.3 | -545 / -21 | -319 / -396 / +149 | +83.2 (281) |  |
+| 4 | close | 4023 | 32 | -0.17 | -695.4 | -1580.5 | 0.90 | -987.0 | -677 / -19 | -421 / -406 / +131 | +69.9 (281) |  |
+| 5 (auto) | close | 4023 | 31 | -0.20 | -795.9 | -1681.0 | 0.88 | -1130.1 | -779 / -17 | -508 / -399 / +111 | +62.9 (281) |  |
+| 6 | close | 4023 | 31 | -0.21 | -843.0 | -1728.1 | 0.88 | -1100.1 | -815 / -28 | -575 / -379 / +111 | +55.9 (281) |  |
+| 8 | close | 4023 | 31 | -0.18 | -714.2 | -1599.3 | 0.90 | -982.0 | -716 / +1 | -485 / -323 / +94 | +55.9 (281) |  |
+| 10 | close | 4023 | 31 | -0.18 | -715.0 | -1600.1 | 0.90 | -987.3 | -712 / -3 | -487 / -325 / +96 | +55.9 (281) |  |
+| 12 | close | 4023 | 31 | -0.18 | -722.6 | -1607.7 | 0.90 | -990.5 | -723 / +0 | -491 / -324 / +92 | +55.9 (281) |  |
+| 15 | close | 4023 | 31 | -0.15 | -598.3 | -1483.4 | 0.92 | -897.7 | -595 / -3 | -363 / -327 / +92 | +55.9 (281) |  |
 
 **B. Max Loss sweep (S = auto 5, touch exits)**
 
 | X | trades | skipped | win % | avg | net | net after costs | PF | max DD | halves | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 3887 | 0 | 25 | -0.10 | -391.9 | -1247.0 | 0.90 | -507.0 | -337 / -55 | +27.9 (260) |  |
-| 2 | 1778 | 2109 | 20 | -0.01 | -14.1 | -405.3 | 0.99 | -166.6 | -19 / +5 | +2.1 (156) |  |
-| 3 | 2445 | 1442 | 22 | -0.02 | -48.1 | -586.0 | 0.97 | -259.7 | -46 / -2 | -15.0 (193) |  |
-| 4 | 2990 | 897 | 24 | -0.05 | -159.6 | -817.4 | 0.94 | -383.8 | -172 / +12 | +7.8 (225) |  |
-| 5 | 3368 | 519 | 25 | -0.07 | -225.7 | -966.7 | 0.93 | -396.7 | -258 / +33 | +20.9 (242) |  |
-| 6 | 3636 | 251 | 25 | -0.10 | -361.9 | -1161.8 | 0.90 | -523.3 | -300 / -62 | +20.1 (251) |  |
-| 8 | 3818 | 69 | 25 | -0.11 | -418.5 | -1258.5 | 0.89 | -542.0 | -362 / -57 | +25.4 (259) |  |
-| 10 | 3871 | 16 | 25 | -0.11 | -419.8 | -1271.4 | 0.90 | -525.3 | -336 / -84 | +25.4 (259) |  |
-| 12 | 3876 | 11 | 25 | -0.11 | -427.2 | -1279.9 | 0.90 | -531.5 | -341 / -86 | +25.4 (259) |  |
-| 15 | 3879 | 8 | 25 | -0.11 | -424.2 | -1277.6 | 0.90 | -531.0 | -340 / -84 | +27.9 (260) |  |
+| off | 4023 | 0 | 25 | -0.09 | -370.9 | -1256.0 | 0.91 | -507.0 | -384 / +13 | +29.5 (281) |  |
+| 2 | 1849 | 2174 | 20 | -0.01 | -10.2 | -417.0 | 0.99 | -166.6 | -3 / -7 | -25.0 (158) |  |
+| 3 | 2555 | 1468 | 22 | -0.02 | -46.9 | -609.0 | 0.98 | -259.7 | -31 / -15 | -27.8 (216) |  |
+| 4 | 3110 | 913 | 23 | -0.05 | -168.5 | -852.7 | 0.94 | -383.8 | -155 / -14 | -15.7 (243) |  |
+| 5 | 3497 | 526 | 24 | -0.06 | -197.5 | -966.8 | 0.94 | -396.7 | -281 / +83 | +41.6 (261) |  |
+| 6 | 3768 | 255 | 25 | -0.09 | -339.8 | -1168.8 | 0.91 | -523.3 | -343 / +3 | +30.5 (270) |  |
+| 8 | 3954 | 69 | 25 | -0.10 | -397.5 | -1267.4 | 0.90 | -542.0 | -390 / -7 | +27.0 (280) |  |
+| 10 | 4007 | 16 | 25 | -0.10 | -398.8 | -1280.3 | 0.90 | -525.3 | -372 / -27 | +27.0 (280) |  |
+| 12 | 4012 | 11 | 25 | -0.10 | -406.2 | -1288.8 | 0.90 | -531.5 | -377 / -29 | +27.0 (280) |  |
+| 15 | 4015 | 8 | 25 | -0.10 | -403.2 | -1286.5 | 0.90 | -531.0 | -377 / -26 | +29.5 (281) |  |
 
-**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 3887 trades, net -391.9, avg -0.10)**
+**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 4023 trades, net -370.9, avg -0.09)**
 
 | S | X | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 2 | 1778 | 20 | -0.01 | -14.1 | -405.3 | 0.99 | -166.6 | -19 / +5 | +14 / -17 / -11 |  |
-| 5 | 3 | 2445 | 22 | -0.02 | -48.1 | -586.0 | 0.97 | -259.7 | -46 / -2 | +1 / +6 / -55 |  |
-| 8 | 5 | 3171 | 24 | -0.02 | -48.9 | -746.5 | 0.98 | -266.2 | -148 / +99 | -103 / -26 / +80 |  |
-| 0.5 | 3 | 3278 | 33 | -0.02 | -55.9 | -777.1 | 0.88 | -79.4 | -17 / -39 | +8 / -41 / -23 |  |
-| 0.5 | off | 3887 | 34 | -0.01 | -56.5 | -911.6 | 0.89 | -72.0 | -16 / -41 | +1 / -32 / -25 |  |
-| 0.5 | 5 | 3628 | 34 | -0.02 | -57.6 | -855.8 | 0.88 | -81.4 | -9 / -48 | +13 / -38 / -33 |  |
-| 0.5 | 6 | 3712 | 34 | -0.02 | -57.8 | -874.4 | 0.88 | -81.2 | -11 / -46 | +9 / -37 / -30 |  |
-| 0.5 | 4 | 3493 | 33 | -0.02 | -58.3 | -826.8 | 0.88 | -82.3 | -10 / -49 | +11 / -39 / -31 |  |
+| 5 | 2 | 1849 | 20 | -0.01 | -10.2 | -417.0 | 0.99 | -166.6 | -3 / -7 | +15 / -27 / +3 |  |
+| 5 | 3 | 2555 | 22 | -0.02 | -46.9 | -609.0 | 0.98 | -259.7 | -31 / -15 | -16 / +2 / -32 |  |
+| 8 | 5 | 3297 | 24 | -0.02 | -52.8 | -778.1 | 0.98 | -266.2 | -113 / +60 | -108 / -14 / +69 |  |
+| 0.5 | 3 | 3405 | 33 | -0.02 | -64.9 | -814.0 | 0.86 | -79.4 | -12 / -53 | +9 / -43 / -30 |  |
+| 0.5 | off | 4023 | 34 | -0.02 | -65.3 | -950.4 | 0.88 | -72.0 | -20 / -45 | -1 / -37 / -28 |  |
+| 0.5 | 6 | 3847 | 34 | -0.02 | -66.6 | -912.9 | 0.87 | -81.2 | -11 / -55 | +11 / -44 / -34 |  |
+| 0.5 | 5 | 3761 | 34 | -0.02 | -67.0 | -894.4 | 0.87 | -81.4 | -12 / -55 | +10 / -39 / -38 |  |
+| 0.5 | 4 | 3624 | 33 | -0.02 | -67.5 | -864.8 | 0.86 | -82.3 | -18 / -49 | +8 / -39 / -37 |  |
 
-## MES 5m  (bars 01/04 → 10/28, HTF 25m)
+## MES 5m  (bars 01/04 → 11/06, HTF 25m)
 
-All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 5696 trades, net -679.8, avg -0.12, win 29 % at S auto / no max loss.
+All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 5883 trades, net -581.2, avg -0.10, win 29 % at S auto / no max loss.
 
-Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 47 · replayed 60 · matched 47 (100 % of stored).
+Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 73 · replayed 100 · matched 73 (100 % of stored).
 
 **A. Custom points sweep (Max Loss off)**
 
 | S | mode | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| off | touch | 1650 | 24 | -0.09 | -156.5 | -981.5 | 0.93 | -380.5 | +16 / -173 | +146 / -228 / -74 | -28.8 (123) |  |
-| 0.5 | touch | 1650 | 23 | -0.01 | -23.5 | -848.5 | 0.91 | -88.8 | +52 / -76 | +58 / -17 / -64 | -5.5 (123) |  |
-| 1 | touch | 1650 | 24 | -0.03 | -51.8 | -876.8 | 0.89 | -134.0 | +45 / -97 | +76 / -46 / -82 | -15.8 (123) |  |
-| 2 | touch | 1650 | 25 | -0.05 | -85.0 | -910.0 | 0.91 | -181.5 | +31 / -116 | +51 / -74 / -62 | -33.2 (123) |  |
-| 3 | touch | 1650 | 24 | -0.04 | -61.0 | -886.0 | 0.96 | -205.5 | +39 / -100 | +43 / -37 / -67 | -41.2 (123) |  |
-| 4 | touch | 1650 | 24 | -0.03 | -50.5 | -875.5 | 0.97 | -195.2 | +55 / -106 | +73 / -39 / -84 | -74.8 (123) |  |
-| 5 (auto) | touch | 1650 | 24 | -0.07 | -108.2 | -933.2 | 0.94 | -235.0 | +52 / -160 | +82 / -39 / -152 | -35.2 (123) |  |
-| 6 | touch | 1650 | 24 | -0.04 | -61.0 | -886.0 | 0.97 | -282.0 | +77 / -138 | +150 / -124 / -87 | -27.5 (123) |  |
-| 8 | touch | 1650 | 24 | -0.03 | -55.2 | -880.2 | 0.97 | -311.5 | +124 / -179 | +216 / -120 / -152 | -29.2 (123) |  |
-| 10 | touch | 1650 | 24 | -0.03 | -56.2 | -881.2 | 0.98 | -279.2 | +63 / -119 | +154 / -129 / -82 | -33.5 (123) |  |
-| 12 | touch | 1650 | 24 | -0.03 | -50.5 | -875.5 | 0.98 | -274.8 | +72 / -122 | +190 / -146 / -94 | -27.0 (123) |  |
-| 15 | touch | 1650 | 24 | -0.06 | -106.0 | -931.0 | 0.96 | -339.0 | +45 / -151 | +167 / -198 / -74 | -27.0 (123) |  |
-| off | close | 1650 | 32 | -0.17 | -284.8 | -1109.8 | 0.92 | -541.5 | -58 / -227 | +157 / -355 / -86 | -161.2 (123) |  |
-| 0.5 | close | 1650 | 43 | +0.09 | +141.2 | -683.8 | 1.06 | -156.8 | +69 / +72 | +152 / +4 / -15 | +20.0 (123) | ✱ |
-| 1 | close | 1650 | 39 | +0.05 | +80.0 | -745.0 | 1.03 | -182.2 | +61 / +19 | +166 / +16 / -103 | -14.8 (123) | ✱ |
-| 2 | close | 1650 | 35 | -0.06 | -97.5 | -922.5 | 0.97 | -248.2 | -14 / -83 | +85 / -9 / -173 | -78.8 (123) |  |
-| 3 | close | 1650 | 34 | -0.11 | -173.8 | -998.8 | 0.95 | -388.8 | -50 / -124 | +116 / -142 / -147 | -88.8 (123) |  |
-| 4 | close | 1650 | 32 | -0.24 | -390.8 | -1215.8 | 0.89 | -553.0 | -120 / -270 | +40 / -250 / -180 | -136.2 (123) |  |
-| 5 (auto) | close | 1650 | 32 | -0.21 | -350.2 | -1175.2 | 0.90 | -573.0 | -78 / -272 | +106 / -313 / -144 | -141.0 (123) |  |
-| 6 | close | 1650 | 32 | -0.22 | -355.0 | -1180.0 | 0.90 | -545.0 | -97 / -258 | +112 / -362 / -105 | -142.0 (123) |  |
-| 8 | close | 1650 | 31 | -0.18 | -302.2 | -1127.2 | 0.92 | -573.8 | -30 / -272 | +179 / -415 / -67 | -155.2 (123) |  |
-| 10 | close | 1650 | 32 | -0.15 | -250.8 | -1075.8 | 0.93 | -552.2 | +4 / -254 | +205 / -378 / -78 | -161.2 (123) |  |
-| 12 | close | 1650 | 32 | -0.16 | -261.8 | -1086.8 | 0.93 | -549.8 | -12 / -250 | +198 / -382 / -78 | -161.2 (123) |  |
-| 15 | close | 1650 | 32 | -0.15 | -254.8 | -1079.8 | 0.93 | -522.2 | -36 / -219 | +179 / -347 / -86 | -161.2 (123) |  |
+| off | touch | 1690 | 24 | -0.07 | -110.5 | -955.5 | 0.96 | -380.5 | +14 / -125 | +140 / -237 / -14 | +32.2 (109) |  |
+| 0.5 | touch | 1690 | 23 | -0.02 | -37.0 | -882.0 | 0.86 | -102.2 | +57 / -94 | +57 / -18 / -76 | -19.8 (109) |  |
+| 1 | touch | 1690 | 24 | -0.04 | -64.2 | -909.2 | 0.87 | -150.8 | +49 / -113 | +75 / -41 / -98 | -16.2 (109) |  |
+| 2 | touch | 1690 | 25 | -0.04 | -65.0 | -910.0 | 0.94 | -181.5 | +35 / -100 | +50 / -69 / -46 | +6.0 (109) |  |
+| 3 | touch | 1690 | 24 | -0.01 | -9.2 | -854.2 | 0.99 | -205.5 | +39 / -48 | +40 / -38 / -10 | +32.2 (109) |  |
+| 4 | touch | 1690 | 24 | +0.00 | +3.8 | -841.2 | 1.00 | -195.2 | +55 / -51 | +68 / -42 / -22 | +15.5 (109) |  |
+| 5 (auto) | touch | 1690 | 24 | -0.04 | -70.0 | -915.0 | 0.96 | -235.0 | +50 / -120 | +77 / -48 / -99 | +32.0 (109) |  |
+| 6 | touch | 1690 | 24 | -0.01 | -19.8 | -864.8 | 0.99 | -282.0 | +76 / -96 | +144 / -130 / -34 | +33.5 (109) |  |
+| 8 | touch | 1690 | 24 | +0.00 | +5.5 | -839.5 | 1.00 | -311.5 | +122 / -117 | +210 / -130 / -75 | +46.5 (109) |  |
+| 10 | touch | 1690 | 24 | -0.00 | -7.2 | -852.2 | 1.00 | -279.2 | +61 / -68 | +149 / -137 / -19 | +37.2 (109) |  |
+| 12 | touch | 1690 | 24 | -0.00 | -2.5 | -847.5 | 1.00 | -274.8 | +70 / -73 | +184 / -154 / -32 | +36.0 (109) |  |
+| 15 | touch | 1690 | 24 | -0.04 | -62.8 | -907.8 | 0.97 | -339.0 | +44 / -106 | +161 / -206 / -17 | +31.2 (109) |  |
+| off | close | 1690 | 32 | -0.18 | -302.0 | -1147.0 | 0.92 | -541.5 | -74 / -228 | +142 / -300 / -144 | -93.5 (109) |  |
+| 0.5 | close | 1690 | 43 | +0.11 | +190.0 | -655.0 | 1.08 | -156.8 | +72 / +118 | +147 / +13 / +30 | +69.2 (109) | ✱T |
+| 1 | close | 1690 | 40 | +0.07 | +114.8 | -730.2 | 1.05 | -182.2 | +70 / +45 | +156 / +24 / -66 | +36.5 (109) | ✱ |
+| 2 | close | 1690 | 36 | -0.03 | -42.8 | -887.8 | 0.99 | -248.2 | -16 / -27 | +77 / -20 / -100 | +58.8 (109) |  |
+| 3 | close | 1690 | 34 | -0.09 | -152.5 | -997.5 | 0.95 | -388.8 | -64 / -89 | +104 / -154 / -103 | -0.8 (109) |  |
+| 4 | close | 1690 | 33 | -0.21 | -352.5 | -1197.5 | 0.90 | -553.0 | -135 / -217 | +25 / -258 / -119 | -16.2 (109) |  |
+| 5 (auto) | close | 1690 | 33 | -0.20 | -337.2 | -1182.2 | 0.91 | -573.0 | -95 / -242 | +92 / -321 / -108 | -46.2 (109) |  |
+| 6 | close | 1690 | 32 | -0.20 | -332.2 | -1177.2 | 0.91 | -545.0 | -114 / -218 | +97 / -300 / -130 | -34.2 (109) |  |
+| 8 | close | 1690 | 32 | -0.18 | -304.5 | -1149.5 | 0.92 | -573.8 | -47 / -258 | +164 / -352 / -116 | -72.5 (109) |  |
+| 10 | close | 1690 | 32 | -0.16 | -268.0 | -1113.0 | 0.93 | -552.2 | -13 / -255 | +190 / -322 / -136 | -93.5 (109) |  |
+| 12 | close | 1690 | 32 | -0.17 | -279.0 | -1124.0 | 0.93 | -549.8 | -28 / -250 | +183 / -320 / -142 | -93.5 (109) |  |
+| 15 | close | 1690 | 32 | -0.16 | -272.0 | -1117.0 | 0.93 | -522.2 | -52 / -220 | +164 / -292 / -144 | -93.5 (109) |  |
 
 **B. Max Loss sweep (S = auto 5, touch exits)**
 
 | X | trades | skipped | win % | avg | net | net after costs | PF | max DD | halves | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 1650 | 0 | 24 | -0.07 | -108.2 | -933.2 | 0.94 | -235.0 | +52 / -160 | -35.2 (123) |  |
-| 2 | 737 | 913 | 17 | -0.08 | -59.8 | -428.2 | 0.88 | -135.2 | +52 / -112 | -27.8 (48) |  |
-| 3 | 996 | 654 | 18 | -0.14 | -142.5 | -640.5 | 0.82 | -201.5 | +4 / -146 | -32.0 (70) |  |
-| 4 | 1198 | 452 | 21 | -0.09 | -109.0 | -708.0 | 0.90 | -190.0 | +14 / -123 | -39.2 (89) |  |
-| 5 | 1350 | 300 | 22 | -0.03 | -42.0 | -717.0 | 0.97 | -214.2 | +83 / -125 | -38.8 (99) |  |
-| 6 | 1474 | 176 | 23 | -0.06 | -87.5 | -824.5 | 0.95 | -210.8 | +51 / -139 | -44.8 (107) |  |
-| 8 | 1602 | 48 | 24 | -0.08 | -129.2 | -930.2 | 0.93 | -246.2 | +39 / -168 | -48.2 (117) |  |
-| 10 | 1637 | 13 | 24 | -0.08 | -132.5 | -951.0 | 0.93 | -239.8 | +30 / -162 | -33.5 (121) |  |
-| 12 | 1638 | 12 | 24 | -0.08 | -132.5 | -951.5 | 0.93 | -239.8 | +32 / -164 | -33.5 (121) |  |
-| 15 | 1646 | 4 | 24 | -0.06 | -105.8 | -928.8 | 0.94 | -235.2 | +55 / -160 | -35.2 (122) |  |
+| off | 1690 | 0 | 24 | -0.04 | -70.0 | -915.0 | 0.96 | -235.0 | +50 / -120 | +32.0 (109) |  |
+| 2 | 755 | 935 | 16 | -0.11 | -81.8 | -459.2 | 0.84 | -157.2 | +47 / -129 | -45.8 (47) |  |
+| 3 | 1021 | 669 | 18 | -0.16 | -160.5 | -671.0 | 0.81 | -216.0 | +7 / -168 | -34.0 (67) |  |
+| 4 | 1229 | 461 | 21 | -0.08 | -96.5 | -711.0 | 0.92 | -190.0 | +26 / -122 | -8.0 (83) |  |
+| 5 | 1387 | 303 | 22 | -0.01 | -15.8 | -709.2 | 0.99 | -214.2 | +97 / -113 | +7.0 (93) |  |
+| 6 | 1513 | 177 | 23 | -0.04 | -53.0 | -809.5 | 0.97 | -210.8 | +58 / -111 | +18.2 (100) |  |
+| 8 | 1642 | 48 | 24 | -0.06 | -91.0 | -912.0 | 0.95 | -246.2 | +42 / -132 | +16.2 (105) |  |
+| 10 | 1677 | 13 | 24 | -0.06 | -94.2 | -932.8 | 0.95 | -239.8 | +30 / -124 | +32.0 (108) |  |
+| 12 | 1678 | 12 | 24 | -0.06 | -94.2 | -933.2 | 0.95 | -239.8 | +28 / -122 | +32.0 (108) |  |
+| 15 | 1686 | 4 | 24 | -0.04 | -67.5 | -910.5 | 0.97 | -235.2 | +53 / -120 | +32.0 (108) |  |
 
-**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 1650 trades, net -108.2, avg -0.07)**
+**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 1690 trades, net -70.0, avg -0.04)**
 
 | S | X | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 12 | 12 | 1576 | 24 | +0.03 | +47.8 | -740.2 | 1.02 | -172.5 | +114 / -66 | +174 / -70 / -56 |  |
-| 2 | 2 | 1154 | 23 | +0.03 | +36.8 | -540.2 | 1.06 | -114.2 | +99 / -62 | +92 / -46 / -8 |  |
-| 0.5 | 2 | 1072 | 21 | +0.03 | +35.5 | -500.5 | 1.25 | -31.0 | +56 / -20 | +58 / -4 / -19 |  |
-| 0.5 | 3 | 1266 | 22 | +0.02 | +27.2 | -605.8 | 1.16 | -41.8 | +58 / -31 | +60 / -15 / -18 |  |
-| 12 | 15 | 1620 | 24 | +0.01 | +17.0 | -793.0 | 1.01 | -181.5 | +105 / -88 | +179 / -98 / -64 |  |
-| 8 | 10 | 1588 | 24 | +0.01 | +9.0 | -785.0 | 1.00 | -264.2 | +181 / -172 | +232 / -66 / -157 |  |
-| 12 | 10 | 1531 | 23 | +0.00 | +6.8 | -758.8 | 1.00 | -201.2 | +57 / -50 | +153 / -101 / -45 |  |
-| 10 | 15 | 1625 | 24 | +0.00 | +6.5 | -806.0 | 1.00 | -273.8 | +132 / -126 | +212 / -121 / -84 |  |
+| 12 | 12 | 1614 | 24 | +0.06 | +98.5 | -708.5 | 1.05 | -172.5 | +112 / -14 | +166 / -54 / -13 |  |
+| 8 | 10 | 1628 | 24 | +0.04 | +69.8 | -744.2 | 1.03 | -264.2 | +189 / -119 | +227 / -87 / -70 |  |
+| 12 | 15 | 1659 | 24 | +0.04 | +66.2 | -763.2 | 1.03 | -181.5 | +105 / -39 | +173 / -102 / -4 |  |
+| 10 | 15 | 1665 | 24 | +0.03 | +55.5 | -777.0 | 1.02 | -273.8 | +128 / -72 | +204 / -134 / -14 |  |
+| 2 | 2 | 1178 | 24 | +0.04 | +43.5 | -545.5 | 1.07 | -114.2 | +94 / -50 | +88 / -52 / +8 |  |
+| 8 | 12 | 1656 | 24 | +0.02 | +28.5 | -799.5 | 1.01 | -286.8 | +152 / -124 | +206 / -98 / -80 |  |
+| 12 | 10 | 1567 | 23 | +0.02 | +27.5 | -756.0 | 1.01 | -201.2 | +54 / -26 | +151 / -90 / -33 |  |
+| 0.5 | 2 | 1095 | 20 | +0.02 | +21.2 | -526.2 | 1.13 | -45.2 | +60 / -39 | +57 / -7 / -29 |  |
 
-## MGC 5m  (bars 01/04 → 10/28, HTF 25m)
+## MGC 5m  (bars 01/04 → 11/06, HTF 25m)
 
-All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 5884 trades, net -594.8, avg -0.10, win 30 % at S auto / no max loss.
+All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 6083 trades, net -634.2, avg -0.10, win 30 % at S auto / no max loss.
 
-Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 38 · replayed 51 · matched 38 (100 % of stored).
+Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 70 · replayed 106 · matched 64 (91 % of stored).
 
 **A. Custom points sweep (Max Loss off)**
 
 | S | mode | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| off | touch | 1640 | 25 | -0.36 | -592.1 | -952.9 | 0.81 | -665.4 | -579 / -13 | -481 / -47 / -64 | +24.5 (119) |  |
-| 0.5 | touch | 1640 | 36 | +0.00 | +0.6 | -360.2 | 1.00 | -26.6 | +2 / -1 | -0 / +21 / -20 | +0.3 (119) |  |
-| 1 | touch | 1640 | 34 | -0.02 | -32.6 | -393.4 | 0.92 | -48.1 | -8 / -25 | +12 / +2 / -46 | -15.2 (119) |  |
-| 2 | touch | 1640 | 31 | -0.02 | -39.9 | -400.7 | 0.96 | -92.4 | -51 / +11 | -26 / -9 / -5 | +2.5 (119) |  |
-| 3 | touch | 1640 | 28 | -0.05 | -78.4 | -439.2 | 0.95 | -173.4 | -76 / -2 | -42 / -53 / +17 | +0.4 (119) |  |
-| 4 | touch | 1640 | 27 | -0.04 | -64.7 | -425.5 | 0.97 | -240.5 | -139 / +74 | -105 / -9 / +50 | +54.5 (119) |  |
-| 5 (auto) | touch | 1640 | 26 | -0.01 | -11.9 | -372.7 | 0.99 | -216.6 | -118 / +107 | -92 / +39 / +42 | +48.2 (119) |  |
-| 6 | touch | 1640 | 27 | -0.07 | -122.1 | -482.9 | 0.95 | -319.5 | -245 / +123 | -180 / -8 / +67 | +45.4 (119) |  |
-| 8 | touch | 1640 | 26 | -0.13 | -217.0 | -577.8 | 0.92 | -347.4 | -273 / +56 | -203 / -69 / +56 | +40.2 (119) |  |
-| 10 | touch | 1640 | 25 | -0.19 | -319.3 | -680.1 | 0.89 | -411.4 | -356 / +36 | -261 / -33 / -25 | +24.9 (119) |  |
-| 12 | touch | 1640 | 25 | -0.22 | -353.0 | -713.8 | 0.88 | -431.4 | -345 / -8 | -271 / -46 / -35 | +29.6 (119) |  |
-| 15 | touch | 1640 | 25 | -0.27 | -445.8 | -806.6 | 0.85 | -519.7 | -447 / +1 | -354 / -41 / -51 | +25.1 (119) |  |
-| off | close | 1640 | 32 | -0.25 | -409.7 | -770.5 | 0.91 | -575.9 | -484 / +74 | -418 / +81 / -73 | +14.7 (119) |  |
-| 0.5 | close | 1640 | 42 | -0.09 | -140.8 | -501.6 | 0.95 | -300.5 | -236 / +95 | -241 / +48 / +52 | -1.5 (119) |  |
-| 1 | close | 1640 | 40 | -0.15 | -238.4 | -599.2 | 0.92 | -345.4 | -240 / +1 | -238 / +22 / -22 | +15.6 (119) |  |
-| 2 | close | 1640 | 37 | -0.18 | -302.4 | -663.2 | 0.91 | -406.2 | -313 / +10 | -231 / -28 / -43 | +0.5 (119) |  |
-| 3 | close | 1640 | 35 | -0.20 | -335.4 | -696.2 | 0.91 | -457.8 | -375 / +40 | -331 / +30 / -35 | -5.6 (119) |  |
-| 4 | close | 1640 | 34 | -0.25 | -410.8 | -771.6 | 0.90 | -535.3 | -445 / +34 | -401 / +15 / -25 | +0.2 (119) |  |
-| 5 (auto) | close | 1640 | 33 | -0.27 | -442.6 | -803.4 | 0.89 | -515.0 | -425 / -17 | -363 / -4 / -75 | -16.0 (119) |  |
-| 6 | close | 1640 | 33 | -0.28 | -461.7 | -822.5 | 0.89 | -553.3 | -421 / -40 | -330 / -80 / -52 | +20.8 (119) |  |
-| 8 | close | 1640 | 32 | -0.23 | -377.6 | -738.4 | 0.91 | -517.1 | -359 / -19 | -301 / -13 / -63 | +17.0 (119) |  |
-| 10 | close | 1640 | 32 | -0.21 | -337.3 | -698.1 | 0.92 | -495.9 | -383 / +46 | -312 / +31 / -56 | +17.0 (119) |  |
-| 12 | close | 1640 | 32 | -0.24 | -393.8 | -754.6 | 0.91 | -549.5 | -440 / +46 | -368 / +17 / -42 | +17.0 (119) |  |
-| 15 | close | 1640 | 32 | -0.21 | -344.0 | -704.8 | 0.92 | -513.9 | -431 / +87 | -356 / +85 / -73 | +14.7 (119) |  |
+| off | touch | 1691 | 25 | -0.36 | -613.5 | -985.5 | 0.81 | -665.4 | -585 / -29 | -469 / -11 / -133 | +1.3 (123) |  |
+| 0.5 | touch | 1691 | 36 | -0.00 | -7.2 | -379.2 | 0.97 | -30.7 | +1 / -8 | -1 / +20 / -26 | -8.0 (123) |  |
+| 1 | touch | 1691 | 34 | -0.03 | -48.7 | -420.7 | 0.89 | -64.2 | -18 / -30 | +9 / -1 / -57 | -23.0 (123) |  |
+| 2 | touch | 1691 | 31 | -0.03 | -45.6 | -417.6 | 0.95 | -92.4 | -67 / +22 | -34 / +2 / -14 | -11.6 (123) |  |
+| 3 | touch | 1691 | 28 | -0.06 | -101.3 | -473.3 | 0.93 | -173.4 | -101 / -0 | -32 / -54 / -15 | -9.9 (123) |  |
+| 4 | touch | 1691 | 27 | -0.05 | -86.1 | -458.1 | 0.96 | -240.5 | -167 / +81 | -92 / -25 / +31 | +31.7 (123) |  |
+| 5 (auto) | touch | 1691 | 26 | -0.02 | -29.2 | -401.2 | 0.99 | -216.6 | -143 / +114 | -74 / +48 / -4 | +16.0 (123) |  |
+| 6 | touch | 1691 | 27 | -0.08 | -139.4 | -511.4 | 0.94 | -319.5 | -286 / +146 | -161 / +0 / +21 | +18.1 (123) |  |
+| 8 | touch | 1691 | 26 | -0.14 | -234.2 | -606.2 | 0.91 | -347.4 | -302 / +68 | -192 / -26 / -16 | +10.2 (123) |  |
+| 10 | touch | 1691 | 26 | -0.20 | -338.5 | -710.5 | 0.88 | -411.4 | -352 / +14 | -249 / -11 / -78 | +0.8 (123) |  |
+| 12 | touch | 1691 | 25 | -0.22 | -374.4 | -746.4 | 0.88 | -431.4 | -344 / -30 | -260 / -10 / -105 | +1.3 (123) |  |
+| 15 | touch | 1691 | 25 | -0.28 | -467.2 | -839.2 | 0.85 | -519.7 | -450 / -18 | -343 / -4 / -121 | +1.9 (123) |  |
+| off | close | 1691 | 32 | -0.26 | -447.5 | -819.5 | 0.91 | -575.9 | -418 / -30 | -390 / +125 / -183 | -6.1 (123) |  |
+| 0.5 | close | 1691 | 42 | -0.10 | -162.2 | -534.2 | 0.94 | -300.5 | -275 / +113 | -240 / +62 / +15 | -24.8 (123) |  |
+| 1 | close | 1691 | 40 | -0.15 | -261.0 | -633.0 | 0.92 | -345.4 | -283 / +22 | -238 / +35 / -58 | -14.0 (123) |  |
+| 2 | close | 1691 | 37 | -0.19 | -322.5 | -694.5 | 0.91 | -406.2 | -359 / +37 | -234 / -16 / -73 | -26.4 (123) |  |
+| 3 | close | 1691 | 35 | -0.22 | -366.1 | -738.1 | 0.91 | -457.8 | -419 / +53 | -301 / +26 / -91 | -12.6 (123) |  |
+| 4 | close | 1691 | 34 | -0.27 | -456.0 | -828.0 | 0.89 | -535.3 | -475 / +19 | -377 / +30 / -109 | -32.3 (123) |  |
+| 5 (auto) | close | 1691 | 33 | -0.29 | -486.1 | -858.1 | 0.89 | -519.8 | -461 / -25 | -340 / +27 / -173 | -35.2 (123) |  |
+| 6 | close | 1691 | 33 | -0.30 | -508.8 | -880.8 | 0.89 | -553.3 | -427 / -82 | -313 / -42 / -154 | -11.6 (123) |  |
+| 8 | close | 1691 | 32 | -0.25 | -429.7 | -801.7 | 0.91 | -517.1 | -365 / -65 | -273 / +30 / -187 | -20.4 (123) |  |
+| 10 | close | 1691 | 32 | -0.23 | -389.4 | -761.4 | 0.92 | -495.9 | -369 / -21 | -284 / +75 / -180 | -20.4 (123) |  |
+| 12 | close | 1691 | 32 | -0.26 | -445.9 | -817.9 | 0.90 | -549.5 | -394 / -52 | -340 / +60 / -166 | -20.4 (123) |  |
+| 15 | close | 1691 | 32 | -0.23 | -396.1 | -768.1 | 0.92 | -513.9 | -356 / -40 | -328 / +128 / -197 | -20.4 (123) |  |
 
 **B. Max Loss sweep (S = auto 5, touch exits)**
 
 | X | trades | skipped | win % | avg | net | net after costs | PF | max DD | halves | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 1640 | 0 | 26 | -0.01 | -11.9 | -372.7 | 0.99 | -216.6 | -118 / +107 | +48.2 (119) |  |
-| 2 | 580 | 1060 | 18 | +0.05 | +30.5 | -97.1 | 1.08 | -56.9 | +7 / +23 | +17.1 (49) | ✱ |
-| 3 | 853 | 787 | 22 | -0.06 | -55.0 | -242.7 | 0.92 | -138.8 | -78 / +23 | +14.7 (77) |  |
-| 4 | 1095 | 545 | 23 | -0.00 | -4.5 | -245.4 | 1.00 | -147.6 | -80 / +75 | +31.5 (92) |  |
-| 5 | 1279 | 361 | 24 | -0.03 | -32.8 | -314.2 | 0.98 | -157.2 | -117 / +84 | +27.4 (100) |  |
-| 6 | 1420 | 220 | 25 | -0.00 | -5.9 | -318.3 | 1.00 | -136.3 | -77 / +72 | +31.4 (107) |  |
-| 8 | 1576 | 64 | 26 | +0.02 | +29.6 | -317.1 | 1.01 | -169.9 | -110 / +139 | +59.0 (116) |  |
-| 10 | 1614 | 26 | 26 | -0.02 | -30.6 | -385.7 | 0.99 | -219.9 | -151 / +121 | +48.8 (118) |  |
-| 12 | 1624 | 16 | 26 | -0.03 | -44.0 | -401.3 | 0.98 | -230.2 | -158 / +114 | +48.2 (119) |  |
-| 15 | 1632 | 8 | 26 | -0.01 | -11.2 | -370.2 | 0.99 | -215.9 | -111 / +100 | +48.2 (119) |  |
+| off | 1691 | 0 | 26 | -0.02 | -29.2 | -401.2 | 0.99 | -216.6 | -143 / +114 | +16.0 (123) |  |
+| 2 | 597 | 1094 | 19 | +0.07 | +41.5 | -89.8 | 1.11 | -56.9 | +10 / +32 | +28.9 (50) | ✱ |
+| 3 | 879 | 812 | 22 | -0.06 | -57.1 | -250.5 | 0.92 | -138.8 | -91 / +34 | +21.2 (72) |  |
+| 4 | 1129 | 562 | 24 | -0.01 | -7.3 | -255.7 | 0.99 | -147.6 | -67 / +60 | +31.2 (90) |  |
+| 5 | 1323 | 368 | 24 | -0.04 | -56.2 | -347.3 | 0.96 | -157.2 | -101 / +45 | -3.5 (105) |  |
+| 6 | 1467 | 224 | 25 | -0.01 | -15.7 | -338.4 | 0.99 | -136.3 | -34 / +19 | +23.6 (111) |  |
+| 8 | 1624 | 67 | 26 | +0.01 | +16.9 | -340.4 | 1.01 | -169.9 | -41 / +58 | +31.4 (117) |  |
+| 10 | 1665 | 26 | 26 | -0.03 | -47.9 | -414.2 | 0.98 | -219.9 | -114 / +66 | +16.6 (122) |  |
+| 12 | 1675 | 16 | 26 | -0.04 | -61.3 | -429.8 | 0.97 | -230.2 | -118 / +57 | +16.0 (123) |  |
+| 15 | 1683 | 8 | 26 | -0.02 | -28.5 | -398.8 | 0.99 | -215.9 | -105 / +76 | +16.0 (123) |  |
 
-**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 1640 trades, net -11.9, avg -0.01)**
+**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 1691 trades, net -29.2, avg -0.02)**
 
 | S | X | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 5 | 2 | 580 | 18 | +0.05 | +30.5 | -97.1 | 1.08 | -56.9 | +7 / +23 | +34 / -21 / +18 | ✱ |
-| 5 | 8 | 1576 | 26 | +0.02 | +29.6 | -317.1 | 1.01 | -169.9 | -110 / +139 | -32 / +17 / +45 |  |
-| 0.5 | 4 | 1251 | 35 | +0.00 | +1.8 | -273.4 | 1.01 | -21.0 | -15 / +17 | -14 / +33 / -17 |  |
-| 0.5 | 15 | 1616 | 36 | +0.00 | +1.0 | -354.5 | 1.00 | -27.3 | +2 / -1 | -0 / +20 / -19 |  |
-| 0.5 | 6 | 1436 | 36 | +0.00 | +0.6 | -315.3 | 1.00 | -22.2 | -7 / +8 | -8 / +25 / -17 |  |
-| 0.5 | off | 1640 | 36 | +0.00 | +0.6 | -360.2 | 1.00 | -26.6 | +2 / -1 | -0 / +21 / -20 |  |
-| 0.5 | 12 | 1597 | 36 | -0.00 | -0.1 | -351.4 | 1.00 | -26.9 | -0 / +0 | -2 / +21 / -19 |  |
-| 0.5 | 3 | 1084 | 34 | -0.00 | -4.1 | -242.6 | 0.97 | -22.6 | -21 / +17 | -16 / +29 / -18 |  |
+| 5 | 2 | 597 | 19 | +0.07 | +41.5 | -89.8 | 1.11 | -56.9 | +10 / +32 | +28 / -23 / +36 | ✱ |
+| 5 | 8 | 1624 | 26 | +0.01 | +16.9 | -340.4 | 1.01 | -169.9 | -41 / +58 | -40 / +42 / +15 |  |
+| 3 | 2 | 796 | 24 | +0.00 | +2.9 | -172.2 | 1.01 | -85.2 | -45 / +48 | -9 / -14 / +26 |  |
+| 0.5 | 4 | 1293 | 35 | -0.00 | -1.8 | -286.3 | 0.99 | -21.8 | -11 / +9 | -13 / +31 / -20 |  |
+| 6 | 2 | 542 | 21 | -0.00 | -2.1 | -121.3 | 0.99 | -81.9 | -2 / -0 | +5 / -33 / +26 |  |
+| 0.5 | 6 | 1485 | 36 | -0.00 | -2.7 | -329.4 | 0.99 | -22.2 | -7 / +5 | -9 / +26 / -20 |  |
+| 0.5 | 15 | 1667 | 36 | -0.00 | -6.8 | -373.5 | 0.97 | -30.8 | +0 / -7 | -1 / +24 / -30 |  |
+| 0.5 | off | 1691 | 36 | -0.00 | -7.2 | -379.2 | 0.97 | -30.7 | +1 / -8 | -1 / +20 / -26 |  |
 
-## MNQ 5m  (bars 01/04 → 10/28, HTF 25m)
+## MNQ 5m  (bars 01/04 → 11/06, HTF 25m)
 
-All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 5892 trades, net -2675.2, avg -0.45, win 31 % at S auto / no max loss.
+All Agreement starts (incl. LTF joining an existing HTF trend, alert option "LTF join" -- not in your feed): 6082 trades, net -860.0, avg -0.14, win 31 % at S auto / no max loss.
 
-Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 31 · replayed 59 · matched 30 (97 % of stored).
+Validation (HTF flip + Agreement alerts in the feed vs replay, same window): stored 67 · replayed 112 · matched 64 (96 % of stored).
 
 **A. Custom points sweep (Max Loss off)**
 
 | S | mode | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| off | touch | 1645 | 27 | -0.16 | -267.8 | -1698.9 | 0.98 | -1657.0 | -160 / -108 | +448 / -1096 / +380 | -507.0 (114) |  |
-| 2 | touch | 1645 | 37 | +0.07 | +121.5 | -1309.7 | 1.14 | -231.0 | +50 / +71 | +38 / -41 / +124 | -93.0 (114) | ✱ |
-| 3 | touch | 1645 | 35 | +0.07 | +119.2 | -1311.9 | 1.10 | -265.8 | +76 / +44 | +59 / -32 / +92 | -124.0 (114) | ✱ |
-| 5 | touch | 1645 | 32 | +0.02 | +35.8 | -1395.4 | 1.02 | -323.2 | -17 / +53 | +84 / -218 / +169 | -145.5 (114) |  |
-| 8 | touch | 1645 | 31 | +0.27 | +439.0 | -992.2 | 1.11 | -384.5 | +357 / +82 | +422 / -156 / +173 | -220.8 (114) | ✱ |
-| 10 | touch | 1645 | 31 | +0.24 | +396.5 | -1034.7 | 1.08 | -418.8 | +485 / -89 | +621 / -226 / +1 | -206.5 (114) |  |
-| 15 | touch | 1645 | 29 | -0.03 | -42.5 | -1473.7 | 0.99 | -706.8 | -15 / -27 | +192 / -308 / +74 | -376.2 (114) |  |
-| 20 | touch | 1645 | 28 | -0.13 | -209.5 | -1640.7 | 0.98 | -986.8 | +320 / -530 | +511 / -334 / -386 | -406.5 (114) |  |
-| 25 | touch | 1645 | 28 | +0.16 | +256.0 | -1175.2 | 1.02 | -947.5 | +304 / -48 | +346 / -266 / +176 | -256.8 (114) |  |
-| 30 (auto) | touch | 1645 | 28 | -0.46 | -751.5 | -2182.7 | 0.94 | -1392.0 | +358 / -1110 | +455 / -675 / -532 | -442.2 (114) |  |
-| 40 | touch | 1645 | 28 | -0.44 | -718.2 | -2149.4 | 0.94 | -1297.2 | +102 / -821 | +295 / -765 / -248 | -469.2 (114) |  |
-| 50 | touch | 1645 | 27 | -0.42 | -684.5 | -2115.7 | 0.95 | -1345.5 | -30 / -654 | +336 / -761 / -259 | -363.8 (114) |  |
-| 60 | touch | 1645 | 27 | -0.37 | -606.0 | -2037.2 | 0.96 | -1341.8 | -187 / -419 | +287 / -802 / -92 | -392.8 (114) |  |
-| 80 | touch | 1645 | 27 | -0.56 | -918.5 | -2349.7 | 0.94 | -1763.8 | -52 / -866 | +524 / -1163 / -280 | -486.8 (114) |  |
-| off | close | 1645 | 33 | +0.25 | +407.5 | -1023.7 | 1.02 | -1699.2 | +1050 / -642 | +1544 / -693 / -444 | -678.0 (114) |  |
-| 2 | close | 1645 | 45 | +1.02 | +1669.8 | +238.6 | 1.13 | -636.5 | +610 / +1060 | +894 / +222 / +553 | +357.8 (114) | ✱T |
-| 3 | close | 1645 | 43 | +0.93 | +1533.8 | +102.6 | 1.12 | -723.8 | +652 / +881 | +1053 / +62 / +419 | +384.5 (114) | ✱T |
-| 5 | close | 1645 | 41 | +0.70 | +1154.5 | -276.7 | 1.08 | -1010.8 | +305 / +849 | +938 / -109 / +325 | +292.8 (114) | ✱ |
-| 8 | close | 1645 | 39 | +0.49 | +813.2 | -617.9 | 1.05 | -1113.5 | +498 / +315 | +838 / +245 / -270 | +10.2 (114) | ✱ |
-| 10 | close | 1645 | 37 | +0.45 | +738.0 | -693.2 | 1.05 | -1390.0 | +897 / -159 | +1002 / +315 / -579 | -53.8 (114) |  |
-| 15 | close | 1645 | 35 | +0.43 | +709.2 | -721.9 | 1.04 | -1316.2 | +683 / +26 | +829 / +413 / -532 | -68.0 (114) | ✱ |
-| 20 | close | 1645 | 34 | +0.91 | +1501.2 | +70.1 | 1.08 | -1438.8 | +1428 / +74 | +1498 / +771 / -768 | -396.2 (114) | ✱ |
-| 25 | close | 1645 | 34 | +0.45 | +735.2 | -695.9 | 1.04 | -1126.2 | +726 / +10 | +797 / +601 / -662 | -421.8 (114) | ✱ |
-| 30 (auto) | close | 1645 | 33 | +0.39 | +638.2 | -792.9 | 1.03 | -1318.8 | +867 / -229 | +1155 / +214 / -730 | -602.5 (114) |  |
-| 40 | close | 1645 | 33 | +0.07 | +123.0 | -1308.2 | 1.01 | -1579.5 | +873 / -750 | +1192 / -93 / -975 | -638.5 (114) |  |
-| 50 | close | 1645 | 33 | +0.36 | +599.8 | -831.4 | 1.03 | -1615.2 | +993 / -394 | +1373 / -562 / -212 | -666.0 (114) |  |
-| 60 | close | 1645 | 33 | +0.14 | +225.5 | -1205.7 | 1.01 | -1708.8 | +935 / -709 | +1429 / -743 / -460 | -666.0 (114) |  |
-| 80 | close | 1645 | 33 | +0.19 | +305.8 | -1125.4 | 1.01 | -1902.5 | +1008 / -702 | +1503 / -896 / -300 | -678.0 (114) |  |
+| off | touch | 1698 | 27 | -0.18 | -307.8 | -1785.0 | 0.98 | -1657.0 | -353 / +45 | +408 / -502 / -214 | -21.8 (124) |  |
+| 2 | touch | 1698 | 37 | +0.07 | +113.0 | -1364.3 | 1.13 | -231.0 | +32 / +80 | +43 / -59 / +129 | +41.5 (124) | ✱ |
+| 3 | touch | 1698 | 35 | +0.05 | +83.0 | -1394.3 | 1.07 | -265.8 | +58 / +26 | +60 / -57 / +80 | -2.5 (124) | ✱ |
+| 5 | touch | 1698 | 32 | -0.01 | -21.0 | -1498.3 | 0.99 | -341.2 | -38 / +17 | +79 / -174 / +74 | -26.2 (124) |  |
+| 8 | touch | 1698 | 31 | +0.19 | +330.0 | -1147.3 | 1.08 | -493.8 | +333 / -3 | +424 / -157 / +63 | -173.2 (124) |  |
+| 10 | touch | 1698 | 31 | +0.19 | +319.5 | -1157.8 | 1.06 | -503.5 | +448 / -128 | +628 / -231 / -78 | -165.8 (124) |  |
+| 15 | touch | 1698 | 29 | -0.10 | -166.2 | -1643.5 | 0.98 | -839.5 | +30 / -196 | +177 / -356 / +13 | -276.8 (124) |  |
+| 20 | touch | 1698 | 28 | -0.12 | -206.8 | -1684.0 | 0.98 | -989.5 | +294 / -501 | +493 / -410 / -290 | -113.5 (124) |  |
+| 25 | touch | 1698 | 29 | +0.12 | +198.0 | -1279.3 | 1.02 | -947.5 | +243 / -45 | +308 / -314 / +204 | +18.8 (124) |  |
+| 30 (auto) | touch | 1698 | 28 | -0.51 | -874.0 | -2351.3 | 0.93 | -1461.0 | +402 / -1276 | +416 / -819 / -471 | -179.0 (124) |  |
+| 40 | touch | 1698 | 28 | -0.49 | -840.0 | -2317.3 | 0.94 | -1361.5 | +134 / -974 | +256 / -834 / -262 | -163.2 (124) |  |
+| 50 | touch | 1698 | 27 | -0.45 | -765.8 | -2243.0 | 0.95 | -1345.5 | +81 / -846 | +297 / -858 / -205 | +0.5 (124) |  |
+| 60 | touch | 1698 | 27 | -0.34 | -580.8 | -2058.0 | 0.96 | -1341.8 | -134 / -447 | +248 / -713 / -115 | +77.5 (124) |  |
+| 80 | touch | 1698 | 27 | -0.56 | -944.2 | -2421.5 | 0.94 | -1763.8 | -50 / -894 | +485 / -1148 / -280 | -7.5 (124) |  |
+| off | close | 1698 | 33 | +0.04 | +65.2 | -1412.0 | 1.00 | -1791.5 | +554 / -488 | +1508 / -252 / -1192 | -580.5 (124) |  |
+| 2 | close | 1698 | 45 | +0.86 | +1460.8 | -16.5 | 1.11 | -636.5 | +648 / +813 | +926 / +336 / +198 | +4.8 (124) | ✱T |
+| 3 | close | 1698 | 43 | +0.78 | +1324.8 | -152.5 | 1.10 | -723.8 | +690 / +634 | +1082 / +146 / +96 | +24.0 (124) | ✱T |
+| 5 | close | 1698 | 41 | +0.52 | +885.2 | -592.0 | 1.06 | -1010.8 | +333 / +552 | +954 / -28 / -40 | -32.0 (124) | ✱ |
+| 8 | close | 1698 | 38 | +0.37 | +632.5 | -844.8 | 1.04 | -1113.5 | +604 / +29 | +842 / +281 / -490 | -7.5 (124) | ✱ |
+| 10 | close | 1698 | 37 | +0.33 | +559.8 | -917.5 | 1.03 | -1390.0 | +912 / -352 | +1002 / +265 / -707 | -26.8 (124) |  |
+| 15 | close | 1698 | 35 | +0.37 | +630.5 | -846.8 | 1.03 | -1316.2 | +791 / -161 | +776 / +354 / -500 | +70.8 (124) |  |
+| 20 | close | 1698 | 34 | +0.90 | +1531.8 | +54.5 | 1.08 | -1438.8 | +1277 / +255 | +1460 / +672 / -600 | -43.2 (124) | ✱ |
+| 25 | close | 1698 | 34 | +0.43 | +722.8 | -754.5 | 1.04 | -1139.0 | +274 / +449 | +758 / +465 / -500 | -173.2 (124) | ✱ |
+| 30 (auto) | close | 1698 | 34 | +0.38 | +639.5 | -837.8 | 1.03 | -1333.5 | +714 / -75 | +1116 / +305 / -782 | -163.8 (124) |  |
+| 40 | close | 1698 | 33 | -0.06 | -107.0 | -1584.3 | 1.00 | -1816.2 | +699 / -806 | +1156 / -142 / -1121 | -428.8 (124) |  |
+| 50 | close | 1698 | 33 | +0.14 | +235.0 | -1242.3 | 1.01 | -1705.8 | +437 / -202 | +1334 / -125 / -974 | -591.0 (124) |  |
+| 60 | close | 1698 | 33 | -0.06 | -100.2 | -1577.5 | 1.00 | -1763.0 | +403 / -503 | +1394 / -310 / -1184 | -552.0 (124) |  |
+| 80 | close | 1698 | 33 | -0.01 | -20.0 | -1497.3 | 1.00 | -1902.5 | +309 / -329 | +1467 / -455 / -1032 | -564.0 (124) |  |
 
 **B. Max Loss sweep (S = auto 30, touch exits)**
 
 | X | trades | skipped | win % | avg | net | net after costs | PF | max DD | halves | recent (n) | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 1645 | 0 | 28 | -0.46 | -751.5 | -2182.7 | 0.94 | -1392.0 | +358 / -1110 | -442.2 (114) |  |
-| 10 | 558 | 1087 | 20 | +0.22 | +123.0 | -362.5 | 1.07 | -282.8 | -25 / +148 | -93.5 (29) |  |
-| 15 | 817 | 828 | 24 | +0.37 | +301.8 | -409.0 | 1.08 | -632.0 | +462 / -160 | -347.8 (47) |  |
-| 20 | 1019 | 626 | 24 | -0.16 | -164.8 | -1051.3 | 0.97 | -664.8 | +275 / -440 | -306.5 (61) |  |
-| 25 | 1179 | 466 | 25 | -0.54 | -639.8 | -1665.5 | 0.91 | -853.2 | +148 / -788 | -331.2 (70) |  |
-| 30 | 1328 | 317 | 26 | -0.33 | -434.5 | -1589.9 | 0.95 | -847.5 | +292 / -727 | -344.2 (83) |  |
-| 40 | 1535 | 110 | 27 | -0.47 | -719.5 | -2054.9 | 0.93 | -1180.5 | +178 / -897 | -388.0 (105) |  |
-| 50 | 1599 | 46 | 27 | -0.62 | -987.8 | -2378.9 | 0.91 | -1548.8 | +197 / -1184 | -440.0 (110) |  |
-| 60 | 1628 | 17 | 27 | -0.67 | -1095.8 | -2512.1 | 0.91 | -1651.2 | +232 / -1328 | -550.2 (113) |  |
-| 80 | 1638 | 7 | 28 | -0.51 | -841.8 | -2266.8 | 0.93 | -1472.2 | +357 / -1199 | -550.2 (113) |  |
+| off | 1698 | 0 | 28 | -0.51 | -874.0 | -2351.3 | 0.93 | -1461.0 | +402 / -1276 | -179.0 (124) |  |
+| 10 | 570 | 1128 | 20 | +0.23 | +131.5 | -364.4 | 1.07 | -293.0 | -46 / +178 | -80.0 (31) |  |
+| 15 | 838 | 860 | 23 | +0.33 | +278.5 | -450.6 | 1.07 | -656.5 | +490 / -211 | -176.2 (48) |  |
+| 20 | 1045 | 653 | 24 | -0.23 | -244.0 | -1153.2 | 0.95 | -718.8 | +302 / -546 | -196.2 (64) |  |
+| 25 | 1211 | 487 | 25 | -0.60 | -728.5 | -1782.1 | 0.90 | -945.2 | +44 / -773 | -207.5 (75) |  |
+| 30 | 1365 | 333 | 26 | -0.37 | -510.8 | -1698.3 | 0.94 | -915.5 | +179 / -690 | -211.5 (89) |  |
+| 40 | 1577 | 121 | 27 | -0.52 | -817.2 | -2189.2 | 0.92 | -1225.5 | +230 / -1047 | -188.5 (107) |  |
+| 50 | 1649 | 49 | 27 | -0.67 | -1109.8 | -2544.4 | 0.91 | -1618.0 | +256 / -1366 | -258.2 (119) |  |
+| 60 | 1680 | 18 | 27 | -0.73 | -1218.2 | -2679.8 | 0.90 | -1720.2 | +237 / -1455 | -287.0 (122) |  |
+| 80 | 1691 | 7 | 27 | -0.57 | -964.2 | -2435.4 | 0.92 | -1541.2 | +380 / -1344 | -287.0 (123) |  |
 
-**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 1645 trades, net -751.5, avg -0.46)**
+**C. Grid S x X (touch), top 8 by net, keeping >= 30 % of trades (current = S auto, X off: 1698 trades, net -874.0, avg -0.51)**
 
 | S | X | trades | win % | avg | net | net after costs | PF | max DD | halves | thirds | flags |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| off | 15 | 740 | 23 | +1.13 | +834.0 | +190.2 | 1.25 | -640.8 | +642 / +192 | +382 / +710 / -258 | ✱ |
-| 80 | 15 | 744 | 23 | +1.08 | +805.8 | +158.5 | 1.24 | -640.8 | +626 / +180 | +423 / +642 / -258 | ✱ |
-| off | 20 | 927 | 23 | +0.71 | +654.0 | -152.5 | 1.13 | -652.8 | +532 / +122 | +424 / +267 / -37 | ✱ |
-| 60 | 15 | 746 | 23 | +0.77 | +572.8 | -76.3 | 1.17 | -640.0 | +364 / +208 | +174 / +669 / -271 | ✱ |
-| 80 | 20 | 931 | 23 | +0.61 | +568.5 | -241.5 | 1.11 | -652.8 | +642 / -73 | +424 / +187 / -43 |  |
-| 50 | 15 | 757 | 23 | +0.74 | +556.5 | -102.1 | 1.16 | -670.0 | +514 / +43 | +205 / +657 / -306 | ✱ |
-| off | 10 | 512 | 20 | +1.03 | +525.2 | +79.8 | 1.29 | -275.2 | +359 / +166 | +346 / +21 / +158 | ✱T |
-| 80 | 10 | 514 | 19 | +0.99 | +509.8 | +62.6 | 1.28 | -275.2 | +373 / +136 | +342 / +17 / +150 | ✱T |
+| off | 15 | 757 | 23 | +1.10 | +829.2 | +170.7 | 1.24 | -665.2 | +714 / +115 | +446 / +663 / -280 | ✱ |
+| 80 | 15 | 761 | 23 | +1.07 | +813.2 | +151.2 | 1.23 | -665.2 | +752 / +62 | +458 / +556 / -201 | ✱ |
+| off | 20 | 948 | 23 | +0.64 | +610.0 | -214.8 | 1.12 | -671.2 | +651 / -41 | +503 / +121 / -14 |  |
+| 60 | 15 | 763 | 23 | +0.75 | +574.0 | -89.8 | 1.16 | -664.5 | +490 / +84 | +209 / +638 / -273 | ✱ |
+| 50 | 15 | 776 | 23 | +0.72 | +558.8 | -116.4 | 1.16 | -694.5 | +539 / +20 | +252 / +619 / -312 | ✱ |
+| off | 10 | 523 | 20 | +1.03 | +538.0 | +83.0 | 1.29 | -289.2 | +352 / +186 | +334 / +120 / +85 | ✱T |
+| 80 | 20 | 952 | 23 | +0.56 | +536.8 | -291.5 | 1.11 | -659.0 | +637 / -100 | +510 / +47 / -20 |  |
+| 80 | 10 | 526 | 19 | +0.99 | +522.8 | +65.1 | 1.28 | -289.2 | +347 / +176 | +330 / +108 / +85 | ✱T |
 

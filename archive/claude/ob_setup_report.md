@@ -1,341 +1,342 @@
-# CBC order-block setup study -- 2026-10-29 17:08 ET
+# CBC order-block setup study -- 2026-11-12 09:59 ET
 
-Question: do CBC Trade Setups whose entry candle sits inside an order block do better? Alerts stored: 19566 (since 2026-10-19).
+Question: do CBC Trade Setups whose entry candle sits inside an order block do better? Alerts stored: 44310 (since 2026-10-19).
 OB definitions: **A** = OB v1.08 defaults (internal, length 5, Leg swings, Lowest in leg, mitigation Close, Keep newest, last 5/5); **B** = CBC ⑨ Lux-style (ESLib2: length 5, Close, chart TF, last 5, block appears the bar after the break, Hide Overlap removes the older block). OB state = after the bar before the setup candle (no look-ahead). Buckets: ALIGNED (long traded into an active OB+ and closed at/above its bottom; short mirrored), OPPOSING (long into an OB- and closed at/below its top), NEAR (within 0.5 ATR of an aligned OB), NONE. ✱ = net positive in both chronological halves (half nets shown last). MFE/MAE = Best / Worst from the Setup Ended alert in ATR(14).
 
-**Since last run:** vs 2026-10-28 17:08 ET: setups (ALIGNED+NONE+OPPOSING, OB v1.08) MES 3m 59->66, MGC 3m 35->41, MNQ 3m 59->70, MES 2m 69->72, MGC 2m 63->74, MNQ 2m 74->92, MES 5m 32->36, MGC 5m 20->20, MNQ 5m 22->28.
+**Since last run:** vs 2026-11-09 17:06 ET: setups (ALIGNED+NONE+OPPOSING, OB v1.08) MES 3m 101->102, MGC 3m 66->70, MNQ 3m 106->106, MES 2m 113->130, MGC 2m 142->176, MNQ 2m 145->172, MES 5m 55->63, MGC 5m 48->58, MNQ 5m 54->60. MNQ 2m "block OPPOSING" still clears the bar (v1.08 OPPOSING 51 · 33% · -5.55 vs rest 136, Δavg -4.98; CBC 41 vs 146, Δavg -4.91 -- gap narrower than 11/09's -6.33 / -8.40). MES 2m "block OPPOSING" back to "consistent but points the other way" (OPPOSING does slightly better than the rest). MNQ 3m: no new ended setups since 11/09. This run is a catch-up for the failed 11/10-11/11 runs (usage limit); from now on the study runs weekly (Fridays 17:05 ET). Settings sync: no mismatches (v10.87). Note: "Setup Ended" results mix exit versions (MES 3m v10.67-v10.82, MGC 3m 50 % + trail 3.5 v10.84, gates v10.77/v10.81/v10.86-87). No OB v1.08 indicator alerts in the feed for any ticker, so that cross-check is still not possible; replay B matches CBC's own "In OB" line 99-100 %, replay A 91-98 %.
 
 ## MES 3m
 
-Setups with results: 70 (skipped 0 without bars) · net -66.7 pts · halves split at 10/23 06:45 · A/B bucket agreement 65/70 (93%)
+Setups with results: 106 (skipped 0 without bars) · net -16.9 pts · halves split at 10/27 18:48 · A/B bucket agreement 97/106 (92%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 7 | 43% | -1.16 | -8.1 | 0.63 | 1.40 / -1.27 | +0.5 / -8.6 |
-| NEAR | 4 | 25% | -1.61 | -6.4 | 0.49 | 1.27 / -1.92 | -4.1 / -2.3 |
-| NONE | 42 | 38% | -1.33 | -56.0 | 0.57 | 1.29 / -1.13 | -26.7 / -29.4 |
-| OPPOSING | 17 | 47% | +0.23 | +3.9 | 1.09 | 2.07 / -1.12 | -9.4 / +13.3 |
+| ALIGNED | 13 | 38% | -1.80 | -23.4 | 0.57 | 1.83 / -1.50 | -9.2 / -14.1 |
+| NEAR | 4 | 25% | -1.61 | -6.4 | 0.49 | 1.27 / -1.92 | -1.4 / -5.0 |
+| NONE | 67 | 48% | +0.36 | +24.0 | 1.11 | 2.02 / -1.13 | -28.5 / +52.5 |
+| OPPOSING | 22 | 50% | -0.50 | -11.1 | 0.85 | 1.87 / -1.20 | +5.1 / -16.1 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 6 | 33% | -2.20 | -13.2 | 0.39 | 1.22 / -1.42 | -4.6 / -8.6 |
-| NEAR | 5 | 20% | -2.11 | -10.5 | 0.37 | 1.27 / -1.82 | -4.1 / -6.4 |
-| NONE | 46 | 41% | -0.93 | -42.6 | 0.68 | 1.41 / -1.09 | -18.1 / -24.5 |
-| OPPOSING | 13 | 46% | -0.02 | -0.3 | 0.99 | 1.97 / -1.15 | -12.9 / +12.6 |
+| ALIGNED | 11 | 27% | -3.47 | -38.2 | 0.30 | 1.34 / -1.71 | -14.3 / -23.9 |
+| NEAR | 5 | 20% | -2.11 | -10.5 | 0.37 | 1.27 / -1.82 | -5.5 / -5.0 |
+| NONE | 75 | 51% | +0.62 | +46.4 | 1.20 | 2.06 / -1.11 | -15.1 / +61.5 |
+| OPPOSING | 15 | 47% | -0.97 | -14.6 | 0.74 | 1.98 / -1.20 | +0.8 / -15.4 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| HTF CBC Flip (11) | 0 | 7 · 43% · -1.01 | 0 | 8 · 50% · -0.28 |
-| LTF EMA20 Pierce/Touch (41) | 4 · 25% · -3.03 | 24 · 38% · -1.40 | 3 · 0% · -5.73 | 27 · 41% · -0.93 |
-| HTF EMA pierce (17) | 3 · 67% · +1.33 | 10 · 40% · -0.97 | 3 · 67% · +1.33 | 10 · 40% · -0.97 |
+| HTF CBC Flip (16) | 1 · 0% · -10.21 | 11 · 55% · +1.99 | 1 · 0% · -10.21 | 12 · 58% · +2.23 |
+| LTF EMA20 Pierce/Touch (66) | 8 · 38% · -2.02 | 40 · 50% · +0.26 | 6 · 17% · -5.16 | 47 · 53% · +0.59 |
+| HTF EMA pierce (22) | 4 · 50% · +0.75 | 14 · 43% · +0.07 | 4 · 50% · +0.75 | 14 · 43% · +0.07 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 70 setups, 10 say In OB): replay A agrees 65 (93%), replay B 69 (99%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 106 setups, 13 say In OB): replay A agrees 96 (91%), replay B 105 (99%).
 OB v1.08 indicator alerts for MES1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 7 vs 42, Δavg +0.17 · CBC 6 vs 46, Δavg -1.27)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 13 vs 67, Δavg -2.16 · CBC 11 vs 75, Δavg -4.09)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 17 vs 53, Δavg +1.56 · CBC 13 vs 57, Δavg +1.14)
+Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 22 vs 84, Δavg -0.43 · CBC 15 vs 91, Δavg -0.95)
 
 ## MGC 3m
 
-Setups with results: 44 (skipped 0 without bars) · net -20.9 pts · halves split at 10/25 21:48 · A/B bucket agreement 40/44 (91%)
+Setups with results: 75 (skipped 0 without bars) · net -19.5 pts · halves split at 10/28 21:42 · A/B bucket agreement 69/75 (92%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 8 | 62% | +0.62 | +5.0 ✱ | 1.39 | 2.49 / -0.85 | +3.3 / +1.7 |
-| NEAR | 3 | 33% | -1.73 | -5.2 | 0.44 | 0.58 / -1.00 | -3.6 / -1.6 |
-| NONE | 19 | 42% | -0.18 | -3.4 | 0.92 | 1.43 / -1.09 | +15.0 / -18.3 |
-| OPPOSING | 14 | 36% | -1.24 | -17.3 | 0.48 | 1.14 / -1.08 | -6.3 / -11.0 |
+| ALIGNED | 9 | 67% | +0.94 | +8.5 ✱ | 1.67 | 2.41 / -0.77 | +8.5 / +0.0 |
+| NEAR | 5 | 40% | -0.91 | -4.6 | 0.71 | 1.87 / -1.03 | -3.6 / -1.0 |
+| NONE | 43 | 44% | +0.03 | +1.1 | 1.01 | 1.91 / -1.12 | +3.8 / -2.7 |
+| OPPOSING | 18 | 33% | -1.36 | -24.5 | 0.44 | 1.09 / -1.05 | -23.5 / -1.0 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 7 | 71% | +1.42 | +10.0 ✱ | 2.31 | 2.79 / -0.71 | +8.3 / +1.7 |
-| NEAR | 3 | 33% | -1.73 | -5.2 | 0.44 | 0.58 / -1.00 | -3.6 / -1.6 |
-| NONE | 22 | 45% | -0.16 | -3.6 | 0.93 | 1.42 / -1.03 | +15.6 / -19.2 |
-| OPPOSING | 12 | 25% | -1.84 | -22.1 | 0.30 | 1.04 / -1.24 | -11.9 / -10.2 |
+| ALIGNED | 8 | 75% | +1.69 | +13.5 ✱ | 2.77 | 2.67 / -0.64 | +13.5 / +0.0 |
+| NEAR | 5 | 40% | -0.91 | -4.6 | 0.71 | 1.87 / -1.03 | -3.6 / -1.0 |
+| NONE | 48 | 46% | +0.06 | +2.9 | 1.03 | 1.84 / -1.06 | -2.6 / +5.5 |
+| OPPOSING | 14 | 21% | -2.23 | -31.3 | 0.23 | 0.98 / -1.27 | -22.1 / -9.2 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| HTF CBC Flip (5) | 0 | 3 · 100% · +3.17 | 0 | 4 · 75% · +0.62 |
-| LTF EMA20 Pierce/Touch (26) | 4 · 50% · +0.32 | 10 · 40% · +0.33 | 3 · 67% · +2.09 | 11 · 45% · +0.86 |
-| HTF EMA pierce (12) | 4 · 75% · +0.92 | 5 · 20% · -1.85 | 4 · 75% · +0.92 | 6 · 33% · -1.44 |
+| HTF CBC Flip (9) | 0 | 5 · 80% · +1.30 | 0 | 7 · 71% · +0.36 |
+| LTF EMA20 Pierce/Touch (43) | 4 · 50% · +0.32 | 24 · 46% · +0.75 | 3 · 67% · +2.09 | 26 · 46% · +0.90 |
+| HTF EMA pierce (22) | 5 · 80% · +1.44 | 13 · 31% · -1.28 | 5 · 80% · +1.44 | 14 · 36% · -1.14 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 44 setups, 7 say In OB): replay A agrees 41 (93%), replay B 43 (98%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 75 setups, 9 say In OB): replay A agrees 69 (92%), replay B 74 (99%).
 OB v1.08 indicator alerts for MGC1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 8 vs 19, Δavg +0.80 · CBC 7 vs 22, Δavg +1.59)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 9 vs 43, Δavg +0.92 · CBC 8 vs 48, Δavg +1.63)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 14 vs 30, Δavg -1.12 · CBC 12 vs 32, Δavg -1.88)
+Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 18 vs 57, Δavg -1.45 · CBC 14 vs 61, Δavg -2.43)
 
 ## MNQ 3m
 
-Setups with results: 71 (skipped 0 without bars) · net -662.5 pts · halves split at 10/26 10:03 · A/B bucket agreement 63/71 (89%)
+Setups with results: 108 (skipped 0 without bars) · net -972.3 pts · halves split at 10/28 10:48 · A/B bucket agreement 96/108 (89%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 5 | 20% | -15.60 | -78.0 | 0.29 | 0.81 / -1.46 | -30.0 / -48.0 |
-| NEAR | 1 | 100% | +30.59 | +30.6 | ∞ | 2.60 / -0.11 | +30.6 / +0.0 |
-| NONE | 41 | 24% | -12.70 | -520.5 | 0.41 | 1.06 / -1.24 | -240.5 / -280.0 |
-| OPPOSING | 24 | 42% | -3.94 | -94.5 | 0.76 | 1.23 / -0.93 | +51.3 / -145.8 |
+| ALIGNED | 9 | 33% | -8.14 | -73.2 | 0.57 | 1.10 / -1.09 | -48.0 / -25.2 |
+| NEAR | 2 | 100% | +38.98 | +78.0 ✱ | ∞ | 4.05 / -0.23 | +30.6 / +47.4 |
+| NONE | 64 | 25% | -11.81 | -755.6 | 0.44 | 1.04 / -1.10 | -507.7 / -247.8 |
+| OPPOSING | 33 | 36% | -6.71 | -221.4 | 0.63 | 1.18 / -0.99 | +11.5 / -232.9 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 5 | 20% | -15.60 | -78.0 | 0.29 | 0.81 / -1.46 | -30.0 / -48.0 |
-| NEAR | 4 | 50% | +0.65 | +2.6 | 1.04 | 1.55 / -0.78 | +62.6 / -60.0 |
-| NONE | 46 | 24% | -13.12 | -603.5 | 0.39 | 1.01 / -1.25 | -295.5 / -308.0 |
-| OPPOSING | 16 | 50% | +1.03 | +16.5 | 1.07 | 1.44 / -0.79 | +74.3 / -57.8 |
+| ALIGNED | 8 | 38% | -5.41 | -43.2 | 0.69 | 1.12 / -1.05 | -48.0 / +4.8 |
+| NEAR | 4 | 50% | +0.65 | +2.6 | 1.04 | 1.55 / -0.78 | +32.6 / -30.0 |
+| NONE | 73 | 25% | -11.93 | -871.2 | 0.44 | 1.07 / -1.12 | -592.7 / -278.5 |
+| OPPOSING | 23 | 43% | -2.63 | -60.4 | 0.84 | 1.33 / -0.87 | +94.5 / -154.9 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| HTF CBC Flip (23) | 1 · 0% · -25.00 | 13 · 23% · -13.12 | 1 · 0% · -25.00 | 15 · 20% · -15.37 |
-| LTF EMA20 Pierce/Touch (30) | 3 · 33% · -7.67 | 18 · 11% · -19.91 | 3 · 33% · -7.67 | 21 · 14% · -18.16 |
-| HTF EMA pierce (18) | 1 · 0% · -30.00 | 10 · 50% · +0.85 | 1 · 0% · -30.00 | 10 · 50% · +0.85 |
+| HTF CBC Flip (30) | 1 · 0% · -25.00 | 18 · 33% · -6.94 | 1 · 0% · -25.00 | 20 · 30% · -9.24 |
+| LTF EMA20 Pierce/Touch (54) | 5 · 40% · -4.20 | 35 · 14% · -17.41 | 4 · 50% · +2.25 | 41 · 15% · -17.37 |
+| HTF EMA pierce (24) | 3 · 33% · -9.08 | 11 · 45% · -1.96 | 3 · 33% · -9.08 | 12 · 50% · +2.15 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 71 setups, 11 say In OB): replay A agrees 65 (92%), replay B 71 (100%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 108 setups, 18 say In OB): replay A agrees 101 (94%), replay B 108 (100%).
 OB v1.08 indicator alerts for MNQ1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 5 vs 41, Δavg -2.90 · CBC 5 vs 46, Δavg -2.48)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 9 vs 64, Δavg +3.67 · CBC 8 vs 73, Δavg +6.53)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 24 vs 47, Δavg +8.15 · CBC 16 vs 55, Δavg +13.37)
+Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 33 vs 75, Δavg +3.30 · CBC 23 vs 85, Δavg +8.10)
 
 ## MES 2m
 
-Setups with results: 77 (skipped 0 without bars) · net -126.6 pts · halves split at 10/21 14:38 · A/B bucket agreement 69/77 (90%)
+Setups with results: 138 (skipped 0 without bars) · net -66.5 pts · halves split at 10/28 05:50 · A/B bucket agreement 121/138 (88%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 7 | 43% | +0.25 | +1.8 | 1.19 | 1.43 / -0.75 | +2.8 / -1.0 |
-| NEAR | 5 | 40% | -1.44 | -7.2 | 0.39 | 1.44 / -1.61 | -2.2 / -5.0 |
-| NONE | 40 | 32% | -2.18 | -87.3 | 0.40 | 1.66 / -1.56 | -41.9 / -45.4 |
-| OPPOSING | 25 | 36% | -1.35 | -33.9 | 0.54 | 1.28 / -1.70 | -8.8 / -25.0 |
+| ALIGNED | 12 | 50% | +0.76 | +9.1 ✱ | 1.56 | 1.41 / -0.72 | +4.3 / +4.8 |
+| NEAR | 8 | 50% | +0.54 | +4.3 | 1.30 | 2.15 / -1.14 | -2.2 / +6.5 |
+| NONE | 74 | 43% | -0.96 | -71.2 | 0.69 | 1.67 / -1.31 | -82.2 / +11.0 |
+| OPPOSING | 44 | 45% | -0.20 | -8.7 | 0.92 | 1.50 / -1.34 | -31.5 / +22.7 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 7 | 43% | +0.25 | +1.8 | 1.19 | 1.43 / -0.75 | +2.8 / -1.0 |
-| NEAR | 5 | 60% | +0.03 | +0.2 | 1.02 | 2.02 / -0.98 | -2.2 / +2.4 |
-| NONE | 47 | 30% | -2.23 | -104.8 | 0.38 | 1.55 / -1.59 | -47.8 / -57.0 |
-| OPPOSING | 18 | 39% | -1.32 | -23.8 | 0.58 | 1.26 / -1.85 | -3.0 / -20.8 |
+| ALIGNED | 12 | 50% | +0.76 | +9.1 ✱ | 1.56 | 1.41 / -0.72 | +4.3 / +4.8 |
+| NEAR | 8 | 50% | +0.05 | +0.4 ✱ | 1.02 | 2.09 / -0.99 | +0.2 / +0.2 |
+| NONE | 89 | 40% | -1.05 | -93.8 | 0.66 | 1.56 / -1.31 | -94.6 / +0.9 |
+| OPPOSING | 29 | 55% | +0.61 | +17.8 | 1.26 | 1.79 / -1.37 | -21.4 / +39.2 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| HTF CBC Flip (21) | 0 | 8 · 50% · -0.41 | 0 | 11 · 36% · -1.66 |
-| LTF EMA20 Pierce/Touch (38) | 5 · 40% · +0.05 | 22 · 27% · -3.35 | 5 · 40% · +0.05 | 25 · 28% · -2.81 |
-| HTF EMA pierce (17) | 2 · 50% · +0.75 | 9 · 33% · -0.26 | 2 · 50% · +0.75 | 10 · 30% · -0.82 |
+| HTF CBC Flip (37) | 0 | 19 · 58% · +0.35 | 0 | 25 · 52% · -0.20 |
+| LTF EMA20 Pierce/Touch (78) | 7 · 57% · +1.34 | 44 · 39% · -1.61 | 7 · 57% · +1.34 | 52 · 37% · -1.46 |
+| HTF EMA pierce (21) | 4 · 25% · -1.28 | 10 · 40% · +0.12 | 4 · 25% · -1.28 | 11 · 36% · -0.42 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 77 setups, 10 say In OB): replay A agrees 71 (92%), replay B 77 (100%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 138 setups, 20 say In OB): replay A agrees 127 (92%), replay B 138 (100%).
 OB v1.08 indicator alerts for MES1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 7 vs 40, Δavg +2.44 · CBC 7 vs 47, Δavg +2.48)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 12 vs 74, Δavg +1.72 · CBC 12 vs 89, Δavg +1.81)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 25 vs 52, Δavg +0.43 · CBC 18 vs 59, Δavg +0.42)
+Verdict: block OPPOSING (OPPOSING vs rest): **consistent but points the other way** (v1.08 44 vs 94, Δavg +0.42 · CBC 29 vs 109, Δavg +1.39)
 
 ## MGC 2m
 
-Setups with results: 81 (skipped 0 without bars) · net -35.7 pts · halves split at 10/26 07:26 · A/B bucket agreement 77/81 (95%)
+Setups with results: 189 (skipped 0 without bars) · net -74.6 pts · halves split at 11/01 19:02 · A/B bucket agreement 179/189 (95%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 7 | 14% | -3.52 | -24.6 | 0.11 | 0.94 / -1.80 | -13.7 / -11.0 |
-| NEAR | 7 | 43% | +0.08 | +0.6 | 1.04 | 2.44 / -1.91 | +6.2 / -5.6 |
-| NONE | 44 | 50% | -0.15 | -6.7 | 0.93 | 1.82 / -1.45 | -24.5 / +17.8 |
-| OPPOSING | 23 | 57% | -0.22 | -5.0 | 0.90 | 2.36 / -1.36 | +15.4 / -20.3 |
+| ALIGNED | 13 | 38% | -1.18 | -15.3 | 0.54 | 1.65 / -1.36 | -15.5 / +0.1 |
+| NEAR | 13 | 46% | +0.54 | +7.0 | 1.30 | 3.20 / -1.55 | -0.6 / +7.7 |
+| NONE | 117 | 44% | -0.53 | -62.0 | 0.76 | 1.56 / -1.36 | -6.9 / -55.1 |
+| OPPOSING | 46 | 54% | -0.09 | -4.3 | 0.96 | 2.42 / -1.29 | -5.0 / +0.7 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 7 | 14% | -3.52 | -24.6 | 0.11 | 0.94 / -1.80 | -13.7 / -11.0 |
-| NEAR | 4 | 75% | +2.47 | +9.9 | 2.98 | 3.41 / -1.91 | +11.2 / -1.3 |
-| NONE | 48 | 48% | -0.24 | -11.7 | 0.88 | 1.83 / -1.48 | -29.5 / +17.8 |
-| OPPOSING | 22 | 55% | -0.42 | -9.2 | 0.81 | 2.27 / -1.35 | +15.4 / -24.6 |
+| ALIGNED | 13 | 38% | -1.18 | -15.3 | 0.54 | 1.65 / -1.36 | -15.5 / +0.1 |
+| NEAR | 11 | 55% | +0.85 | +9.3 ✱ | 1.44 | 3.47 / -1.40 | +8.7 / +0.6 |
+| NONE | 126 | 43% | -0.58 | -72.8 | 0.74 | 1.55 / -1.38 | -11.9 / -60.9 |
+| OPPOSING | 39 | 56% | +0.11 | +4.2 | 1.06 | 2.61 / -1.28 | -9.2 / +13.4 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| HTF CBC Flip (22) | 2 · 0% · -5.26 | 9 · 67% · -0.03 | 2 · 0% · -5.26 | 12 · 58% · -0.03 |
-| LTF EMA20 Pierce/Touch (47) | 2 · 0% · -3.30 | 31 · 45% · -0.34 | 2 · 0% · -3.30 | 32 · 44% · -0.49 |
-| HTF EMA pierce (12) | 3 · 33% · -2.50 | 4 · 50% · +1.07 | 3 · 33% · -2.50 | 4 · 50% · +1.07 |
+| HTF CBC Flip (49) | 2 · 0% · -5.26 | 26 · 38% · -1.49 | 2 · 0% · -5.26 | 31 · 39% · -1.26 |
+| LTF EMA20 Pierce/Touch (97) | 5 · 60% · +1.07 | 65 · 46% · -0.32 | 5 · 60% · +1.07 | 67 · 45% · -0.44 |
+| HTF EMA pierce (42) | 6 · 33% · -1.69 | 25 · 44% · +0.11 | 6 · 33% · -1.69 | 27 · 44% · +0.02 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 81 setups, 18 say In OB): replay A agrees 79 (98%), replay B 81 (100%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 189 setups, 30 say In OB): replay A agrees 180 (95%), replay B 189 (100%).
 OB v1.08 indicator alerts for MGC1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 7 vs 44, Δavg -3.37 · CBC 7 vs 48, Δavg -3.27)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 13 vs 117, Δavg -0.65 · CBC 13 vs 126, Δavg -0.60)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 23 vs 58, Δavg +0.31 · CBC 22 vs 59, Δavg +0.03)
+Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 46 vs 143, Δavg +0.40 · CBC 39 vs 150, Δavg +0.63)
 
 ## MNQ 2m
 
-Setups with results: 99 (skipped 0 without bars) · net -440.9 pts · halves split at 10/26 19:30 · A/B bucket agreement 91/99 (92%)
+Setups with results: 187 (skipped 0 without bars) · net -360.2 pts · halves split at 10/29 12:20 · A/B bucket agreement 171/187 (91%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 9 | 11% | -18.25 | -164.2 | 0.01 | 0.36 / -1.17 | -5.5 / -158.8 |
-| NEAR | 7 | 43% | +2.27 | +15.9 | 1.18 | 1.21 / -1.29 | +48.1 / -32.2 |
-| NONE | 58 | 43% | -1.31 | -76.3 | 0.91 | 1.74 / -1.10 | +101.0 / -177.2 |
-| OPPOSING | 25 | 32% | -8.65 | -216.2 | 0.52 | 1.36 / -1.53 | -71.8 / -144.5 |
+| ALIGNED | 16 | 19% | -13.96 | -223.4 | 0.29 | 1.33 / -1.18 | -164.2 / -59.1 |
+| NEAR | 15 | 47% | +3.93 | +59.0 ✱ | 1.33 | 1.55 / -1.02 | +15.9 / +43.1 |
+| NONE | 105 | 46% | +0.83 | +87.1 | 1.06 | 1.74 / -0.99 | -71.2 / +158.3 |
+| OPPOSING | 51 | 33% | -5.55 | -282.9 | 0.69 | 1.77 / -1.35 | -186.2 / -96.7 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 8 | 12% | -16.78 | -134.2 | 0.02 | 0.28 / -1.14 | -5.5 / -128.8 |
-| NEAR | 8 | 38% | -4.08 | -32.6 | 0.73 | 0.85 / -1.46 | -0.4 / -32.2 |
-| NONE | 64 | 41% | -2.57 | -164.4 | 0.84 | 1.70 / -1.12 | +100.1 / -264.5 |
-| OPPOSING | 19 | 37% | -5.76 | -109.5 | 0.66 | 1.51 / -1.53 | -22.4 / -87.2 |
+| ALIGNED | 13 | 15% | -16.10 | -209.3 | 0.18 | 1.02 / -1.22 | -134.2 / -75.1 |
+| NEAR | 16 | 38% | -2.58 | -41.2 | 0.82 | 1.31 / -1.21 | -32.6 / -8.6 |
+| NONE | 117 | 45% | +1.08 | +126.5 | 1.07 | 1.81 / -0.99 | -159.4 / +285.9 |
+| OPPOSING | 41 | 34% | -5.76 | -236.1 | 0.68 | 1.75 / -1.38 | -79.5 / -156.6 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| HTF CBC Flip (32) | 0 | 16 · 62% · +11.84 | 0 | 20 · 55% · +8.06 |
-| LTF EMA20 Pierce/Touch (34) | 4 · 0% · -30.00 | 22 · 36% · -3.98 | 3 · 0% · -30.00 | 24 · 33% · -6.15 |
-| HTF EMA pierce (31) | 4 · 0% · -11.69 | 19 · 37% · -7.80 | 4 · 0% · -11.69 | 19 · 37% · -7.80 |
+| HTF CBC Flip (60) | 1 · 0% · -30.00 | 28 · 57% · +8.95 | 0 | 34 · 53% · +6.80 |
+| LTF EMA20 Pierce/Touch (78) | 8 · 12% · -20.48 | 48 · 40% · -2.70 | 6 · 0% · -29.96 | 54 · 41% · -1.31 |
+| HTF EMA pierce (46) | 5 · 20% · -0.41 | 28 · 46% · -0.14 | 5 · 20% · -0.41 | 28 · 46% · -0.14 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 99 setups, 18 say In OB): replay A agrees 95 (96%), replay B 99 (100%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 187 setups, 38 say In OB): replay A agrees 179 (96%), replay B 186 (99%).
 OB v1.08 indicator alerts for MNQ1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 9 vs 58, Δavg -16.94 · CBC 8 vs 64, Δavg -14.21)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 16 vs 105, Δavg -14.79 · CBC 13 vs 117, Δavg -17.18)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 25 vs 74, Δavg -5.61 · CBC 19 vs 80, Δavg -1.62)
+Verdict: block OPPOSING (OPPOSING vs rest): **OB filter worth testing** (v1.08 51 vs 136, Δavg -4.98 · CBC 41 vs 146, Δavg -4.91)
 
 ## MES 5m
 
-Setups with results: 37 (skipped 0 without bars) · net -42.5 pts · halves split at 10/26 04:50 · A/B bucket agreement 36/37 (97%)
+Setups with results: 67 (skipped 0 without bars) · net -30.2 pts · halves split at 10/28 20:55 · A/B bucket agreement 65/67 (97%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 2 | 50% | -1.47 | -2.9 | 0.63 | 1.34 / -1.04 | -2.9 / +0.0 |
-| NEAR | 1 | 100% | +4.32 | +4.3 | ∞ | 2.20 / -1.47 | +0.0 / +4.3 |
-| NONE | 24 | 42% | -1.46 | -35.1 | 0.60 | 1.34 / -1.20 | -5.7 / -29.4 |
-| OPPOSING | 10 | 50% | -0.88 | -8.8 | 0.74 | 1.07 / -1.05 | +5.5 / -14.4 |
+| ALIGNED | 6 | 67% | +1.37 | +8.2 | 1.63 | 1.90 / -0.84 | -2.9 / +11.1 |
+| NEAR | 4 | 25% | -2.92 | -11.7 | 0.27 | 0.81 / -1.06 | +4.3 / -16.0 |
+| NONE | 41 | 51% | -0.34 | -14.0 | 0.89 | 1.41 / -1.01 | -24.1 / +10.1 |
+| OPPOSING | 16 | 50% | -0.80 | -12.7 | 0.78 | 1.33 / -1.02 | -0.8 / -11.9 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 2 | 50% | -1.47 | -2.9 | 0.63 | 1.34 / -1.04 | -2.9 / +0.0 |
-| NEAR | 1 | 100% | +4.32 | +4.3 | ∞ | 2.20 / -1.47 | +0.0 / +4.3 |
-| NONE | 25 | 44% | -1.21 | -30.3 | 0.65 | 1.34 / -1.16 | -0.9 / -29.4 |
-| OPPOSING | 9 | 44% | -1.51 | -13.6 | 0.59 | 1.03 / -1.14 | +0.8 / -14.4 |
+| ALIGNED | 6 | 67% | +1.37 | +8.2 | 1.63 | 1.90 / -0.84 | -2.9 / +11.1 |
+| NEAR | 4 | 25% | -2.92 | -11.7 | 0.27 | 0.81 / -1.06 | +4.3 / -16.0 |
+| NONE | 43 | 53% | -0.00 | -0.2 | 1.00 | 1.50 / -0.97 | -19.3 / +19.1 |
+| OPPOSING | 14 | 43% | -1.90 | -26.6 | 0.53 | 1.03 / -1.12 | -5.6 / -21.0 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| HTF CBC Flip (10) | 0 | 6 · 50% · -1.39 | 0 | 6 · 50% · -1.39 |
-| LTF EMA20 Pierce/Touch (20) | 2 · 50% · -1.47 | 15 · 40% · -1.25 | 2 · 50% · -1.47 | 15 · 40% · -1.25 |
-| HTF EMA pierce (6) | 0 | 2 · 50% · -1.08 | 0 | 3 · 67% · +0.88 |
+| HTF CBC Flip (15) | 0 | 9 · 67% · +0.74 | 0 | 9 · 67% · +0.74 |
+| LTF EMA20 Pierce/Touch (41) | 5 · 60% · +0.26 | 28 · 50% · -0.17 | 5 · 60% · +0.26 | 29 · 52% · +0.15 |
+| HTF EMA pierce (10) | 1 · 100% · +6.92 | 3 · 33% · -3.38 | 1 · 100% · +6.92 | 4 · 50% · -1.34 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 37 setups, 4 say In OB): replay A agrees 36 (97%), replay B 37 (100%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 67 setups, 11 say In OB): replay A agrees 64 (96%), replay B 66 (99%).
 OB v1.08 indicator alerts for MES1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 2 vs 24, Δavg -0.01 · CBC 2 vs 25, Δavg -0.26)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 6 vs 41, Δavg +1.71 · CBC 6 vs 43, Δavg +1.37)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 10 vs 27, Δavg +0.37 · CBC 9 vs 28, Δavg -0.48)
+Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 16 vs 51, Δavg -0.45 · CBC 14 vs 53, Δavg -1.83)
 
 ## MGC 5m
 
-Setups with results: 21 (skipped 0 without bars) · net -2.9 pts · halves split at 10/26 03:35 · A/B bucket agreement 20/21 (95%)
+Setups with results: 63 (skipped 0 without bars) · net -14.9 pts · halves split at 11/02 21:30 · A/B bucket agreement 61/63 (97%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 1 | 0% | -7.00 | -7.0 | 0.00 | 0.33 / -1.38 | -7.0 / +0.0 |
-| NEAR | 1 | 100% | +3.04 | +3.0 | ∞ | 1.88 / -0.54 | +0.0 / +3.0 |
-| NONE | 16 | 44% | -0.17 | -2.7 | 0.93 | 1.43 / -1.09 | +7.7 / -10.3 |
-| OPPOSING | 3 | 67% | +1.25 | +3.8 | 1.75 | 2.10 / -1.14 | +0.0 / +3.8 |
+| ALIGNED | 5 | 20% | -4.04 | -20.2 | 0.18 | 1.35 / -0.96 | -9.4 / -10.8 |
+| NEAR | 5 | 80% | +2.34 | +11.7 ✱ | 2.95 | 1.80 / -0.52 | +2.1 / +9.7 |
+| NONE | 40 | 48% | +0.07 | +2.7 ✱ | 1.03 | 1.39 / -1.03 | +1.3 / +1.4 |
+| OPPOSING | 13 | 46% | -0.69 | -9.0 | 0.78 | 1.59 / -1.04 | -1.7 / -7.4 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 1 | 0% | -7.00 | -7.0 | 0.00 | 0.33 / -1.38 | -7.0 / +0.0 |
-| NEAR | 0 | – | – | – | – | – | |
-| NONE | 17 | 47% | +0.02 | +0.4 | 1.01 | 1.46 / -1.06 | +7.7 / -7.3 |
-| OPPOSING | 3 | 67% | +1.25 | +3.8 | 1.75 | 2.10 / -1.14 | +0.0 / +3.8 |
+| ALIGNED | 5 | 20% | -4.04 | -20.2 | 0.18 | 1.35 / -0.96 | -9.4 / -10.8 |
+| NEAR | 4 | 75% | +2.17 | +8.7 | 2.45 | 1.77 / -0.51 | -1.0 / +9.7 |
+| NONE | 42 | 48% | +0.06 | +2.5 ✱ | 1.02 | 1.39 / -1.01 | +1.1 / +1.4 |
+| OPPOSING | 12 | 50% | -0.49 | -5.8 | 0.85 | 1.65 / -1.05 | +1.5 / -7.4 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| HTF CBC Flip (6) | 0 | 4 · 50% · -0.31 | 0 | 5 · 60% · +0.36 |
-| LTF EMA20 Pierce/Touch (10) | 1 · 0% · -7.00 | 7 · 14% · -2.39 | 1 · 0% · -7.00 | 7 · 14% · -2.39 |
-| HTF EMA pierce (5) | 0 | 5 · 80% · +3.06 | 0 | 5 · 80% · +3.06 |
+| HTF CBC Flip (15) | 0 | 9 · 67% · +1.37 | 0 | 10 · 70% · +1.53 |
+| LTF EMA20 Pierce/Touch (32) | 4 · 0% · -6.20 | 21 · 29% · -1.60 | 4 · 0% · -6.20 | 21 · 29% · -1.60 |
+| HTF EMA pierce (16) | 1 · 100% · +4.58 | 10 · 70% · +2.40 | 1 · 100% · +4.58 | 11 · 64% · +1.89 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 21 setups, 0 say In OB): replay A agrees 21 (100%), replay B 21 (100%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 63 setups, 8 say In OB): replay A agrees 62 (98%), replay B 63 (100%).
 OB v1.08 indicator alerts for MGC1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 1 vs 16, Δavg -6.83 · CBC 1 vs 17, Δavg -7.02)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 5 vs 40, Δavg -4.11 · CBC 5 vs 42, Δavg -4.10)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 3 vs 18, Δavg +1.62 · CBC 3 vs 18, Δavg +1.62)
+Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 13 vs 50, Δavg -0.58 · CBC 12 vs 51, Δavg -0.31)
 
 ## MNQ 5m
 
-Setups with results: 28 (skipped 0 without bars) · net +144.2 pts · halves split at 10/25 19:25 · A/B bucket agreement 26/28 (93%)
+Setups with results: 60 (skipped 0 without bars) · net +487.2 pts · halves split at 11/02 04:25 · A/B bucket agreement 57/60 (95%)
 
 **A · OB v1.08**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 7 | 43% | -3.83 | -26.8 | 0.74 | 1.06 / -0.82 | +41.4 / -68.2 |
+| ALIGNED | 10 | 50% | +8.93 | +89.3 ✱ | 1.68 | 1.71 / -0.72 | +87.3 / +2.0 |
 | NEAR | 0 | – | – | – | – | – | |
-| NONE | 16 | 62% | +11.32 | +181.1 ✱ | 2.13 | 1.55 / -0.76 | +112.9 / +68.3 |
-| OPPOSING | 5 | 40% | -2.02 | -10.1 | 0.86 | 1.13 / -0.77 | +17.2 / -27.4 |
+| NONE | 37 | 57% | +10.99 | +406.7 ✱ | 1.92 | 1.90 / -0.68 | +218.0 / +188.8 |
+| OPPOSING | 13 | 38% | -0.68 | -8.8 | 0.96 | 1.70 / -0.71 | -10.1 / +1.3 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 7 | 43% | -3.83 | -26.8 | 0.74 | 1.06 / -0.82 | +41.4 / -68.2 |
+| ALIGNED | 10 | 50% | +8.93 | +89.3 ✱ | 1.68 | 1.71 / -0.72 | +87.3 / +2.0 |
 | NEAR | 0 | – | – | – | – | – | |
-| NONE | 18 | 56% | +7.58 | +136.4 ✱ | 1.67 | 1.49 / -0.79 | +98.1 / +38.3 |
-| OPPOSING | 3 | 67% | +11.55 | +34.6 ✱ | 2.15 | 1.18 / -0.59 | +32.0 / +2.6 |
+| NONE | 40 | 55% | +9.88 | +395.3 ✱ | 1.81 | 1.86 / -0.69 | +173.2 / +222.1 |
+| OPPOSING | 10 | 40% | +0.26 | +2.6 | 1.01 | 1.77 / -0.68 | +34.6 / -32.1 |
 
 By trigger (n · win % · avg pts):
 
 | Trigger | A ALIGNED | A NONE | B ALIGNED | B NONE |
 |---|---|---|---|---|
-| LTF EMA20 Pierce/Touch (12) | 2 · 100% · +35.72 | 9 · 44% · +0.47 | 2 · 100% · +35.72 | 10 · 40% · -1.05 |
-| HTF EMA pierce (12) | 5 · 20% · -19.65 | 5 · 80% · +21.14 | 5 · 20% · -19.65 | 5 · 80% · +21.14 |
+| HTF CBC Flip (9) | 0 | 7 · 43% · -1.71 | 0 | 8 · 38% · -5.25 |
+| LTF EMA20 Pierce/Touch (32) | 5 · 80% · +37.50 | 20 · 60% · +13.47 | 5 · 80% · +37.50 | 21 · 57% · +12.13 |
+| HTF EMA pierce (18) | 5 · 20% · -19.65 | 10 · 60% · +14.92 | 5 · 20% · -19.65 | 11 · 64% · +16.60 |
 
-Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 28 setups, 2 say In OB): replay A agrees 25 (89%), replay B 28 (100%).
+Cross-check vs CBC alert "In OB±/OB: none" line (close inside, 60 setups, 4 say In OB): replay A agrees 56 (93%), replay B 60 (100%).
 OB v1.08 indicator alerts for MNQ1! in the feed: 0 (none within 5 candles of a setup) -- cross-check not possible.
 
-Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 7 vs 16, Δavg -15.15 · CBC 7 vs 18, Δavg -11.41)
+Verdict: require ALIGNED (ALIGNED vs NONE): **not enough evidence yet** (v1.08 10 vs 37, Δavg -2.07 · CBC 10 vs 40, Δavg -0.96)
 
-Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 5 vs 23, Δavg -8.73 · CBC 3 vs 25, Δavg +7.16)
+Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 13 vs 47, Δavg -11.23 · CBC 10 vs 50, Δavg -9.44)
 
 ## All cases pooled (info only -- decide per symbol + timeframe)
 
@@ -343,30 +344,30 @@ Verdict: block OPPOSING (OPPOSING vs rest): **not enough evidence yet** (v1.08 5
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 53 | 34% | -5.76 | -305.0 | 0.34 | 1.21 / -1.14 | -19.1 / -285.9 |
-| NEAR | 29 | 45% | +1.23 | +35.6 | 1.26 | 1.60 / -1.49 | +49.2 / -13.6 |
-| NONE | 300 | 40% | -2.02 | -606.8 | 0.75 | 1.51 / -1.22 | +19.5 / -626.3 |
-| OPPOSING | 146 | 42% | -2.59 | -378.1 | 0.68 | 1.53 / -1.27 | +2.6 / -380.7 |
+| ALIGNED | 93 | 41% | -2.59 | -240.6 | 0.69 | 1.62 / -1.06 | -215.0 / -25.5 |
+| NEAR | 56 | 48% | +2.45 | +137.3 ✱ | 1.52 | 2.09 / -1.16 | +41.2 / +96.2 |
+| NONE | 588 | 44% | -0.65 | -381.2 | 0.91 | 1.63 / -1.13 | -676.2 / +295.0 |
+| OPPOSING | 256 | 43% | -2.28 | -583.5 | 0.73 | 1.69 / -1.19 | -323.1 / -260.4 |
 
 **B · CBC Lux-style**
 
 | Bucket | Setups | Win % | Avg pts | Net pts | PF | MFE / MAE (ATR) | Half 1 / Half 2 net |
 |---|---|---|---|---|---|---|---|
-| ALIGNED | 50 | 34% | -5.50 | -275.1 | 0.36 | 1.20 / -1.14 | -19.2 / -255.9 |
-| NEAR | 30 | 47% | -1.05 | -31.4 | 0.86 | 1.57 / -1.36 | +1.6 / -33.0 |
-| NONE | 333 | 40% | -2.47 | -824.2 | 0.70 | 1.49 / -1.23 | -37.5 / -786.6 |
-| OPPOSING | 115 | 44% | -1.08 | -123.7 | 0.84 | 1.58 / -1.30 | +107.3 / -231.0 |
+| ALIGNED | 86 | 41% | -2.40 | -206.2 | 0.70 | 1.53 / -1.07 | -185.1 / -21.2 |
+| NEAR | 57 | 44% | -0.83 | -47.1 | 0.88 | 1.90 / -1.16 | -25.8 / -21.3 |
+| NONE | 653 | 44% | -0.71 | -464.3 | 0.90 | 1.63 / -1.12 | -892.4 / +428.1 |
+| OPPOSING | 197 | 45% | -1.78 | -350.2 | 0.79 | 1.78 / -1.20 | -69.8 / -280.4 |
 
-A/B bucket agreement: 487/528 (92%). Points differ in size between symbols (MNQ >> MES > MGC), so pooled pts are dominated by MNQ.
+A/B bucket agreement: 916/993 (92%). Points differ in size between symbols (MNQ >> MES > MGC), so pooled pts are dominated by MNQ.
 
 ## Summary (A buckets: n · win % · avg pts)
 
-- MES 3m: ALIGNED 7 · 43% · -1.16 / NONE 42 · 38% · -1.33 / OPPOSING 17 · 47% · +0.23 (A; B ALIGNED 6 · 33% · -2.20, NONE 46 · 41% · -0.93) -> not enough evidence yet
-- MGC 3m: ALIGNED 8 · 62% · +0.62 / NONE 19 · 42% · -0.18 / OPPOSING 14 · 36% · -1.24 (A; B ALIGNED 7 · 71% · +1.42, NONE 22 · 45% · -0.16) -> not enough evidence yet
-- MNQ 3m: ALIGNED 5 · 20% · -15.60 / NONE 41 · 24% · -12.70 / OPPOSING 24 · 42% · -3.94 (A; B ALIGNED 5 · 20% · -15.60, NONE 46 · 24% · -13.12) -> not enough evidence yet
-- MES 2m: ALIGNED 7 · 43% · +0.25 / NONE 40 · 32% · -2.18 / OPPOSING 25 · 36% · -1.35 (A; B ALIGNED 7 · 43% · +0.25, NONE 47 · 30% · -2.23) -> not enough evidence yet
-- MGC 2m: ALIGNED 7 · 14% · -3.52 / NONE 44 · 50% · -0.15 / OPPOSING 23 · 57% · -0.22 (A; B ALIGNED 7 · 14% · -3.52, NONE 48 · 48% · -0.24) -> not enough evidence yet
-- MNQ 2m: ALIGNED 9 · 11% · -18.25 / NONE 58 · 43% · -1.31 / OPPOSING 25 · 32% · -8.65 (A; B ALIGNED 8 · 12% · -16.78, NONE 64 · 41% · -2.57) -> not enough evidence yet
-- MES 5m: ALIGNED 2 · 50% · -1.47 / NONE 24 · 42% · -1.46 / OPPOSING 10 · 50% · -0.88 (A; B ALIGNED 2 · 50% · -1.47, NONE 25 · 44% · -1.21) -> not enough evidence yet
-- MGC 5m: ALIGNED 1 · 0% · -7.00 / NONE 16 · 44% · -0.17 / OPPOSING 3 · 67% · +1.25 (A; B ALIGNED 1 · 0% · -7.00, NONE 17 · 47% · +0.02) -> not enough evidence yet
-- MNQ 5m: ALIGNED 7 · 43% · -3.83 / NONE 16 · 62% · +11.32 / OPPOSING 5 · 40% · -2.02 (A; B ALIGNED 7 · 43% · -3.83, NONE 18 · 56% · +7.58) -> not enough evidence yet
+- MES 3m: ALIGNED 13 · 38% · -1.80 / NONE 67 · 48% · +0.36 / OPPOSING 22 · 50% · -0.50 (A; B ALIGNED 11 · 27% · -3.47, NONE 75 · 51% · +0.62) -> not enough evidence yet
+- MGC 3m: ALIGNED 9 · 67% · +0.94 / NONE 43 · 44% · +0.03 / OPPOSING 18 · 33% · -1.36 (A; B ALIGNED 8 · 75% · +1.69, NONE 48 · 46% · +0.06) -> not enough evidence yet
+- MNQ 3m: ALIGNED 9 · 33% · -8.14 / NONE 64 · 25% · -11.81 / OPPOSING 33 · 36% · -6.71 (A; B ALIGNED 8 · 38% · -5.41, NONE 73 · 25% · -11.93) -> not enough evidence yet
+- MES 2m: ALIGNED 12 · 50% · +0.76 / NONE 74 · 43% · -0.96 / OPPOSING 44 · 45% · -0.20 (A; B ALIGNED 12 · 50% · +0.76, NONE 89 · 40% · -1.05) -> not enough evidence yet
+- MGC 2m: ALIGNED 13 · 38% · -1.18 / NONE 117 · 44% · -0.53 / OPPOSING 46 · 54% · -0.09 (A; B ALIGNED 13 · 38% · -1.18, NONE 126 · 43% · -0.58) -> not enough evidence yet
+- MNQ 2m: ALIGNED 16 · 19% · -13.96 / NONE 105 · 46% · +0.83 / OPPOSING 51 · 33% · -5.55 (A; B ALIGNED 13 · 15% · -16.10, NONE 117 · 45% · +1.08) -> worth testing
+- MES 5m: ALIGNED 6 · 67% · +1.37 / NONE 41 · 51% · -0.34 / OPPOSING 16 · 50% · -0.80 (A; B ALIGNED 6 · 67% · +1.37, NONE 43 · 53% · -0.00) -> not enough evidence yet
+- MGC 5m: ALIGNED 5 · 20% · -4.04 / NONE 40 · 48% · +0.07 / OPPOSING 13 · 46% · -0.69 (A; B ALIGNED 5 · 20% · -4.04, NONE 42 · 48% · +0.06) -> not enough evidence yet
+- MNQ 5m: ALIGNED 10 · 50% · +8.93 / NONE 37 · 57% · +10.99 / OPPOSING 13 · 38% · -0.68 (A; B ALIGNED 10 · 50% · +8.93, NONE 40 · 55% · +9.88) -> not enough evidence yet
