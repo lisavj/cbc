@@ -1,8 +1,8 @@
-# VWAP stretch filter study — run 7 -- 2026-11-12 09:58 ET
+# VWAP stretch filter study — run 8 -- 2026-11-12 17:09 ET
 
-Since last run: MGC 3m cap 4 net +312 (was +278); still nothing robust or promising (stretch OFF -83, best = ER >= 0.3 exemption +23 z +0.2, Jan-Mar -10; ER >= 0.6 +13 z +0.5, Jul-now +1 = noise); live shadows: 16 MGC 3m, 10/16 wins, net +13.8 (8 new 11/09-11/11: net +12.4, mostly the 11/10 down-trend shorts). Keep "MGC 3m 4".
+Since last run (run 7, 11/12 09:58 ET): with the cap at 4, MGC 3m is net +309 (was +312). Nothing is robust or promising. Stretch OFF is -83. The best variant is the ER >= 0.3 exemption at +23, z +0.2, but Jan-Mar is -10. ER >= 0.6 is +13, z +0.5, Jul-now +1 = noise. Live shadows: 17 for MGC 3m, 11/17 wins, net +18.1 (new: 11/12 15:48 S at 18.7 ATR, +4.30 base-equivalent). Keep "MGC 3m 4".
 
-# VWAP stretch filter study — full output -- 2026-11-12 09:58 ET
+# VWAP stretch filter study — full output -- 2026-11-12 17:09 ET
 
 VWAP stretch filter study (MGC 3m "...stretch x ATR per symbol" = MGC 3m 4) -- 10/30/2026.
 
@@ -15,7 +15,7 @@ TP1 1.7 ATR capped 6, 80 % at TP1, BE, trail 1.7 ATR -- live since CBC v10.45). 
 z = change / (per-trade SD x sqrt(setups changed)); robust = z >= 2 and better in all three thirds; promising = z >= 1 and
 better in all three thirds. Usage: python3 stretch_study.py [SYM TF]  (needs chop_sim.py next to it).
 
-## MGC 3m — 01/05 to 11/12 · current (X4 = stretch cap 4 ATR): 1192 setups, net +312 (thirds +161 / +2 / +149), SD 5.7
+## MGC 3m — 01/05 to 11/12 · current (X4 = stretch cap 4 ATR): 1193 setups, net +309 (thirds +161 / +2 / +145), SD 5.7
 
 Setups the 4-ATR cap removes (stretch-off run): 608, net -88, avg -0.15, win 48%
 
@@ -28,20 +28,20 @@ Setups the 4-ATR cap removes (stretch-off run): 608, net -88, avg -0.15, win 48%
 
 | Variant | Setups | Net | Δ vs current | z | Δ by third (Jan–Mar / Apr–Jun / Jul–now) | Verdict |
 |---|---|---|---|---|---|---|
-| Stretch filter OFF | 1774 | +229 | -83 | -0.6 | -67 / +62 / -78 | worse |
-| Cap 5 ATR | 1357 | +292 | -19 | -0.2 | -57 / +92 / -54 | worse |
-| Cap 6 ATR | 1475 | +194 | -117 | -1.1 | -103 / +54 / -68 | worse |
-| Cap 8 ATR | 1620 | +242 | -70 | -0.6 | -60 / +47 / -57 | worse |
-| Cap 4 + exempt when ER(12) >= 0.3 | 1475 | +335 | +23 | +0.2 | -10 / +27 / +7 | noise |
-| Cap 4 + exempt when ER(12) >= 0.4 | 1331 | +307 | -4 | -0.1 | -7 / +7 / -4 | worse |
-| Cap 4 + exempt when ER(12) >= 0.5 | 1242 | +312 | +1 | +0.0 | +11 / +2 / -12 | noise |
-| Cap 4 + exempt when ER(12) >= 0.6 | 1213 | +324 | +13 | +0.5 | +7 / +5 / +1 | noise |
-| Cap 4 + exempt when HTF ER >= 0.4 | 1436 | +204 | -108 | -1.1 | -92 / +31 / -47 | worse |
-| Cap 4 + exempt when HTF ER >= 0.5 | 1367 | +206 | -105 | -1.3 | -56 / -43 / -7 | worse |
-| Cap 4 + exempt when HTF ER >= 0.6 | 1310 | +211 | -101 | -1.5 | -36 / -45 / -20 | worse |
-| Cap 4 + exempt HTF CBC Flip setups | 1354 | +242 | -70 | -0.9 | -31 / +20 / -59 | worse |
+| Stretch filter OFF | 1775 | +225 | -83 | -0.6 | -67 / +62 / -78 | worse |
+| Cap 5 ATR | 1358 | +289 | -19 | -0.2 | -57 / +92 / -54 | worse |
+| Cap 6 ATR | 1476 | +191 | -117 | -1.1 | -103 / +54 / -68 | worse |
+| Cap 8 ATR | 1621 | +239 | -70 | -0.6 | -60 / +47 / -57 | worse |
+| Cap 4 + exempt when ER(12) >= 0.3 | 1476 | +332 | +23 | +0.2 | -10 / +27 / +7 | noise |
+| Cap 4 + exempt when ER(12) >= 0.4 | 1332 | +304 | -4 | -0.1 | -7 / +7 / -4 | worse |
+| Cap 4 + exempt when ER(12) >= 0.5 | 1243 | +309 | +1 | +0.0 | +11 / +2 / -12 | noise |
+| Cap 4 + exempt when ER(12) >= 0.6 | 1214 | +321 | +13 | +0.5 | +7 / +5 / +1 | noise |
+| Cap 4 + exempt when HTF ER >= 0.4 | 1437 | +201 | -108 | -1.1 | -92 / +31 / -47 | worse |
+| Cap 4 + exempt when HTF ER >= 0.5 | 1368 | +203 | -105 | -1.3 | -56 / -43 / -7 | worse |
+| Cap 4 + exempt when HTF ER >= 0.6 | 1311 | +208 | -101 | -1.5 | -36 / -45 / -20 | worse |
+| Cap 4 + exempt HTF CBC Flip setups | 1355 | +238 | -70 | -0.9 | -31 / +20 / -59 | worse |
 
-**Today (11/12), stretch OFF run:** 00:06 S h9 2.2 ATR ER 0.20 -> +4.1 (trail); 01:00 L ltf20 -0.9 ATR ER 0.32 -> -6.4 (SL1); 02:03 S ltf20 2.4 ATR ER 0.22 -> +6.6 (trail); 06:30 S ltf20 9.5 ATR ER 0.33 -> +3.1 (trail); 07:03 S ltf20 8.4 ATR ER 0.12 -> +5.2 (trail)
+**Today (11/12), stretch OFF run:** 00:06 S h9 2.2 ATR ER 0.20 -> +4.1 (trail); 01:00 L ltf20 -0.9 ATR ER 0.32 -> -6.4 (SL1); 02:03 S ltf20 2.4 ATR ER 0.22 -> +6.6 (trail); 06:30 S ltf20 9.5 ATR ER 0.33 -> +3.1 (trail); 07:03 S ltf20 8.4 ATR ER 0.12 -> +5.2 (trail); 15:00 L ltf20 -16.4 ATR ER 0.38 -> -3.2 (flip)
 
 ## Candidates (robust / promising)
 
