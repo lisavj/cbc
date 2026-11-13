@@ -4,13 +4,13 @@
 (E) Exit Rule hits vs Setup Ended; (F) late trigger x room (Room line) 2x2 tables.
 11/12: DATA_NOTES dedupe (same chart + Time line + set of bullet names within 60 s = one alert, keep longest);
 two Setup Ended results for one setup -> prefer the one with a 0.5x(TP1) breakdown (MGC 3m old-exit duplicate alert);
-Exit Rule hits de-duplicated per setup; MGC 3m period split at 11/08."""
+Exit Rule hits de-duplicated per setup; MGC 3m period split at 11/08.
+11/12 eve: extra row for the current bot set since v10.88 (Flip + LTF Pierce beyond + LTF Pierce not beyond)."""
 import json, re, sys, pickle, datetime as D
 from zoneinfo import ZoneInfo
 TZ = ZoneInfo('America/New_York')
 YR = 2026
 A0 = json.load(open(sys.argv[1]))
-# ---- dedupe near copies (DATA_NOTES 1)
 A0 = [a for a in A0 if isinstance(a.get('raw'), str)]
 A0.sort(key=lambda a: a.get('receivedAt', ''))
 kept = {}; A = []; ndup = 0
@@ -82,7 +82,7 @@ for a in A:
             ndual += 1
             old = E[k]
             if old['half'] and not new['half']: continue
-            if not old['half'] and not new['half'] and old['te'] <= t: continue   # keep the first if neither shows 0.5x
+            if not old['half'] and not new['half'] and old['te'] <= t: continue
         E[k] = new
 setups = []
 for k, s in S.items():
@@ -112,6 +112,7 @@ def row(name, L):
 HDR = ['| %s | Setups | Ended | Win %% | Net | Avg | Halves |', '|---|---|---|---|---|---|---|']
 out = []; J = {}
 last = max(s['t'] for s in setups)
+J['last'] = last.strftime('%m/%d %H:%M')
 out += ['### Live per chart (10/19 → %s)' % last.strftime('%m/%d %H:%M'), '', HDR[0] % 'Chart', HDR[1]]
 for sym in ('MES', 'MGC', 'MNQ'):
     for tf in (2, 3, 5):
@@ -128,6 +129,10 @@ for nm, f in (('MGC 3m before 11/08', lambda s: s['t'].date() < d1108), ('MGC 3m
     r, st = row(nm, [s for s in g3 if f(s)]); out.append(r); J[nm] = st
 out += ['', 'Matched: %d Trade Setup alerts, %d ended; %d Setup Ended alerts without a matching Trade Setup (not counted). Near-duplicate alerts dropped: %d; setups with two Setup Ended results: %d (0.5×(TP1) version kept).' % (
     len(setups), sum(s['ended'] for s in setups), unmatched_E, ndup, ndual), '']
+# MES 3m setups per day since 11/06 (alert-gap check)
+from collections import Counter
+cnt = Counter(s['t'].strftime('%m/%d') for s in m3 if s['t'].date() >= D.date(2026, 11, 6))
+J['m3days'] = dict(cnt)
 J['trig'] = {}
 for sym, tf in (('MES', 2), ('MES', 3), ('MES', 5)):
     L = [s for s in setups if s['sym'] == sym and s['tf'] == tf]
@@ -139,7 +144,9 @@ for sym, tf in (('MES', 2), ('MES', 3), ('MES', 5)):
     if tf == 3:
         bot = [s for s in L if s['trig'] in ('HTF CBC Flip', 'LTF Pierce beyond EMA9')]
         r, st = row('**Bot set (Flip + LTF Pierce beyond EMA9)**', bot); out.append(r); J['bot'] = st
-        r, st = row('Everything else', [s for s in L if s['trig'] not in ('HTF CBC Flip', 'LTF Pierce beyond EMA9')]); out.append(r); J['nonbot'] = st
+        bot3 = [s for s in L if s['trig'] in ('HTF CBC Flip', 'LTF Pierce beyond EMA9', 'LTF Pierce not beyond')]
+        r, st = row('Bot set since v10.88 (+ LTF Pierce not beyond)', bot3); out.append(r); J['bot3'] = st
+        r, st = row('Everything else (vs 2-trigger set)', [s for s in L if s['trig'] not in ('HTF CBC Flip', 'LTF Pierce beyond EMA9')]); out.append(r); J['nonbot'] = st
     out.append('')
 out += ['### (D) Live per trigger — MGC / MNQ, ended setups / net pts', '',
         '| Trigger | MGC 2m | MGC 3m | MGC 5m | MNQ 2m | MNQ 3m | MNQ 5m |', '|---|---|---|---|---|---|---|']
@@ -173,7 +180,6 @@ for tf in (2, 3):
     out.append('MES %dm common date halves (split %s): ' % (tf, mid.strftime('%m/%d %H:%M')) + ' · '.join('%s %d / %+.1f (avg %+.2f)' % (k, *v) for k, v in r.items()))
 out.append('')
 
-# ---------------- (E) Exit Rule alerts
 out += ['### (E) Exit Rule alerts (v10.79+)', '']
 kinds = {}
 for sym, tf, t, r in EXR:
@@ -192,7 +198,7 @@ for sym, tf, t, r in EXR:
     hseen.add(hk_)
     cand = [s for s in setups if s['sym'] == sym and s['tf'] == tf and s['dr'] == m.group(2) and s['en'] == en and s['t'].hour == sh and s['t'].minute == sm and s['t'] <= t]
     s = max(cand, key=lambda x: x['t']) if cand else None
-    if s is None:   # no Trade Setup alert stored: match the Setup Ended alert directly (same chart / dir / entry / start)
+    if s is None:
         day = t.date() - (D.timedelta(days=1) if (sh, sm) > (t.hour, t.minute) else D.timedelta(0))
         e = E.get((sym, tf, m.group(2), en, sh, sm, day.month, day.day))
         if e: s = dict(ended=True, res=e['res'], t=t, noTS=True)
@@ -202,17 +208,16 @@ for h in sorted(hits, key=lambda x: x['t']):
     cr = h['s']['res'] if h['s'] and h['s']['ended'] else None
     out.append('| %s %dm | %s | %s | %s | %+.2f | %s | %s |' % (h['sym'], h['tf'], h['rule'], h['t'].strftime('%m/%d %H:%M'), h['dr'], h['rres'],
                '%+.2f' % cr if cr is not None else ('open' if h['s'] else 'no matching setup'), '%+.2f' % (h['rres'] - cr) if cr is not None else '—'))
-J['exr'] = dict(n=len(EXR), hits=[])
+J['exr'] = dict(n=len(EXR), kinds={'%s %d %s' % k: v for k, v in kinds.items()}, nhits=len(hits), hits=[])
 out += ['', '| Chart (period) | Hits with ended setup | Sum rule | Sum CBC | Rule − CBC | Halves (rule − CBC) |', '|---|---|---|---|---|---|']
 for nm, f in (('MES 3m', lambda h: h['sym'] == 'MES' and h['tf'] == 3), ('MGC 3m before 11/08', lambda h: h['sym'] == 'MGC' and h['tf'] == 3 and h['t'].date() < d1108),
               ('MGC 3m from 11/08 (50 % + trail 3.5)', lambda h: h['sym'] == 'MGC' and h['tf'] == 3 and h['t'].date() >= d1108)):
     H = [h for h in sorted(hits, key=lambda x: x['t']) if f(h) and h['s'] and h['s']['ended']]
     d = [h['rres'] - h['s']['res'] for h in H]; hh = len(d) // 2
     out.append('| %s | %d | %+.2f | %+.2f | %+.2f | %+.2f / %+.2f |' % (nm, len(H), sum(h['rres'] for h in H), sum(h['s']['res'] for h in H), sum(d), sum(d[:hh]), sum(d[hh:])))
-    J['exr']['hits'].append(dict(chart=nm, n=len(H), rule=sum(h['rres'] for h in H), cbc=sum(h['s']['res'] for h in H), d=sum(d), h1=sum(d[:hh]), h2=sum(d[hh:])))
+    J['exr']['hits'].append(dict(chart=nm, n=len(H), nall=len([h for h in hits if f(h)]), rule=sum(h['rres'] for h in H), cbc=sum(h['s']['res'] for h in H), d=sum(d), h1=sum(d[:hh]), h2=sum(d[hh:])))
 out.append('')
 
-# ---------------- (F) late trigger x room
 def inwin(t):
     cm = t.hour * 60 + t.minute
     return 1110 <= cm <= 1320 or 180 <= cm <= 780 or 900 <= cm <= 930
@@ -242,7 +247,7 @@ for nm, f in charts:
         out.append('| %s | %d | %d | %d%% | %+.1f | %+.2f | %+.1f / %+.1f |' % (cn, st['setups'], st['ended'], st['win'], st['net'], st['avg'], st['h1'], st['h2']))
     c = J['F'][nm]['late & room < 0.5']
     out += ['', 'Combo skip effect (minus the late & room < 0.5 net): %+.1f pts on %d ended setups%s.' % (-c['net'], c['ended'], ' — too few yet' if c['ended'] < 10 else ''), '']
-sday = lambda t: (t + D.timedelta(hours=6)).date()   # Globex session date (18:00 ET start)
+sday = lambda t: (t + D.timedelta(hours=6)).date()
 days = sorted({sday(s['t']) for s in setups if s['sym'] == 'MES' and sday(s['t']).weekday() < 5})[-5:]
 out += ['#### Late & room < 0.5 setups, last 5 trading days (%s)' % ', '.join(d.strftime('%m/%d') for d in days), '',
         '| Chart | Time | Dir | First trigger | Room | Room x TP1 | VWAP ext | Result |', '|---|---|---|---|---|---|---|---|']

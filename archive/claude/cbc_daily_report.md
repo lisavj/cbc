@@ -1,57 +1,65 @@
-# CBC daily report -- 2026-11-12 09:57 ET
+# CBC daily report -- 2026-11-12 17:26 ET
 
-Run note: this run fired Thursday morning, so "today" = the 11/12 session so far (from Wed 18:00 ET); 11/10–11/11 are folded into "since last report" (the last written report was 11/09).
-Settings sync (11/12 09:45 ET): live CBC v10.87; 0 MISMATCH, 1 known item (late_study MGCX runner base). No stale-settings warning.
-Data: 44,309 alerts stored, 42,805 after removing duplicates (claude/DATA_NOTES.md: server dedupe not applied yet, `lastDedupe` null; server v14 is running). 504 setups with results (MGC 3m 74 · MGC 2m 186 · MES 3m 106 · MES 2m 138). Every setup matched to bars (no BarFeed-gap skips).
-Today (session 11/12 so far): MGC 3m 0 · MGC 2m 6 · +1.9 · MES 3m 1 · −18.7 · MES 2m 3 · −14.8.
+Settings sync (11/12 16:47 ET): newest Pine v10.93 (v10.88–v10.93 are ▶ Bot changes only); 0 MISMATCH, 1 known item (late_study MGCX runner base). No stale-settings warning.
+Data: 45,409 alerts stored, 43,905 after removing duplicates (DATA_NOTES: server v14 running, `lastDedupe` still null). 516 setups with results (MGC 3m 74 · MGC 2m 193 · MES 3m 107 · MES 2m 142). Every setup matched to bars (no BarFeed-gap skips).
+Today (session 11/12, from Wed 18:00 ET): MGC 3m 0 · MGC 2m 13 · −10.4 · MES 3m 2 · −13.4 · MES 2m 7 · −30.9.
+Alert flow: MES 3m alerts are back on 11/12 (59 alerts; none on 11/10–11/11). MGC 3m dropped from ~300+ to 60 alerts a day after the duplicate alert was deleted, which fits removing the doubled copy.
 
 **Gate checks:**
 
 - MES 2m flip counter + 1H MTF gate are live: 0 MES 2m setups with "HTF flips 4/8"+ or 1H against since 10/28.
-- 3m range gates are live: 0 MGC 3m / MES 3m setups whose alert shows "≥ 80 % of 24-bar range, < 5 ATR" (non-momentum).
-- MES 3m flip-timing gate: no late pierce setups since 11/06 (latest pierce setups came 1–5 bars after the HTF flip).
-- **MGC 2m gates (v10.77) still NOT confirmed live.** There's one more range-gate violation: 11/10 19:00 LONG, LTF EMA20 Pierce (late), alert "Range: 99 % of 24-bar range · 4.1 ATR", result +2.8. That makes 2 since 11/06.
-  - Non-flip setups with a "Flip flop" line kept coming: 9 since 11/06 08:46, 6 of them since 11/10 (net +7.4).
-  - Together with the duplicate MGC 2m alert in DATA_NOTES, this suggests one MGC 2m alert is still running an older CBC version or older settings.
-  - Action: confirm the MGC 2m chart has v10.87 loaded and only ONE CBC alert, then recreate it.
+- 3m range gates are live: 0 MGC 3m / MES 3m setups whose alert shows ≥ 80 % of the 24-bar range at < 5 ATR (non-momentum).
+- MES 3m flip-timing gate: pierce setups since 11/06 came 1–5 HTF bars after the flip (11/12 10:03 LTF pierce: 2 bars). No late ones.
+- **MGC 2m gates (v10.77): still not confirmed live, but no new range violations today.** The last violation by alert text is 11/11 21:40 (Flip short, 89 % / 3.8 ATR, −5.85). There were none in the 11/12 day session.
+  - Non-flip setups with a "Flip flop" line: 9 since 11/06 08:46 (net +15.0). The latest is 11/12 05:32 (+4.18).
+  - The MGC 2m alerts came in doubled until 11/12, so some of these may have come from the older duplicate alert. Watch for a clean day from 11/13.
 
 ## Verdicts
 
-- **MGC 3m (50 % at TP1 / trail 3.5 from 11/09):** 7 setups · +32.5 (+4.64/setup) vs the 10/29–11/07 baseline (80 % / 1.7) 29 · −24.3 (−0.84/setup; halves −30.1 / +5.8).
-  - The runner made +29.3 of the +32.5, almost all from the 11/08 19:24 long (+24.9 on the runner).
-  - Caveat (DATA_NOTES): a second, old-exit MGC 3m alert ran from 11/08 to 11/12. Where two results existed, the "0.5×(TP1)" one was used. The 3 setups without a TP1 breakdown (2 SL1 hits, 1 flip) are the same either way.
-  - **Revert flag: not checkable.** The count starts 11/13 per DATA_NOTES (0/20).
-- **MES 3m (SL1 3 ATR / TP1 1.75 ATR, from 11/03, excluding the 11/06 TP1 2.0 day):** 18 setups · +2.1 (+0.12/setup), halves +10.7 / −8.6. SL1-hit 22 % (4), TP1-hit 39 % (7).
-  - Today's 09:30 short flip lost −18.7 (SL1). It took the per-setup net from +1.22 to +0.12.
-  - TP1 2.0 day (11/06): 3 · −22.2.
-  - Base 1.7/1.7 (10/28–10/30): 5 · −0.8.
+- **MGC 3m (50 % at TP1 / trail 3.5):** since 11/09 there are 7 setups · +32.5 (+4.64/setup), vs the 10/29–11/07 baseline (80 % / 1.7) of 29 · −24.3 (−0.84/setup; halves −30.1 / +5.8).
+  - The runner made +29.3 of the +32.5, mostly from the 11/08 19:24 long (+24.9 on the runner half).
+  - There were no new MGC 3m setups after 11/11 06:15.
+  - Caveat: 11/09–11/12 results are partly on the old exits (DATA_NOTES 2). Where both existed, the "0.5×(TP1)" result was used.
+  - **Revert flag count starts 11/13: 0/20.**
+- **MES 3m (SL1 3 ATR / TP1 1.75 ATR from 11/03, without the 11/06 TP1 2.0 day):** 19 setups · +7.4 (+0.39/setup), halves +10.7 / −3.4.
+  - SL1 hit 21 % (4), TP1 hit 37 % (7).
+  - Today: the 09:30 Flip short lost −18.7 (SL1) and the 10:03 LTF pierce long made +5.25.
   - Under 20 setups on these exits, so no judgment.
-- **MGC 2m:** 186 · −51.9 all stored. Since v10.77 (11/06 08:46): 42 · +9.3 (+0.22/setup), and 11/11–11/12 sessions 19 · +26.5. That's better than the −0.40 watch baseline, but the gates don't look fully live (see above).
-- **MES 2m:** 138 · −66.5 all stored. 11/11–11/12 sessions 11 · +5.1. Today's 3 setups: 2 losing shorts on flips (−13.1) and 1 small loss on a pierce.
-- **MES 3m bot set** (bot windows, Flip or LTF EMA20 Pierce closed beyond EMA9, 5-day-EMA short filter):
-  - Since 10/19: 19 setups · official +64.0 · bot replay (100 % at TP1) +60.9 (+3.20/setup), halves +8.6 / +52.3.
-  - Since 11/09: 0 setups.
-  - **Today the 5-day short filter skipped the 09:30 Flip short, which lost −18.7 on the chart.** The filter has now skipped 2 shorts (−23.7 in total).
+- **MGC 2m:** 193 · −64.2 all stored. Since v10.77: 49 · −3.0 (−0.06/setup), halves −14.4 / +11.4.
+  - Today: 13 · −10.4. Of the 6 losers, 4 came 11:40–15:30 on a big down day for gold (VWAP 17–20 ATR away).
+- **MES 2m:** 142 · −82.5 all stored. Today was weak: 7 · −30.9, with 6 losers (2 Asia flip shorts, then 3 NY losers 11:28–14:08).
+- **MES 3m bot set** (bot windows; current three-trigger set: Flip + LTF EMA20 Pierce beyond / not beyond EMA9; 5-day short filter; bracket replay 100 % at TP1, 0.5 pt cost):
+  - Since 10/19: 40 setups · chart +84.1 · bot replay +55.9 (+1.40/setup), halves +12.5 / +43.5.
+  - The old two-trigger set alone: 17 · +49.5.
+  - Since 11/09: 2 · −14.8. Both were LTF pierces not beyond EMA9: 11/08 20:36 −19.5 and 11/12 10:03 +4.75.
+  - The short filter again skipped today's 09:30 Flip short (−18.7 on the chart). It has skipped 7 shorts in total (−34.8).
+  - Not modelled in the replay (v10.92 flip-only exit, 09:30–16:00 Flip entries): the 4 such Flip trades since 10/19 would be +90.0 held to the HTF flip, vs +34.0 with the TP1 bracket.
 
 ## Gate table (all stored 10/19 → 11/12, after dedupe · blocked · win % · net of blocked · halves h1 / h2; negative = gate would have helped)
 
-| Gate | MGC 3m (74) | MGC 2m (186) | MES 3m (106) | MES 2m (138) |
+| Gate | MGC 3m (74) | MGC 2m (193) | MES 3m (107) | MES 2m (142) |
 |---|---|---|---|---|
-| Range 24/20 %/<5 ATR (live 3m; MGC 2m v10.77) | 3 · 33 % · −8.1 | **38 · 50 % · −28.2 (−20.1 / −8.2)** (gate should be live) | 2 · 0 % · −14.0 | 27 · 52 % · −6.5 (−19.8 / +13.3) |
-| Range <6 ATR | 6 · 33 % · −6.8 | 51 · 47 % · −37.9 (−29.8 / −8.1) | 9 · 44 % · +3.1 | 37 · 51 % · −7.8 (−18.1 / +10.3) |
-| VWAP stretch >4 ATR (live MGC 3m) | 2 · 50 % · −3.0 | 70 · 53 % · +17.6 (hurts) | 22 · 41 % · −8.4 (+1.4 / −9.8) | 64 · 48 % · +5.3 |
-| VWAP stretch >6 ATR | 1 · +2.0 | 44 · 57 % · +25.8 (hurts) | 10 · 50 % · −10.8 (+10.4 / −21.2) | 40 · 45 % · −8.5 (−16.2 / +7.6) |
-| Flips ≥ 4/8 | 7 · 86 % · +54.2 (hurts) | 30 · 30 % · −40.9 (−16.6 / −24.2) | 21 · 48 % · −11.8 (+18.1 / −29.9) | 18 · −49.3 → live `MES 2m 4` |
-| 1H MTF against | 34 · 38 % · +0.9 | 73 · 48 % · −22.1 (+6.8 / −28.9) | 37 · 43 % · −5.2 (−10.2 / +5.0) | 16 · −21.9 (gated) |
+| Range 24/20 %/<5 ATR (live 3m; MGC 2m v10.77) | 3 · 33 % · −8.1 | **39 · 49 % · −34.6 (−25.0 / −9.7)** (gate should be live) | 2 · 0 % · −14.0 | 27 · 52 % · −6.5 (−19.8 / +13.3) |
+| Range <6 ATR | 6 · 33 % · −6.8 | 53 · 45 % · −49.3 (−34.7 / −14.7) | 9 · 44 % · +3.1 | 38 · 53 % · −2.5 |
+| VWAP stretch >4 ATR (live MGC 3m) | 2 · 50 % · −3.0 | 73 · 53 % · +15.2 (hurts) | 22 · 41 % · −8.4 (+1.4 / −9.8) | 66 · 47 % · −10.7 (−13.7 / +3.0) |
+| VWAP stretch >6 ATR | 1 · +2.0 | 47 · 57 % · +23.4 (hurts) | 10 · 50 % · −10.8 (+10.4 / −21.2) | 41 · 44 % · −16.5 (−16.2 / −0.4) |
+| Flips ≥ 4/8 | 7 · 86 % · +54.2 (hurts) | 30 · 30 % · −40.9 (−16.6 / −24.2) | 22 · 50 % · −6.5 (+18.1 / −24.7) | 18 · −49.3 → live `MES 2m 4` |
+| 1H MTF against | 34 · 38 % · +0.9 | 74 · 49 % · −18.2 (+6.8 / −25.0) | 38 · 45 % · +0.0 (−10.2 / +10.2) | 16 · −21.9 (gated) |
 | Side gate | 0 | 0 | 0 | 0 |
-| Opposing OB before TP1 | **25 · 36 % · −21.0 (−18.8 / −2.3)** | 78 · −16.8 (−3.5 / −13.4) | 37 · +0.6 | 42 · +2.0 (−49.1 / +51.1) |
-| Level/OB < 0.5× TP1 | 55 · −1.3 (−0.6 / −0.6) | 130 · −29.2 (−13.2 / −15.9) | **71 · 44 % · −62.0 (−35.2 / −26.8)** | 78 · −32.5 (−77.9 / +45.4) |
-| Flip flop warning | 44 · 48 % · +20.3 (hurts) | **75 · 40 % · −70.7 (−52.2 / −18.5)** → v10.77 | 67 · 51 % · +35.3 (hurts) | 63 · 41 % · −62.6 (−66.3 / +3.7) |
-| 15m EMA cloud against | **29 · 34 % · −41.3 (−18.8 / −22.5)** | 53 · −24.1 (−10.4 / −13.7) | 25 · +17.4 (hurts) | 16 · −21.1 (−35.1 / +14.0) |
+| Opposing OB before TP1 | **25 · 36 % · −21.0 (−18.8 / −2.3)** | 80 · −19.3 (−5.1 / −14.1) | 37 · +0.6 | 42 · +2.0 (−46.5 / +48.5) |
+| Level/OB < 0.5× TP1 | 55 · −1.3 (−0.6 / −0.6) | 136 · −36.5 (−14.9 / −21.5) | **72 · 44 % · −56.8 (−35.2 / −21.6)** | 79 · −27.2 (−75.3 / +48.0) |
+| Flip flop warning | 44 · 48 % · +20.3 (hurts) | **75 · 40 % · −70.7 (−57.1 / −13.6)** → v10.77 | 68 · 51 % · +40.6 (hurts) | 65 · 42 % · −65.4 (−66.3 / +0.9) |
+| 15m EMA cloud against | **29 · 34 % · −41.3 (−18.8 / −22.5)** | 56 · −30.2 (−10.4 / −19.7) | 26 · +22.7 (hurts) | 17 · −26.4 (−35.1 / +8.8) |
 
-Pattern WITH vs none: MGC 3m 20 · −15.0 vs 54 · +13.3; MES 3m 39 · −44.5 vs 67 · +27.6; MGC 2m −17.7 vs −34.2; MES 2m −26.0 vs −40.5.
+Pattern WITH vs none: MGC 3m 20 · −15.0 vs 54 · +13.3; MGC 2m 63 · −17.7 vs 130 · −46.6; MES 3m 39 · −44.5 vs 68 · +32.8; MES 2m 54 · −28.7 vs 88 · −53.8.
 
-Note: some MGC 2m / MGC 3m setups on 11/10 show VWAP extensions of ±18–29 ATR. That looks like a BarFeed VWAP glitch that day, which inflates the 11/10 rows in the stretch gates.
+Note: MGC 2m / MGC 3m VWAP extensions of ±17–29 ATR on 11/10 and 11/12 come from the alerts themselves (e.g. 11/12 11:40 "VWAP ext +17.2 ATR"). On these gold trend days price was far from VWAP. These setups inflate the stretch rows.
+
+**MGC 2m flips ≥ 4 (30 · −40.9, both halves negative):** not listed as a suggestion.
+
+- It overlaps the v10.77 flop gate: without the FL setups it's 17 · −6.1.
+- The 11/07 MGC 2m replay (Jun–Nov) scores "flips ≥ 4 block" −15 (worse, z −0.3).
+- Since v10.77: 8 · −24.2, so it stays on watch. It becomes a candidate if the non-FL subset turns clearly negative over 20+ setups.
 
 ### Watch items
 
@@ -60,54 +68,57 @@ Note: some MGC 2m / MGC 3m setups on 11/10 show VWAP extensions of ±18–29 ATR
 | Case | Shallow < 0.75 ATR | Shallow halves | Deep ≥ 0.75 ATR |
 |---|---|---|---|
 | MGC 3m | 10 · −28.4 (−2.84/setup) | −7.7 / −20.7 | 33 · +32.4 |
-| **MGC 2m (candidate)** | 18 · −20.8 (−1.15/setup) | −21.3 / +0.5 | 79 · +4.8 |
-| MES 3m | 5 · −7.9 | −11.6 / +3.7 | 61 · −22.6 |
-| MES 2m | 18 · −23.8 | −28.1 / +4.3 | 61 · −19.5 |
+| **MGC 2m (candidate)** | 16 · −18.6 (−1.16/setup) | −26.0 / +7.4 | 83 · −0.1 |
+| MES 3m | 5 · −7.9 | −11.6 / +3.7 | 62 · −17.3 |
+| MES 2m | 17 · −27.9 | −33.3 / +5.5 | 64 · −27.6 |
 
-The MGC 2m candidate has 18 setups (under 20), and its 2nd half is now slightly positive. No change.
+The MGC 2m candidate has 16 setups (< 20) and its 2nd half is positive. No change.
 
-**MES 3m HTF EMA9 Pierce pullback:** > 2.5 ATR is 4 · −4.8 vs ≤ 2.5 ATR 33 · −38.8. No signal.
+**MES 3m HTF EMA9 Pierce pullback:** > 2.5 ATR is 3 · −9.4 vs ≤ 2.5 ATR 11 · +14.2. Too few setups.
 
-**MES 3m HTF EMA slope (both 15m EMA slopes ≥ 0.5 pt vs < 0.5):**
+**MES 3m HTF EMA slope (both 15m slopes ≥ 0.5 pt vs < 0.5):**
 
 - ≥ 0.5 pt: 52 · +52.8 (+1.01/setup), halves −11.8 / +64.6.
-- < 0.5: 54 · −69.7 (−1.29/setup), halves −27.1 / −42.5.
-- On the current exits only: ≥ 0.5 is 12 · +28.3, < 0.5 is 6 · −26.2.
-- The < 0.5 group is negative in both halves, but this mixes exit versions. The gate stays Off per the checklist; it's worth a fresh slope study once the current exits reach 20+ setups.
+- < 0.5: 55 · −64.4 (−1.17/setup), halves −27.1 / −37.3.
+- On the current exits only: ≥ 0.5 is 12 · +28.3, < 0.5 is 7 · −20.9.
+- The gate stays Off per the checklist (watch item). A fresh slope study is worth doing once the current exits reach 20+ setups.
 
-**Room/context:** MGC 3m opposing OB and 15m cloud, and MES 3m L5, are negative in both halves. Room gates stay watch-only unless the daily room task or the Friday room study recommends one.
+**Room/context:**
 
-## Losers today (session 11/12 so far)
+- MGC 3m opposing OB and 15m cloud, and MES 3m L5, are negative in both halves. They stay watch-only.
+- The room daily task (11/12) has the MES 3m 0.2× TP1 gate as a candidate waiting for out-of-sample data (2 blocked). It doesn't recommend it yet.
+
+## Losers today (session 11/12)
 
 | Case | Time | Dir | Trigger | Result | Ended | Gates |
 |---|---|---|---|---|---|---|
 | MGC 2m | 11/11 21:28 | L | LTF EMA20 Pierce | −5.70 | SL1 hit | F,FL,L5,M |
 | MGC 2m | 11/11 21:40 | S | HTF CBC Flip | −5.85 | SL1 hit | F,FL,**R5**,R6 |
+| MGC 2m | 11/12 11:40 | S | HTF CBC Flip | −6.41 | SL1 hit | L5,OB,R5*,R6,X4,X6 (*bar calc; alert says 23 % → not gated) |
+| MGC 2m | 11/12 13:14 | L | HTF EMA20 Pierce (late) | −5.00 | SL1 hit | CL,R6 |
+| MGC 2m | 11/12 13:46 | L | LTF EMA20 Pierce | −5.00 | SL1 hit | CL,L5 |
+| MGC 2m | 11/12 15:30 | L | LTF EMA20 Pierce (late) | −3.10 | CBC flip | L5 |
 | MES 3m | 11/12 09:30 | S | HTF CBC Flip | −18.70 | SL1 hit | – (bot: skipped by 5-day short filter) |
 | MES 2m | 11/11 19:00 | S | HTF CBC Flip | −7.72 | SL1 hit | FL,R5,R6 |
 | MES 2m | 11/11 19:50 | S | HTF CBC Flip | −5.38 | SL1 hit | FL |
 | MES 2m | 11/11 22:08 | L | LTF EMA20 Pierce | −1.75 | CBC flip | CL,FL,L5 |
+| MES 2m | 11/12 11:28 | L | LTF EMA20 Pierce | −8.00 | SL1 hit | FL,X4,X6 |
+| MES 2m | 11/12 12:20 | L | HTF EMA9 Pierce | −8.00 | SL1 hit | X4 |
+| MES 2m | 11/12 14:08 | S | LTF EMA20 Pierce | −5.25 | CBC flip | CL |
 
 ## Suggested changes
 
-None meet the rule this run (20+ setups for the case, evidence holds in both halves).
+None meet the rule this run (20+ setups for the case, evidence holds in both halves, not contradicted by the replay). There are no standing items from earlier days, and the MGC 3m revert flag can't be checked yet (count starts 11/13).
 
-**Withdrawn: MES 2m non-flip flop gate** (standing since 11/06: add `MES 2m 1` to "...also skip NON-flip setups while the HTF flip is a flop"). The 11/10–11/11 sessions reversed it.
+Not a settings change, but worth checking:
 
-- Non-flip FL setups: 44 · −73.9 (−1.68/setup) vs no FL 57 · +13.6.
-- Gate halves: −77.8 / **+3.9**, so the recent half no longer supports it.
-- Since 11/10: FL 10 · +29.6. Since 10/28: FL 22 · −1.4 vs no FL 27 · +34.8.
-- Kept as a watch item.
-
-Not a settings change, but needed:
-
-- **MGC 2m: confirm v10.87 is loaded, delete any duplicate CBC alert, and recreate the alert.** The range gate and the non-flip flop gate are still letting setups through (11/10 19:00 at 99 % / 4.1 ATR; 6 non-flip "Flip flop" setups since 11/10).
+- **MGC 2m:** confirm only ONE CBC alert (v10.87+) is left on the chart. The last range-gate violation was 11/11 21:40, while duplicates were still arriving.
 
 Done (not suggestions):
 
 - MGC 3m 50 % / trail 3.5 (v10.84)
 - MES 3m exits (SL1 3 / TP1 1.75)
-- MGC 2m range + flop gate (v10.77; see the check above)
+- MGC 2m range + flop gate (v10.77)
 - MES 3m flip-timing gate
-- Bot windows and the 5-day short filter
+- Bot windows, the 5-day short filter, the three-trigger bot set (v10.88) and the flip-only bot exit (v10.92)
 - MES 2m flip counter and MTF gate
