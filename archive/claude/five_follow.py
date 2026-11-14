@@ -1,0 +1,15 @@
+import sys
+exec(open('five_eng.py').read())
+exec(open('five_study.py').read().split("IDEAS = ")[1].split("\nbo = ")[0].join(["IDEAS = ", "\n"]) if False else "")
+src = open('five_study.py').read(); IDEAS = eval(src.split("IDEAS = ")[1].split("\nbo = ")[0])
+o = []
+setup('MNQ'); b = run({})
+o += table('MNQ 5m: ideas on v10.97 (no slope filter)', b, [(nm, run(x)) for nm, x in IDEAS])
+o += table('MNQ 5m: FLIP 0 % combos', b, [('FLIP 0 % + slope 0.30', run(dict(slope=.3, q=dict(part=0.0, tr=0)))), ('FLIP 0 % + cap OFF', run(dict(q=dict(part=0.0, tr=0, cap=1e9))))])
+setup('MES'); b = run({})
+o += table('MES 5m: slope + stretch neighbours (vs v10.97)', b, [('slope %.2f + stretch %g' % (t, x), run(dict(slope=t, x4=x))) for t in (0.6, 0.7, 0.75, 0.8) for x in (3, 4, 6)])
+setup('M2K'); b = run({})
+o += table('M2K 5m: slope extended + ideas (vs v10.97)', b, [('slope %.2f' % t, run(dict(slope=t))) for t in (0.9, 1.0, 1.1, 1.2, 1.4)] + [('slope 1.00 + stretch 4', run(dict(slope=1.0, x4=4))), ('slope 1.00 + LTF ER 0.23', run(dict(slope=1.0, erl=.23))), ('slope 1.00 + 50 % at TP1', run(dict(slope=1.0, q=dict(part=.5)))), ('slope 0.75 + stretch 4 + ER 0.23', run(dict(slope=.75, x4=4, erl=.23)))])
+setup('MGC'); b = run({})
+o += table('MGC 5m: slope 0.48 + cap neighbours (vs v10.97)', b, [('slope 0.48 + cap %s' % c, run(dict(slope=.48, q=dict(cap=c)))) for c in (7, 9, 12, 1e9)])
+open('five_follow_report.md', 'w').write('\n'.join(o)); print('\n'.join(o))
