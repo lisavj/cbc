@@ -1,7 +1,6 @@
 """Weekly watch (Tuesdays): MGC 3m 15-min HTF EMA20 slope lookback (CBC EMA Slope v1.18) + MES 3m check + MNQ / M2K 3m candidates -- created 11/15/2026.
-MNQ 3m candidates (11/15 baseline): Max SL1 cap 30 -> 60 (+1059, z 1.8, promising), NY opening-range block OFF (+1243, z 4.8, middle third -21),
-cap OFF + OR blocks OFF (+2389, z 3.1, robust). M2K 3m: SL1 3.5 ATR + 0 % at TP1 (+111, z 2.6, robust; each alone promising).
-Rule for these: UPDATE WARRANTED only if robust (z >= 2, all thirds, last 4 wk >= 0) on 3 consecutive Tuesday runs.
+v1.19 (11/15) adopted MNQ 3m cap 60 + NY OR forming block OFF (+2511, z 3.9 vs v1.18) and M2K 3m SL1 3.5 ATR + 0 % at TP1 (+111, z 2.6).
+Revert watch for both: the 'v1.18' row is v1.18 vs v1.19 (negative = v1.19 better); REVERT CANDIDATE if the v1.18 row is positive since go-live on 3 consecutive runs or v1.19's edge (v1.18 row z) rises above -1.
 
 v1.18 put MGC 3m on slope lookback 5 bars (15 min) / threshold 0.165 (was 12 bars / 0.30) on a PROMISING-only result
 (+601, z 1.8, last 4 wk -51). This re-runs the replay on fresh bars each week and compares v1.18 with v1.17 on
@@ -21,7 +20,8 @@ for a, b in (("SLP = np.abs(h20raw - np.roll(h20raw, 12)) / A", "SLP = np.abs(h2
              (" 'MGC': dict(cost=.22, f='/tmp/mgc3.pkl', fdp=8., tw=None,", " 'MGC': dict(cost=.22, f='/tmp/mgc3.pkl', fdp=8., tw=1.0,"),
              ("base=dict(slope=.42, erl=.15, rg=5, ride=True, hb=(13, 14))", "base=dict(slope=.42, erl=.15, rg=5, ride=True, hb=(13, 14), P=dict(qwin=(960, 1140), eod=False))"),
              ("base=dict(slope=.30, rg=5, x4=4)", "base=dict(slope=.165, slk=5, rg=5, x4=4)"),
-             ("base=dict(slope=.48, erl=.23, x4=4), q=dict(sl=1.7, mn=3, cap=5,", "base=dict(slope=.48, erl=.23, x4=4), q=dict(sl=1.7, mn=3, cap=8,")):
+             ("base=dict(slope=.48, erl=.23, x4=4), q=dict(sl=1.7, mn=3, cap=5,", "base=dict(slope=.48, erl=.23, x4=4, q=dict(sl=3.5, part=0.0)), q=dict(sl=1.7, mn=3, cap=8,"),
+             ("base=dict(slope=.75, erl=.15)", "base=dict(slope=.75, erl=.15, q=dict(cap=60), P=dict(orny=False))")):
     assert src.count(a) == 1, 'all_eng.py changed: ' + a[:50]
     src = src.replace(a, b)
 exec(src)
@@ -59,14 +59,13 @@ out += ['### MES 3m (unchanged: 36-min lookback 0.42)', '', 'Base: %d trades, %+
 for nm, o in (('15 min (5 bars) 0.175', dict(slk=5, slope=.175)), ('30 min (10 bars) 0.35', dict(slk=10, slope=.35)), ('45 min (15 bars) 0.525', dict(slk=15, slope=.525)), ('slope 0.38', dict(slope=.38)), ('slope 0.46', dict(slope=.46))):
     out.append(row(nm, run(o), bm, s))
 out.append('')
-# MNQ / M2K 3m: candidates vs current v1.18 settings
-for sym, VV in (('MNQ', (('SL1 cap 60', dict(q=dict(cap=60))), ('SL1 cap OFF', dict(q=dict(cap=1e9))), ('OR block OFF: NY', dict(P=dict(orny=False))),
-                         ('OR blocks OFF: all', dict(P=dict(orny=False, orln=False, oras=False))), ('SL1 cap 60 + OR block OFF: NY', dict(q=dict(cap=60), P=dict(orny=False))),
-                         ('SL1 cap OFF + OR blocks OFF: all', dict(q=dict(cap=1e9), P=dict(orny=False, orln=False, oras=False))))),
-                ('M2K', (('SL1 3.5 ATR', dict(q=dict(sl=3.5))), ('0 % at TP1', dict(q=dict(part=0.))), ('SL1 3.5 ATR + 0 % at TP1', dict(q=dict(sl=3.5, part=0.))),
-                         ('SL1 3.0 ATR + 0 % at TP1', dict(q=dict(sl=3.0, part=0.))), ('SL1 4.0 ATR + 0 % at TP1', dict(q=dict(sl=4.0, part=0.)))))):
+# MNQ / M2K 3m: v1.19 sets (adopted 11/15) vs v1.18 + neighbours -- revert watch
+for sym, VV in (('MNQ', (('v1.18 (cap 30, NY OR block ON)', dict(q=dict(cap=30), P=dict(orny=True))), ('cap 30 only (NY block stays OFF)', dict(q=dict(cap=30))), ('NY block ON only (cap stays 60)', dict(P=dict(orny=True))),
+                         ('cap 45', dict(q=dict(cap=45))), ('cap OFF', dict(q=dict(cap=1e9))), ('+ all OR blocks OFF', dict(P=dict(orln=False, oras=False))))),
+                ('M2K', (('v1.18 (SL1 1.7, 80 % at TP1)', dict(q=dict(sl=1.7, part=.8))), ('SL1 1.7 + 0 % (only TP1 % changed)', dict(q=dict(sl=1.7))), ('80 % at TP1 (only SL changed)', dict(q=dict(part=.8))),
+                         ('SL1 3.0', dict(q=dict(sl=3.0))), ('SL1 4.0', dict(q=dict(sl=4.0))), ('25 % at TP1', dict(q=dict(part=.25)))))):
     setup(sym); s = case(dict(TDEF, fdp=CFGX['fdp'], tw=CFGX['tw'], erl=CFGX['base'].get('erl', .08))); bb = run({})
-    out += ['### %s 3m candidates (current v1.18 settings)' % sym, '', 'Base: %d trades, %+.0f, max DD %.0f.' % (bb['n'], bb['net'], bb['dd']), ''] + HDR
+    out += ['### %s 3m: v1.19 vs v1.18 (revert watch)' % sym, '', 'Base = v1.19: %d trades, %+.0f, max DD %.0f.' % (bb['n'], bb['net'], bb['dd']), ''] + HDR
     for nm, o in VV:
         out.append(row(nm, run(o), bb, s))
     out.append('')
