@@ -11,6 +11,9 @@ only feeds the cloud / "price past both EMA clouds" gate, which is not modelled 
 Data: server archive MES 3m (Databento rebuild + BarFeed) Jan 5 -> now. ~50 % exact match with live setups: compare
 variants, not totals. z = change / (SD x sqrt(setups changed)); robust = z >= 2 and better in all three thirds
 (Jan-Mar / Apr-Jun / Jul-now); promising = z >= 1 and all three better.
+11/14/2026 FIX: MCase.gen now sets X4 (close > 4 ATR beyond VWAP on the trade side) on every setup; it was always False, so
+gates=dict(X4=1) (MGC 3m: combo_study CH, tp1flip, cbce, volflip) never stretch-blocked the main setups. MES runs (X4=0)
+are unchanged. Check: MGC 3m v10.97 settings now 1136 setups / +615 = tsf_report "current" (was 1628 / +517).
 Usage: python3 mes3_ema_grid.py   (needs chop_sim.py next to it)
 """
 import sys, gzip, json, time, pickle, os, urllib.request, datetime as D
@@ -109,10 +112,10 @@ class MCase(cs.Case):
                     elif i + 1 < n and s.hdir[i + 1] == s.hdir[i] and ((C[i + 1] > line[i + 1]) if lg else (C[i + 1] < line[i + 1])): out.append(dict(i=i + 1, lg=lg, trig=nm, erm=mn, late=1))
         out.sort(key=lambda d: (d['i'], d['trig'] != 'flip'))
         for d in out:
-            i = d['i']; lg = d['lg']; A = s.atr[i]
+            i = d['i']; lg = d['lg']; A = s.atr[i]; gg = 1 if lg else -1
             hi = s.H[i - 23:i + 1].max(); lo = s.L[i - 23:i + 1].min(); pos = (C[i] - lo) / (hi - lo) if hi > lo else .5
             d['R5'] = (pos if lg else 1 - pos) >= .8 and (hi - lo) / A < 5
-            d['X4'] = False; d['M'] = False
+            d['xv'] = gg * (C[i] - s.vw[i]) / A; d['X4'] = d['xv'] > 4; d['M'] = False   # 11/14 fix: was X4 = False
             d['VB'] = s.vwb[i] == (1 if lg else -1)
             d.update(er={k: s.er[k][i] for k in s.er}, bo=bool(s.bo[i]), month=s.month[i])
         return out
@@ -223,7 +226,7 @@ def main():
         rob = lambda k: grid[k][3] and grid[k][0] > 0 and all(x > 0 for x in nb(k))
         out += ['## B. SL / TP1 grid — chart EMA %s (net pts; ✱ both halves +, T all three thirds +, R = T and every ±1-step stop / TP neighbour +)' % nm, '']
         for pk, pn in PARTS:
-            out += ['**Close at TP1: %s**' % pn, '', '| Stop \\ TP1 | ' + ' | '.join('%.2f ATR' % t for t in TPS) + ' |', '|---|' + '---|' * len(TPS)]
+            out += ['**Close at TP1: %s**' % pn, '', '| Stop \\\\ TP1 | ' + ' | '.join('%.2f ATR' % t for t in TPS) + ' |', '|---|' + '---|' * len(TPS)]
             for sk in STOPS:
                 cells = []
                 for tk in TPS:

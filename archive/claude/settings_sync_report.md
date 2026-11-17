@@ -1,4 +1,4 @@
-# CBC settings sync -- 2026-11-12 16:47 ET
+# CBC settings sync -- 2026-11-13 16:47 ET
 
 ## Data notes (read before using live alerts or bars)
 
@@ -25,74 +25,103 @@ Updated 2026-11-12. Applies to every study that reads live alerts (/alerts) or B
    11/12 baseline 24 live trades -8.7 pts, replay thirds -75 / -42 / +8. If after 3 more weekly runs it is still negative live
    (20+ new trades) and in 2+ replay thirds, say "consider unticking 'Trigger: LTF EMA20 Pierce (not beyond EMA9)' in ▶ Bot".
 
-### Today's data health (16:48 ET)
+### Today's data health (16:51 ET)
 
-- Server: serverVersion **14** (started 11/12 15:19 ET), so near-copy dedupe on arrival is live (window 60 s, nearLiveGuard on; ignoredSinceStart 0, nearIgnoredSinceStart 0).
-- Duplicates: `lastDedupe` = **null**. The stored alerts have NOT been cleaned yet, so keep de-duplicating 11/08-11/12 alerts when you read them (note 1).
-- Alert archive: 10/19 -> 11/11 (21 days), last archive run 11/12 16:19 ET.
-- BarFeed (/bars): all 15 active feeds (MES, MGC, MNQ, M2K, MCL x 3m / 2m / 5m) current. Last candles 16:45 / 16:46 ET, 3-4 open-market minutes old. **No stale feeds.** BTC feeds have 0 bars (not watched).
+- Server: serverVersion **14** (restarted 11/13 10:11 ET); near-copy dedupe on arrival is live (window 60 s, nearLiveGuard on; ignoredSinceStart 0, nearIgnoredSinceStart 0).
+- Duplicates: `lastDedupe` = **null**. The stored alerts have still NOT been cleaned, so keep de-duplicating the 11/08-11/12 alerts when you read them (note 1).
+- Alert archive: 10/19 -> 11/12 (22 days); last archive run 11/13 16:11 ET.
+- BarFeed (/bars): all 15 active feeds (MES, MGC, MNQ, M2K, MCL x 3m / 2m / 5m) are current. Last candles 16:48 (3m) / 16:50 (2m, 5m) ET, 1-3 minutes old. **No stale feeds.** BTC feeds have 0 bars (not watched).
 
 ## Newest Pine
 
-**pine/CBC_v10_93.pine** (indicator "v10.93", uploaded 11/12 12:37 ET). Previous snapshot: v10.87. Versions v10.88-v10.93 all came out 11/12 and are all ▶ Bot (CrossTrade) changes.
+**pine/CBC_v10_96.pine** (indicator "v10.96", uploaded 11/13 10:59 ET). Previous snapshot: v10.93.
+- v10.94 (11/13): bot news blackout. No bot entry within ± N minutes of the times in a listed news calendar.
+- v10.95 (11/13): the "...close at TP1 (%) by time of day" list is now empty by default, so MES 3m closes 100 % at TP1 all day. A trail of 0 in "...trail x ATR per symbol/timeframe" now means no trail.
+- v10.96 (11/13): MGC 3m exit is "FLIP 0 %". Nothing is closed at TP1; the stop goes to breakeven, there is no trail, and the trade is closed by the HTF CBC flip against it, BE, 16:00 or the next setup. A listed 0 % at TP1 is now honoured. The bot is unaffected (always 100 % at TP1).
 
-## A. Input changes since the last snapshot (v10.87 -> v10.93)
+## A. Input changes since the last snapshot (v10.93 -> v10.96)
 
-Changed default (1):
-- `bot_t_ln` "Trigger: LTF EMA20 Pierce (not beyond EMA9)": false -> **true** (v10.88; already in data note 4).
+Changed defaults (3):
+- `ats_part_sym` "...close at TP1 (%) per symbol/timeframe": `"MES 3m 100, MGC 3m 50"` -> **`"MES 3m 100, MGC 3m 0"`** (v10.96)
+- `ats_pw_sym` "...close at TP1 (%) by time of day, per symbol/timeframe": `"MES 3m 0600-1600 80, MES 3m 1800-2230 80"` -> **`""`** (v10.95)
+- `ats_trl_sym` "...trail x ATR per symbol/timeframe": `"MGC 3m 3.5"` -> **`"MGC 3m 0"`** (v10.96; 0 = no trail since v10.95)
 
-New inputs (5), all under ▶ Bot:
-- `bot_eow` "Entry-only windows: no exit orders": `""` (off) (v10.89)
-- `bot_eof` "...but still exit on an HTF CBC flip against the trade": `false` (v10.90)
-- `bot_fow` "Flip-only windows: no TP, closed by the HTF CBC flip": **`"0930-1600"`** (v10.91, ON by default since v10.92)
-- `bot_foall` "...applies to": `"HTF CBC Flip only"` (v10.92; other choice "All bot triggers")
-- `bot_fosl` "...keep SL1 as a safety stop": `true` (v10.92)
+New inputs (2), both under ▶ Bot (v10.94):
+- `bot_news` "News blackout list (USD red folder, ET)": `""` (off)
+- `bot_nwm` "News blackout ± minutes": `5`
 
-Removed inputs: none. Count 192 -> 197 ats_ / bot_ / xr_ / ema_ inputs.
+Removed inputs: none. Count 197 -> 199 ats_ / bot_ / xr_ / ema_ inputs.
 
-What it means: since v10.92 a MES 3m **bot** entry from an HTF CBC Flip on a candle closing 09:30-16:00 ET is sent with SL1 but **no TP**, and is closed by the HTF CBC flip against it / SL1 / 15:57 / the next bot entry. Other bot triggers and all non-bot (chart) setups keep the normal exits. v10.93 is a compile fix only (same behaviour as v10.92).
+What it means for the replays:
+- **MES 3m chart exits** are now SL1 3 ATR, TP1 1.75 ATR and **100 % at TP1 at every hour**. The old rule closed 80 % with BE + trail 1.7 between 06:00-16:00 and 18:00-22:30.
+- **MGC 3m chart exits** are now SL1 1.7 ATR (min 5, cap 7), TP1 1.7 ATR (cap 6), **0 % at TP1**. At TP1 the stop moves to BE with no trail, and the whole trade exits on the HTF flip against it, BE, 16:00 or the next setup. This replaces 50 % + trail 3.5 (v10.84).
 
-## B. Script constants vs v10.93 defaults
+## B. Script constants vs v10.96 defaults
 
-Scripts checked (project copies, none changed since the last run): mes3_ema_grid.py (11/04), late_study.py (11/07), chop_sim.py (10/24 upload with the 11/08 live EXIT / GATE values), botwin.py (11/08). No ats_ / xr_ / ema_ input changed, so every mapping holds.
-
-### mes3_ema_grid.py `LIVE` (MES 3m) -- MATCH
-sl 3.0 = ats_slx_sym "MES 3m 3"; mn 5 = MES 5 (ats_msl_sym ""); cap 1e9 = ats_cap_txt "MES 3m 0"; tp 1.75 = ats_tp1_sym "MES 3m 1.75"; tcap 1e9 = ats_tpc_txt "MES 3m 0"; part 'tod' = ats_pw_sym "MES 3m 0600-1600 80, MES 3m 1800-2230 80" + ats_part_sym "MES 3m 100"; be True = ats_be_on true; tr 1.7 = ats_trail_m0 1.7 (no MES 3m in ats_trl_sym).
+### mes3_ema_grid.py `LIVE` (MES 3m) -- **MISMATCH**
+- `part 'tod'` vs ats_pw_sym `""` + ats_part_sym "MES 3m 100" -> **MISMATCH**. The live value is 1.0 (100 % at TP1 all day).
+- These fields match the live inputs:
+  - sl 3.0 = ats_slx_sym "MES 3m 3"
+  - mn 5
+  - cap 1e9 = "MES 3m 0"
+  - tp 1.75 = ats_tp1_sym "MES 3m 1.75"
+  - tcap 1e9
+  - be True
+  - tr 1.7 = ats_trail_m0 (not used at 100 %)
 
 ### mes3_ema_grid.py `BASEX` -- MATCH
-sl 1.7 = ats_atr_m1; mn 5; cap 8 = MES 8; tp 1.7 = ats_atr_t1; tcap 6 = MES 6; part 0.8 = ats_part_pct 80; be True; tr 1.7 = ats_trail_m0.
+- sl 1.7, mn 5, cap 8, tp 1.7, tcap 6, part 0.8 (ats_part_pct 80), be True, tr 1.7.
 
 ### late_study.py
-- `MGCX`: sl 1.7 / mn 5 / cap 7 / tp 1.7 / tcap 6 / be -> MATCH (MGC 2m / 5m base also MATCH).
-- `MGCX` part 0.8 / tr 1.7 vs MGC 3m live ats_part_sym "MGC 3m 50" / ats_trl_sym "MGC 3m 3.5" -> **known** (runner-study comparison base since v10.84).
+- `MGCX`: sl 1.7, mn 5, cap 7, tp 1.7, tcap 6 and be -> MATCH. The MGC 2m / 5m base also MATCHES.
+- `MGCX` part 0.8 / tr 1.7 vs MGC 3m live -> **known** (the runner study's comparison base). Note: MGC 3m live is now **0 % / no trail (FLIP)**, not 50 % / 3.5.
 - `MESX` = BASEX -> MATCH.
 
 ### chop_sim.py `EXIT`
-- (MGC,3) part 0.5 / tr 3.5 / sl 1.7 / tp 1.7 / cap 7 / tcap 6 -> MATCH.
-- (MES,3) = LIVE -> MATCH.
-- (MGC,2), (MES,2) base exits -> MATCH.
+- (MGC,3): part 0.5 / tr 3.5 vs ats_part_sym "MGC 3m 0" / ats_trl_sym "MGC 3m 0" -> **MISMATCH**. sl, tp, cap and tcap match.
+- (MES,3): part 'tod' vs 100 % all day -> **MISMATCH**. The other fields match.
+- (MGC,2) and (MES,2) base exits -> MATCH.
 
 ### chop_sim.py `GATE`
-- (MGC,3) R5=1, X4=1 = ats_rp_sym "MGC 3m 5", ats_f_ext_sym "MGC 3m 4" -> MATCH.
-- (MES,3) R5=1 = "MES 3m 5" -> MATCH. (MGC,2) R5=1 = "MGC 2m 5" -> MATCH. (MES,2) MTF=1 = ats_mtg_sym "MES 2m 1" -> MATCH.
-- cur_rule thr 0.23 = ats_c_er / ats_fer 0.23 -> MATCH.
+- (MGC,3) R5=1 / X4=1 -> MATCH.
+- (MES,3) R5=1 -> MATCH.
+- (MGC,2) R5=1 -> MATCH.
+- (MES,2) MTF=1 -> MATCH.
+- cur_rule thr 0.23 -> MATCH.
 
 ### botwin.py
-- `inwin` 18:30-22:00, 03:00-13:00, 15:00-15:30 = bot_win "1830-2200, 0300-1300, 1500-1530" -> MATCH.
-- short filter ('d5','S') = bot_d5 true -> MATCH.
+- `inwin` = bot_win "1830-2200, 0300-1300, 1500-1530" -> MATCH.
+- Short filter ('d5','S') = bot_d5 true -> MATCH.
+- Note: botwin replays bot trades with `cb.CH['MES']` = `m.LIVE` ('tod'). The live bot is always 100 % at TP1, so fixing LIVE also brings botwin closer to the live bot.
 
-### Not in the settings map (info -- new bot behaviour the replays do not model)
-- **Bot flip-only exit** (`bot_fow` "0930-1600", `bot_foall` "HTF CBC Flip only", `bot_fosl` true): botwin.py (and bot_tp.py / bot_alerts_study.py / bot_trig.py, which use the MES 3m live exits for bot trades) replay HTF CBC Flip bot trades 09:30-16:00 with TP1 1.75 + partial / trail, while the live bot now holds them to the HTF flip with SL1 only. Their "bot exits" results for Flip trades in that window no longer describe the live bot. flip_exit_bot.py (11/12) is the study behind this change and is the natural place to take the model from.
-- **Bot triggers** (`bot_t_ln` now true): botwin.py says "bot trigger choices are not modelled"; bot_trig.py / bot_alerts_study.py already use the three-trigger set (data note 4).
-- Not modelled, unchanged: ats_fl2_sym "MGC 2m 1", ats_fw2_sym "MES 3m 8", ats_fa_sym "MES 2m 9", xr_cut / xr_lock exit rules.
+### Outside the settings map (info, same root cause)
+- `mes3_watch_a.py` keeps its own `LIVE` copy with `part='tod'`. `mes3_watch_tp1.py` hard-codes the 80 / 100 % time-of-day rule inline. Both are now stale for MES 3m.
+- `gate_session.py` labels `dict(ls.MGCX, part=.5, tr=3.5)` as "live 50 % / trail 3.5". The MGC 3m live exit is now FLIP 0 %.
+- `combo_study`, `exit_lab`, `sltime_study` and `trend_guard_study` use `ls.MGCX` (80 % / 1.7) as their MGC 3m "CH" exits. This is the same known MGCX difference, but those studies are now two exit changes behind live MGC 3m.
+- `tp1flip_study.py` already models v10.96 (MES 100 %, MGC FLIP 0 %). OK.
+- Bot replays (`bot_tp`, `bot_trig`, `bot_alerts_study`, `flip_exit_bot`, `flip_exit_study`) override to `dict(m.LIVE, part=1.0)` and are not affected.
+- The bot news blackout (`bot_news`) is not modelled. It is empty by default, so there is no effect.
 
 ### Count
-14 MATCH (LIVE, BASEX, MGCX non-runner fields, MESX, EXIT x4, GATE x4, inwin, bot_d5), **0 MISMATCH**, 1 known (MGCX part / trail). 1 new unmodelled bot exit rule (info).
+12 MATCH (BASEX, MGCX non-runner fields, MESX, EXIT MGC 2m / MES 2m, GATE x4, cur_rule, inwin, bot_d5), **3 MISMATCH** (LIVE part, EXIT MES 3m part, EXIT MGC 3m part / trail), 1 known (MGCX part / trail).
 
-## C. Affected scripts / studies and fixes
+## C. Affected scripts / studies and fixes (not applied -- ask Claude)
 
-- Mismatches: none -- no constant changes needed.
-- Suggested (not a constant fix, needs a small model change; not done here): give the bot replays a flip-only exit option for HTF CBC Flip entries on candles closing 09:30-16:00 ET (no TP, exit on HTF flip against / SL1 / 15:57 / next bot entry) in botwin.py / bot_tp.py / bot_alerts_study.py, and add a SETTINGS_MAP.md row for `bot_fow` / `bot_foall` / `bot_fosl` so this check tracks them.
+1. **mes3_ema_grid.py `LIVE`**
+   - Fix: `LIVE = dict(sl=3.0, mn=5, cap=1e9, tp=1.75, tcap=1e9, part=1.0, be=True, tr=1.7)`
+   - Scripts that use it: late_study (CHARTS), combo_study / sltime_study / exit_lab / trend_guard_study (CH['MES']), plus runner_study, all_combo, skip_why (-> skip_fix, sess_loss), botwin, gate_session (MES) and the bot_* scripts (overridden to 1.0 already).
+   - Same change for the own copy in `mes3_watch_a.py`. In `mes3_watch_tp1.py`, change `part = .8 if inside(tr['t']) else 1.0` to `part = 1.0`.
+   - Studies: "Weekly exit + filter studies (3m charts) A-I" (Sat 18:27); "MES study: EMA, TP1, 5m-confirm, per-trigger, exit rules" (weekdays 17:37).
+2. **chop_sim.py `EXIT[('MES',3)]`**
+   - Fix: `('MES',3):dict(sl=3.0,mn=5,tp=1.75,tcap=1e9,part=1.0,be=True,ts=0,tr=1.7,cap=1e9)`
+   - Used through `s.run(...)` without `q=` or through `cs.EXIT[...]` by: tp1flip_study (sets its own part), xtf_study, flip_order_study, ema_slope_study and breakout_flip_study. sl_reversal / flip_timing / evening_study overwrite MES 3m with base exits, so they are not affected.
+   - Studies: "CBC setup order since HTF flip" (Sun), "CBC 1H MTF + 4H XTF" (on demand), "CBC EMA slope gate weekly check" (Fri 17:41), "Breakout + flip-ER variant study" (weekdays 17:28).
+3. **chop_sim.py `EXIT[('MGC',3)]`**
+   - Fix: `('MGC',3):dict(sl=1.7,mn=5,tp=1.7,tcap=6,part=0,be=True,ts=0,tr=0,cap=7)`
+   - The constant alone is not enough. `Case.sim1` (and the copy in `mes3_ema_grid.MCase.sim1` and the 'tod' handlers in combo_study, exit_lab and sltime_study) would treat `tr=0` as a trail AT the close. Each needs the one-line guard `if hit and q['tr']>0:` in place of `if hit:` before the trail update.
+   - Same scripts / studies as item 2, plus the evening / flip-timing and sl_reversal studies (they keep the chop_sim MGC 3m exits).
+   - Optionally relabel gate_session.py's "live 50 % / trail 3.5" as "previous", and add `'live FLIP 0 %': dict(ls.MGCX, part=0, tr=0)`.
+4. Also add rows to SETTINGS_MAP.md for `mes3_watch_a.py LIVE` / `mes3_watch_tp1.py` (MES 3m time-of-day rule) so this check tracks them.
 
 ### Known (no action)
-- late_study.py MGCX part 0.8 / tr 1.7 vs MGC 3m 50 % / trail 3.5 (runner study comparison base).
+- late_study.py MGCX part 0.8 / tr 1.7 vs MGC 3m live (runner-study comparison base). Live is now 0 % / no trail since v10.96.

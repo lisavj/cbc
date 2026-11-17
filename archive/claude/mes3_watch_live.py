@@ -5,7 +5,8 @@
 11/12: DATA_NOTES dedupe (same chart + Time line + set of bullet names within 60 s = one alert, keep longest);
 two Setup Ended results for one setup -> prefer the one with a 0.5x(TP1) breakdown (MGC 3m old-exit duplicate alert);
 Exit Rule hits de-duplicated per setup; MGC 3m period split at 11/08.
-11/12 eve: extra row for the current bot set since v10.88 (Flip + LTF Pierce beyond + LTF Pierce not beyond)."""
+11/12 eve: extra row for the current bot set since v10.88 (Flip + LTF Pierce beyond + LTF Pierce not beyond).
+11/13: MES 3m extra period from 11/13 (v10.95: 100 % at TP1 all day); MGC 3m extra split at 11/13 (v10.96 FLIP 0 %)."""
 import json, re, sys, pickle, datetime as D
 from zoneinfo import ZoneInfo
 TZ = ZoneInfo('America/New_York')
@@ -93,10 +94,17 @@ setups.sort(key=lambda x: x['t'])
 unmatched_E = sum(1 for k in E if k not in S)
 NOW = D.datetime.now(TZ)
 five = [s for s in setups if s['sym'] == 'MES' and s['tf'] == 5]
+# 11/13 fix: a 5m setup with no Setup Ended alert used to stay "open" until now, so from 10/21 / 10/28 every 2m / 3m setup
+# counted as confirmed. Unended 5m setups now end at the next MES 5m setup (any direction) or at 16:00 ET, whichever is first.
+for k_, f in enumerate(five):
+    if f['te'] is None:
+        d16 = f['t'].replace(hour=16, minute=0) + (D.timedelta(days=1) if f['t'].hour >= 16 else D.timedelta(0))
+        nxt = five[k_ + 1]['t'] if k_ + 1 < len(five) else NOW
+        f['te_c'] = min(d16, nxt, NOW)
 def confirmed(s):
     for f in five:
         if f['dr'] != s['dr']: continue
-        end = f['te'] or NOW
+        end = f['te'] or f['te_c']
         if f['t'] <= s['t'] <= end: return True
         if abs((f['t'] - s['t']).total_seconds()) <= 600: return True
     return False
@@ -119,21 +127,24 @@ for sym in ('MES', 'MGC', 'MNQ'):
         L = [s for s in setups if s['sym'] == sym and s['tf'] == tf]
         r, st = row('%s %dm' % (sym, tf), L); out.append(r); J['%s%d' % (sym, tf)] = st
 m3 = [s for s in setups if s['sym'] == 'MES' and s['tf'] == 3]
-d1105, d1108 = D.date(2026, 11, 5), D.date(2026, 11, 8)
+d1105, d1108, d1113 = D.date(2026, 11, 5), D.date(2026, 11, 8), D.date(2026, 11, 13)
 for nm, f in (('MES 3m 10/19–11/04 (9 / 20)', lambda s: s['t'].date() < d1105), ('MES 3m 11/05 (7 / 14 build)', lambda s: s['t'].date() == d1105),
               ('MES 3m 11/06–11/07 (9 / 20, TP1 2.0)', lambda s: d1105 < s['t'].date() < d1108),
-              ('MES 3m from 11/08 (TP1 1.75, v10.82+)', lambda s: s['t'].date() >= d1108)):
+              ('MES 3m from 11/08 (TP1 1.75, v10.82+)', lambda s: s['t'].date() >= d1108),
+              ('MES 3m from 11/13 (v10.95+, 100 % at TP1 all day)', lambda s: s['t'].date() >= d1113)):
     r, st = row(nm, [s for s in m3 if f(s)]); out.append(r); J[nm] = st
 g3 = [s for s in setups if s['sym'] == 'MGC' and s['tf'] == 3]
-for nm, f in (('MGC 3m before 11/08', lambda s: s['t'].date() < d1108), ('MGC 3m from 11/08 (50 % + trail 3.5; partly old exits to 11/12)', lambda s: s['t'].date() >= d1108)):
+for nm, f in (('MGC 3m before 11/08', lambda s: s['t'].date() < d1108),
+              ('MGC 3m 11/08–11/12 (50 % + trail 3.5; partly old exits)', lambda s: d1108 <= s['t'].date() < d1113),
+              ('MGC 3m from 11/13 (v10.96 FLIP 0 %)', lambda s: s['t'].date() >= d1113)):
     r, st = row(nm, [s for s in g3 if f(s)]); out.append(r); J[nm] = st
 out += ['', 'Matched: %d Trade Setup alerts, %d ended; %d Setup Ended alerts without a matching Trade Setup (not counted). Near-duplicate alerts dropped: %d; setups with two Setup Ended results: %d (0.5×(TP1) version kept).' % (
     len(setups), sum(s['ended'] for s in setups), unmatched_E, ndup, ndual), '']
-# MES 3m setups per day since 11/06 (alert-gap check)
 from collections import Counter
-cnt = Counter(s['t'].strftime('%m/%d') for s in m3 if s['t'].date() >= D.date(2026, 11, 6))
-J['m3days'] = dict(cnt)
+J['m3days'] = dict(Counter(s['t'].strftime('%m/%d') for s in m3 if s['t'].date() >= D.date(2026, 11, 6)))
+J['g3days'] = dict(Counter(s['t'].strftime('%m/%d') for s in g3 if s['t'].date() >= D.date(2026, 11, 9)))
 J['trig'] = {}
+BOT2 = ('HTF CBC Flip', 'LTF Pierce beyond EMA9'); BOT3 = BOT2 + ('LTF Pierce not beyond',)
 for sym, tf in (('MES', 2), ('MES', 3), ('MES', 5)):
     L = [s for s in setups if s['sym'] == sym and s['tf'] == tf]
     out += ['### (D) Live per trigger — %s %dm (first listed trigger)' % (sym, tf), '', HDR[0] % 'Trigger', HDR[1]]
@@ -142,11 +153,9 @@ for sym, tf in (('MES', 2), ('MES', 3), ('MES', 5)):
         if not LL: continue
         r, st = row(t, LL); out.append(r); J['trig']['%s%d %s' % (sym, tf, t)] = st
     if tf == 3:
-        bot = [s for s in L if s['trig'] in ('HTF CBC Flip', 'LTF Pierce beyond EMA9')]
-        r, st = row('**Bot set (Flip + LTF Pierce beyond EMA9)**', bot); out.append(r); J['bot'] = st
-        bot3 = [s for s in L if s['trig'] in ('HTF CBC Flip', 'LTF Pierce beyond EMA9', 'LTF Pierce not beyond')]
-        r, st = row('Bot set since v10.88 (+ LTF Pierce not beyond)', bot3); out.append(r); J['bot3'] = st
-        r, st = row('Everything else (vs 2-trigger set)', [s for s in L if s['trig'] not in ('HTF CBC Flip', 'LTF Pierce beyond EMA9')]); out.append(r); J['nonbot'] = st
+        r, st = row('Bot set (Flip + LTF Pierce beyond EMA9; task definition)', [s for s in L if s['trig'] in BOT2]); out.append(r); J['bot'] = st
+        r, st = row('**Current bot set since v10.88 (+ LTF Pierce not beyond)**', [s for s in L if s['trig'] in BOT3]); out.append(r); J['bot3'] = st
+        r, st = row('Everything else (vs 2-trigger set)', [s for s in L if s['trig'] not in BOT2]); out.append(r); J['nonbot'] = st
     out.append('')
 out += ['### (D) Live per trigger — MGC / MNQ, ended setups / net pts', '',
         '| Trigger | MGC 2m | MGC 3m | MGC 5m | MNQ 2m | MNQ 3m | MNQ 5m |', '|---|---|---|---|---|---|---|']
@@ -157,7 +166,6 @@ for t in TRIGS:
             LL = [s for s in setups if s['sym'] == sym and s['tf'] == tf and s['trig'] == t and s['ended']]
             anyx |= bool(LL)
             cells.append('%d / %+.1f' % (len(LL), sum(s['res'] for s in LL)) if LL else '—')
-            J['trig']['%s%d %s' % (sym, tf, t)] = stats([s for s in setups if s['sym'] == sym and s['tf'] == tf and s['trig'] == t])
     if anyx: out.append('| %s | %s |' % (t, ' | '.join(cells)))
 out += ['']
 J['conf'] = {}
@@ -211,7 +219,7 @@ for h in sorted(hits, key=lambda x: x['t']):
 J['exr'] = dict(n=len(EXR), kinds={'%s %d %s' % k: v for k, v in kinds.items()}, nhits=len(hits), hits=[])
 out += ['', '| Chart (period) | Hits with ended setup | Sum rule | Sum CBC | Rule − CBC | Halves (rule − CBC) |', '|---|---|---|---|---|---|']
 for nm, f in (('MES 3m', lambda h: h['sym'] == 'MES' and h['tf'] == 3), ('MGC 3m before 11/08', lambda h: h['sym'] == 'MGC' and h['tf'] == 3 and h['t'].date() < d1108),
-              ('MGC 3m from 11/08 (50 % + trail 3.5)', lambda h: h['sym'] == 'MGC' and h['tf'] == 3 and h['t'].date() >= d1108)):
+              ('MGC 3m from 11/08 (50 % + trail 3.5; FLIP 0 % from 11/13)', lambda h: h['sym'] == 'MGC' and h['tf'] == 3 and h['t'].date() >= d1108)):
     H = [h for h in sorted(hits, key=lambda x: x['t']) if f(h) and h['s'] and h['s']['ended']]
     d = [h['rres'] - h['s']['res'] for h in H]; hh = len(d) // 2
     out.append('| %s | %d | %+.2f | %+.2f | %+.2f | %+.2f / %+.2f |' % (nm, len(H), sum(h['rres'] for h in H), sum(h['s']['res'] for h in H), sum(d), sum(d[:hh]), sum(d[hh:])))

@@ -1,30 +1,34 @@
-# Setup Triggers study -- 2026-11-07 09:50 ET (weekly run 2 — rerun after data repair, replaces the 11/06 run)
+# Setup Triggers study -- 2026-11-13 21:18 ET (weekly run 3)
 
-Replay Jan 5 – Nov 6 (2m Jun – Nov 6), each chart on its live settings, base exits; Δ = turning that trigger OFF. Live = alert store (Trade Setup → Setup Ended), ~10/19 – 11/06. Previous report: 2026-11-06 21:17 ET (pre-repair run 2, now replaced). Method unchanged (scripts ran as-is, no fixes).
+**STUDY SETTINGS STALE:** settings_sync_report (11/13 16:47 ET, CBC v10.96) lists 3 non-"known" MISMATCHES -- mes3_ema_grid `LIVE` part 'tod' (MES 3m is now 100 % at TP1 all day), chop_sim `EXIT[('MES',3)]` part 'tod', chop_sim `EXIT[('MGC',3)]` 50 % / trail 3.5 (MGC 3m is now FLIP 0 %, no trail). This study replays every chart on the base exits (`stretch_study.QB`: SL1 1.7 ATR, TP1 1.7, 80 %, BE, trail 1.7), not chop_sim `EXIT`, so the trigger comparison itself is not affected; ran anyway, scripts as-is (no fixes).
 
-**Rerun after data repair:** requested 11/07 after the BarFeed bar data was repaired (MGC 3m had 5m candles mixed in; MCL 2m / M2K 2m had wrong candles; MES 2m/5m, MNQ, M2K 3m had gaps). This run **replaces the 11/06 21:17 run as weekly run 2** (run history: run 1 = 11/01, run 2 = this run; consecutive-robust counts recomputed on that basis — still 0 everywhere). An earlier 11/07 09:46 pass produced byte-identical outputs, so the repaired data was already in place. Versus the pre-repair 11/06 numbers: MES 3m, MGC 3m, MES 2m and MGC 2m replays moved (biggest on MGC 3m: net +186 → +278); MES 5m and MGC 5m replays and the live table are unchanged. Comparisons below are to the 11/06 run (pre-repair) and run 1.
+Replay Jan 5 – Nov 13 (2m Jun – Nov 13), each chart on its live filter settings (filter_sweep.LIVE), base exits; Δ = turning that trigger OFF. The last third ("Jul–Oct" / "Sep–Oct" in the tables) now runs to 11/13. Live = alert store (Trade Setup → Setup Ended), 10/19 – 11/13. Previous report: 2026-11-07 09:50 ET (weekly run 2; run 1 = 11/01).
+
+**Baseline jump on MGC 2m:** the 11/08 replay-script sync turned the MGC 2m range gate (24 / 20 % / 5 ATR, v10.77) ON in filter_sweep.LIVE, so MGC 2m replay setups fell 1499 → 1353 and the per-trigger mix changed (HTF CBC Flip 490 → 277 setups). That jump comes from the sync, not the market. Other charts only gained one week of bars.
+
+**Live data caveats (DATA_NOTES):** stored alerts are still not de-duplicated (/health serverVersion 14, `lastDedupe` null). MGC 2m / 3m / 5m and MCL 2m alerts from 11/08 evening → 11/12 mostly arrived twice; the live table below is the script's raw output (double-counts those). A de-duplicated recount (same chart + Time line + alert names within 60 s = one alert) is given in the "Since last week" bullets where it matters. MGC 3m live results 11/09 – 11/12 are partly on the old exits (a second alert ran 80 % / trail 1.7). MES 3m chart exits changed to 100 % at TP1 on 11/13 (v10.95) and MGC 3m to FLIP 0 % (v10.96); only the last session is on those.
 
 ## Since last week
 
-**Verdict: keep all triggers.** No "trigger OFF" is robust on any chart (0 consecutive robust runs everywhere), so rule (a) fails for every candidate.
+**Verdict: keep all triggers.** No "trigger OFF" is robust on any chart this run (0 consecutive robust runs everywhere, after 3 weekly runs), so rule (a) fails for every candidate.
 
-**Replay, per chart (net of the trigger's own setups; OFF Δ / z / thirds / verdict — this run vs the pre-repair 11/06 run; run 1 = 11/01)**
-- **MES 3m:** HTF EMA9 Pierce 285 setups −137 (11/06 −142, run 1 −116), negative in all thirds (−18 / −67 / −51). OFF +145, z 1.6, +25 / +55 / +65 — promising (11/06 +158 z 1.7; run 1 +111 z 1.2). Still the strongest candidate but not robust; live HTF EMA9 Pierce +10.6 on 12 ended (< 20 and positive) → (c) fails. HTF CBC Flip carries the chart: +84, OFF −162, z −1.5 (worse in 2 of 3 thirds).
-- **MGC 3m:** keep all. HTF EMA9 Pierce −88 (was −97), OFF +35, z 0.4, +58 / −19 / −4 — noise. HTF EMA20 Pierce +91 (OFF −76, z −0.9); Flip +127 (OFF −18); LTF EMA20 +147 (OFF −41).
-- **MES 2m:** LTF EMA20 Pierce 527 setups −147 (was −161), negative in 2 of 3 thirds (−75 / +6 / −79). OFF +109, z 1.1, +32 / +20 / +58 — promising (11/06 +123 z 1.2; run 1 +132 z 1.3). Live 51 ended −37.6 (unchanged). (b) and (c) met; (a) not (0 robust runs). Others: Flip −38 (OFF +39 noise), EMA9 +2 (OFF +24 noise), EMA20 −3 (OFF −22 worse).
-- **MGC 2m:** LTF EMA20 Pierce carries the chart: +352, positive all thirds; OFF −219, z −1.8, −131 / −9 / −79 (worse in all thirds, short of z −2). HTF EMA9 OFF +47 noise. Keep all.
-- **MES 5m:** identical to 11/06. LTF EMA20 Pierce −101 (−169 / +54 / +14), OFF +140, z 1.0, +126 / +14 / −1 — noise (run 1 promising, z 1.1). Live 24 ended −29.7. The chart-EMA 16 / 34 / 120 candidate (weekly EMA check) addresses the same trigger — prefer whichever qualifies first; neither does yet. HTF EMA9 (+66, OFF −84) and HTF EMA20 (+68, OFF −44) remain the winners.
-- **MGC 5m:** identical to 11/06. HTF EMA9 Pierce −84 (−64 / +51 / −71), OFF +114, z 1.3, +52 / −9 / +71 — noise. Live HTF EMA9 Pierce +18.4 on 6. Keep all.
+**Replay, per chart (trigger's own net; OFF Δ / z / thirds / verdict -- this run vs run 2 (11/07) and run 1 (11/01))**
+- **MES 3m:** HTF EMA9 Pierce 292 setups **−171** (run 2 −137, run 1 −116), negative in all thirds (−18 / −67 / −86). OFF **+164, z 1.7**, +25 / +55 / +83 — promising (run 2 +145 z 1.6; run 1 +111 z 1.2). Strongest candidate and slowly strengthening, but not robust (z < 2). Live HTF EMA9 Pierce unchanged at 12 ended +10.6 (< 20 and positive) → (c) fails too. HTF CBC Flip still carries the chart: +50 (was +84), OFF −133, z −1.2 (was −162, z −1.5). LTF EMA20 Pierce +119 (OFF −96, worse).
+- **MGC 3m:** keep all. HTF EMA9 Pierce −84 (was −88), OFF +31, z 0.4, +58 / −19 / −8 — noise. HTF EMA20 Pierce +105, OFF −89, z −1.1 (was −76, z −0.9) — the most useful trigger here by OFF Δ. Flip +125 (OFF −21), LTF EMA20 +175 (OFF −54).
+- **MES 2m:** LTF EMA20 Pierce 552 setups **−155** (was −147), negative in 2 of 3 thirds (−75 / +6 / −86). OFF **+129, z 1.2**, +32 / +20 / +77 — promising (run 2 +109 z 1.1; run 1 +132 z 1.3). Live 67 ended **−44.6** (was 51 −37.6). Criteria (b) and (c) met; (a) not (0 robust runs, z well short of 2). Others: Flip −64 (OFF +72 z 0.6, noise), HTF EMA9 −10 (OFF +34 noise), HTF EMA20 +11 (OFF −40 worse).
+- **MGC 2m:** (range-gate baseline jump, see above) LTF EMA20 Pierce **carries the chart**: +439 on 717 setups (+237 / +7 / +195); OFF **−304, z −2.4**, −177 / +15 / −143 — robustly worse by z for the first time but not in all three thirds (Aug +15), so not "robust" by definition (run 2 −219 z −1.8 all thirds). HTF EMA9 Pierce −83 (+13 / −31 / −66), OFF +85, z 1.1, −53 / +55 / +83 — noise (first thirds worse). Keep all.
+- **MES 5m:** LTF EMA20 Pierce −83 (−169 / +54 / +32), OFF +137, z 1.0, +126 / +14 / −3 — noise (run 2 +140 z 1.0 noise; run 1 promising z 1.1). Live 29 ended −12.4 (was 24 −29.7). The chart-EMA 16 / 34 / 120 candidate (weekly EMA check) addresses the same trigger — prefer whichever qualifies first; neither does yet. HTF EMA9 (+70, OFF −86) and HTF EMA20 (+66, OFF −42) remain the winners.
+- **MGC 5m:** HTF EMA9 Pierce −90 (−64 / +51 / −77), OFF +124, z 1.4, +52 / −9 / +81 — noise (was +114 z 1.3). Live HTF EMA9 Pierce is the best live trigger on this chart: 9 ended +41.4 raw (de-dup 8 ended +32.3). Keep all.
 
-**Live, per trigger (ended setups, net) — unchanged vs the 11/06 run (no new session; alert store not affected by the bar repair)**
-- LTF EMA20 Pierce: MES 2m 51 −37.6; MES 5m 24 −29.7; MGC 3m 32 −18.6; MES 3m 45 +9.6; MGC 2m 51 +12.1; MGC 5m 14 +0.5; MNQ 3m 43 −748.8; MNQ 2m 42 −78.0; MNQ 5m 23 +362.6; M2K 2m 28 +26.4; M2K 3m 21 +0.3; M2K 5m 19 −23.0.
-- HTF CBC Flip: MES 3m +41.7; MES 2m −1.2; MES 5m +6.2; MGC 3m +5.7; MGC 5m +5.9; MGC 2m −16.0; MNQ 2m +24.1; MNQ 3m −265.5; MNQ 5m −65.5; M2K 2m −29.1.
-- HTF EMA9 Pierce: MES 3m +10.6 (12); MGC 3m +3.6; MGC 5m +18.4; MNQ 3m +147.5; MNQ 2m +49.5.
-- "LTF EMA20 Pierce (late)" still weak: MGC 5m 10 ended 0 % win −54.8; MGC 2m −33.1; MES 2m −33.4; MES 3m −27.7; MGC 3m −10.6.
+**Live, per trigger (ended setups, net; raw script output, de-dup in brackets where duplicates matter; vs run 2)**
+- LTF EMA20 Pierce: MES 2m 67 −44.6 (was −37.6); MES 3m 48 **−20.5** (was +9.6); MES 5m 29 −12.4 (was −29.7); MGC 3m 39 +19.2 [de-dup 36 +4.1] (was −18.6); MGC 2m 88 −0.4 [75 +2.4] (was +12.1); MGC 5m 25 +15.2 [21 +8.3] (was +0.5); MNQ 3m 46 −776.8 (was −748.8); MNQ 2m 69 −177.7 (was −78.0); MNQ 5m 31 +446.1; M2K 2m 43 +22.1; M2K 3m 30 −4.9; M2K 5m 21 −31.2.
+- HTF CBC Flip: MES 3m 16 +23.0 (was +41.7); MES 2m −6.2 (was −1.2); MES 5m +11.0 (was +6.2); MGC 3m −14.7 [8 ended +5.7] (was +5.7); MGC 5m −1.2 (was +5.9); MGC 2m 60 −50.1 [57 −36.3] (was −16.0); MNQ 2m −21.1 (was +24.1); MNQ 3m −201.5; MNQ 5m −95.5; M2K 2m −32.6.
+- HTF EMA9 Pierce: MES 3m +10.6 (12, no new); MGC 3m +15.4 [+7.5]; MGC 5m +41.4 [+32.3]; MGC 2m +7.5 [+16.2]; MNQ 3m +117.5; MNQ 2m +32.7; MNQ 5m +73.6.
+- "LTF EMA20 Pierce (late)" still weak: MGC 5m 14 ended 0 % win −70.4; MGC 2m −40.9; MES 2m −32.0; MES 3m −16.3; MNQ 2m −238.9. Exception MGC 3m +35.7 raw [+4.8 de-dup].
 
-**Candidates (consecutive robust runs: 0 for all):** MES 3m untick "Trigger: HTF EMA9 Pierce" (z 1.2 → 1.7 → 1.6, promising); MES 2m untick "Trigger: LTF EMA20 Pierce" (z 1.3 → 1.2 → 1.1, promising, slowly fading); MES 5m LTF EMA20 Pierce (noise; 16 / 34 / 120 may qualify first). **Carrying:** HTF CBC Flip on MES 3m, LTF EMA20 Pierce on MGC 2m (near-robustly worse when off). No Pine or server changes.
+**Candidates (consecutive robust runs: 0 for all, after 3 weekly runs):** MES 3m untick "Trigger: HTF EMA9 Pierce" (OFF z 1.2 → 1.6 → 1.7, promising, live < 20 and positive); MES 2m untick "Trigger: LTF EMA20 Pierce" (z 1.3 → 1.1 → 1.2, promising; replay and live both negative, only (a) missing); MES 5m LTF EMA20 Pierce (noise; 16 / 34 / 120 may qualify first); MGC 5m HTF EMA9 Pierce (noise, and live strongly positive). **Carrying:** LTF EMA20 Pierce on MGC 2m (OFF −304, z −2.4), HTF CBC Flip on MES 3m (OFF −133). No Pine or server changes.
 
-Not in the replay: LTF EMA20 Touch, Momentum break, HTF Pullback Structure (only live, few setups).
+Not in the replay: LTF EMA20 Touch, Momentum break, HTF Pullback Structure (live only, few setups).
 
 ---
 
@@ -32,237 +36,241 @@ Not in the replay: LTF EMA20 Touch, Momentum break, HTF Pullback Structure (only
 
 | Chart | Trigger | Setups | Ended | Win % | Net | Avg |
 |---|---|---|---|---|---|---|
-| M2K 2m | HTF CBC Flip | 16 | 16 | 31% | -29.1 | -1.82 |
-| M2K 2m | HTF EMA20 Pierce | 5 | 5 | 80% | +9.3 | +1.86 |
+| M2K 2m | HTF CBC Flip | 25 | 25 | 36% | -32.6 | -1.30 |
+| M2K 2m | HTF EMA20 Pierce | 8 | 8 | 75% | +10.5 | +1.32 |
 | M2K 2m | HTF EMA20 Pierce (late) | 2 | 2 | 50% | -2.0 | -1.00 |
-| M2K 2m | HTF EMA9 Pierce | 7 | 7 | 86% | +11.3 | +1.62 |
-| M2K 2m | HTF EMA9 Pierce (late) | 2 | 2 | 100% | +5.5 | +2.77 |
+| M2K 2m | HTF EMA9 Pierce | 10 | 10 | 70% | +3.8 | +0.38 |
+| M2K 2m | HTF EMA9 Pierce (late) | 5 | 4 | 100% | +8.1 | +2.04 |
 | M2K 2m | HTF Pullback Structure | 1 | 1 | 0% | -0.6 | -0.60 |
-| M2K 2m | LTF EMA20 Pierce | 30 | 28 | 68% | +26.4 | +0.94 |
-| M2K 2m | LTF EMA20 Pierce (late) | 12 | 11 | 45% | +3.4 | +0.31 |
-| M2K 3m | HTF CBC Flip | 9 | 8 | 50% | -7.3 | -0.92 |
-| M2K 3m | HTF EMA20 Pierce | 8 | 8 | 25% | -12.1 | -1.51 |
-| M2K 3m | HTF EMA9 Pierce | 2 | 2 | 100% | +5.7 | +2.84 |
+| M2K 2m | LTF EMA20 Pierce | 45 | 43 | 60% | +22.1 | +0.51 |
+| M2K 2m | LTF EMA20 Pierce (late) | 27 | 25 | 52% | +11.5 | +0.46 |
+| M2K 3m | HTF CBC Flip | 14 | 13 | 54% | -4.7 | -0.36 |
+| M2K 3m | HTF EMA20 Pierce | 12 | 12 | 33% | -10.2 | -0.85 |
+| M2K 3m | HTF EMA20 Pierce (late) | 1 | 1 | 0% | -3.0 | -3.00 |
+| M2K 3m | HTF EMA9 Pierce | 4 | 3 | 100% | +6.9 | +2.32 |
 | M2K 3m | HTF Pullback Structure | 1 | 1 | 100% | +3.5 | +3.49 |
-| M2K 3m | LTF EMA20 Pierce | 21 | 21 | 48% | +0.3 | +0.01 |
-| M2K 3m | LTF EMA20 Pierce (late) | 16 | 15 | 67% | +7.3 | +0.49 |
-| M2K 5m | HTF CBC Flip | 9 | 7 | 29% | -12.9 | -1.84 |
-| M2K 5m | HTF EMA20 Pierce | 6 | 6 | 50% | -3.9 | -0.65 |
+| M2K 3m | LTF EMA20 Pierce | 32 | 30 | 43% | -4.9 | -0.16 |
+| M2K 3m | LTF EMA20 Pierce (late) | 18 | 16 | 62% | +4.3 | +0.27 |
+| M2K 5m | HTF CBC Flip | 14 | 12 | 33% | -16.9 | -1.41 |
+| M2K 5m | HTF EMA20 Pierce | 9 | 9 | 67% | +1.7 | +0.19 |
 | M2K 5m | HTF EMA20 Pierce (late) | 3 | 3 | 67% | +2.8 | +0.93 |
-| M2K 5m | HTF EMA9 Pierce | 4 | 4 | 50% | -3.3 | -0.83 |
-| M2K 5m | HTF EMA9 Pierce (late) | 2 | 2 | 50% | -1.4 | -0.68 |
+| M2K 5m | HTF EMA9 Pierce | 6 | 5 | 40% | -6.0 | -1.21 |
+| M2K 5m | HTF EMA9 Pierce (late) | 4 | 4 | 50% | -0.9 | -0.22 |
 | M2K 5m | HTF Pullback Structure | 1 | 1 | 0% | -5.0 | -5.00 |
-| M2K 5m | LTF EMA20 Pierce | 19 | 19 | 37% | -23.0 | -1.21 |
-| M2K 5m | LTF EMA20 Pierce (late) | 5 | 5 | 60% | +2.9 | +0.58 |
+| M2K 5m | LTF EMA20 Pierce | 22 | 21 | 33% | -31.2 | -1.49 |
+| M2K 5m | LTF EMA20 Pierce (late) | 9 | 7 | 43% | -1.8 | -0.26 |
 | M2K 5m | LTF EMA20 Touch (mid-candle) | 1 | 1 | 0% | -2.1 | -2.10 |
 | MCL 2m | HTF CBC Flip | 1 | 1 | 100% | +0.3 | +0.31 |
-| MCL 2m | HTF EMA20 Pierce | 5 | 5 | 60% | +0.5 | +0.11 |
+| MCL 2m | HTF EMA20 Pierce | 8 | 8 | 75% | +1.0 | +0.12 |
 | MCL 2m | HTF EMA20 Pierce (late) | 1 | 1 | 0% | -0.1 | -0.10 |
-| MCL 2m | HTF EMA9 Pierce | 15 | 14 | 54% | +1.2 | +0.09 |
-| MCL 2m | HTF EMA9 Pierce (late) | 4 | 4 | 75% | +0.6 | +0.14 |
+| MCL 2m | HTF EMA9 Pierce | 20 | 19 | 61% | +1.9 | +0.10 |
+| MCL 2m | HTF EMA9 Pierce (late) | 5 | 5 | 80% | +0.8 | +0.15 |
 | MCL 2m | HTF Pullback Structure | 1 | 1 | 0% | -0.3 | -0.30 |
-| MCL 2m | LTF EMA20 Pierce | 31 | 27 | 52% | +0.6 | +0.02 |
-| MCL 2m | LTF EMA20 Pierce (late) | 19 | 15 | 60% | +1.0 | +0.07 |
+| MCL 2m | LTF EMA20 Pierce | 48 | 43 | 53% | +1.6 | +0.04 |
+| MCL 2m | LTF EMA20 Pierce (late) | 30 | 24 | 54% | +1.3 | +0.06 |
 | MCL 3m | HTF CBC Flip | 1 | 1 | 0% | -0.2 | -0.19 |
-| MCL 3m | HTF EMA20 Pierce | 4 | 4 | 50% | -0.1 | -0.02 |
+| MCL 3m | HTF EMA20 Pierce | 5 | 5 | 40% | -0.4 | -0.07 |
 | MCL 3m | HTF EMA20 Pierce (late) | 1 | 1 | 100% | +0.3 | +0.26 |
 | MCL 3m | HTF EMA9 Pierce | 4 | 3 | 0% | -0.5 | -0.16 |
 | MCL 3m | HTF EMA9 Pierce (late) | 6 | 4 | 25% | -0.5 | -0.13 |
-| MCL 3m | LTF EMA20 Pierce | 32 | 30 | 60% | +1.7 | +0.06 |
-| MCL 3m | LTF EMA20 Pierce (late) | 14 | 13 | 46% | -0.5 | -0.04 |
+| MCL 3m | HTF Pullback Structure | 1 | 1 | 0% | -0.3 | -0.30 |
+| MCL 3m | LTF EMA20 Pierce | 35 | 33 | 61% | +2.3 | +0.07 |
+| MCL 3m | LTF EMA20 Pierce (late) | 15 | 14 | 43% | -0.8 | -0.06 |
 | MCL 5m | HTF CBC Flip | 2 | 2 | 50% | -0.1 | -0.03 |
 | MCL 5m | HTF EMA20 Pierce | 2 | 2 | 50% | -0.1 | -0.03 |
 | MCL 5m | HTF EMA20 Pierce (late) | 1 | 1 | 100% | +0.3 | +0.35 |
-| MCL 5m | HTF EMA9 Pierce | 1 | 1 | 100% | +0.3 | +0.30 |
+| MCL 5m | HTF EMA9 Pierce | 3 | 2 | 50% | +0.0 | +0.00 |
 | MCL 5m | HTF EMA9 Pierce (late) | 2 | 1 | 0% | -0.3 | -0.30 |
-| MCL 5m | LTF EMA20 Pierce | 25 | 23 | 35% | -2.2 | -0.10 |
-| MCL 5m | LTF EMA20 Pierce (late) | 2 | 2 | 0% | -0.6 | -0.30 |
-| MES 2m | HTF CBC Flip | 34 | 31 | 52% | -1.2 | -0.04 |
+| MCL 5m | LTF EMA20 Pierce | 32 | 30 | 33% | -2.8 | -0.09 |
+| MCL 5m | LTF EMA20 Pierce (late) | 10 | 9 | 56% | +0.7 | +0.07 |
+| MES 2m | HTF CBC Flip | 40 | 37 | 51% | -6.2 | -0.17 |
 | MES 2m | HTF EMA20 Pierce | 10 | 10 | 30% | -7.8 | -0.78 |
-| MES 2m | HTF EMA20 Pierce (late) | 2 | 1 | 100% | +2.0 | +2.00 |
-| MES 2m | HTF EMA9 Pierce | 7 | 7 | 57% | +4.9 | +0.70 |
+| MES 2m | HTF EMA20 Pierce (late) | 3 | 2 | 50% | -0.8 | -0.38 |
+| MES 2m | HTF EMA9 Pierce | 8 | 8 | 50% | -3.1 | -0.39 |
 | MES 2m | HTF EMA9 Pierce (late) | 3 | 2 | 0% | -6.1 | -3.06 |
-| MES 2m | HTF Pullback Structure | 1 | 1 | 0% | -8.0 | -8.00 |
-| MES 2m | LTF EMA20 Pierce | 55 | 51 | 41% | -37.6 | -0.74 |
-| MES 2m | LTF EMA20 Pierce (late) | 14 | 14 | 36% | -33.4 | -2.38 |
-| MES 3m | HTF CBC Flip | 17 | 15 | 60% | +41.7 | +2.78 |
+| MES 2m | HTF Pullback Structure | 2 | 2 | 50% | -3.2 | -1.60 |
+| MES 2m | LTF EMA20 Pierce | 74 | 67 | 43% | -44.6 | -0.67 |
+| MES 2m | LTF EMA20 Pierce (late) | 19 | 19 | 37% | -32.0 | -1.68 |
+| MES 3m | HTF CBC Flip | 18 | 16 | 56% | +23.0 | +1.44 |
 | MES 3m | HTF EMA20 Pierce | 7 | 5 | 20% | -5.8 | -1.17 |
 | MES 3m | HTF EMA20 Pierce (late) | 3 | 3 | 67% | +0.8 | +0.26 |
 | MES 3m | HTF EMA9 Pierce | 13 | 12 | 50% | +10.6 | +0.89 |
 | MES 3m | HTF EMA9 Pierce (late) | 2 | 2 | 0% | -5.9 | -2.94 |
 | MES 3m | HTF Pullback Structure | 2 | 2 | 0% | -9.1 | -4.54 |
-| MES 3m | LTF EMA20 Pierce | 51 | 45 | 51% | +9.6 | +0.21 |
-| MES 3m | LTF EMA20 Pierce (late) | 21 | 20 | 40% | -27.7 | -1.38 |
-| MES 5m | HTF CBC Flip | 16 | 14 | 64% | +6.2 | +0.45 |
-| MES 5m | HTF EMA20 Pierce | 6 | 6 | 50% | -4.2 | -0.70 |
+| MES 3m | LTF EMA20 Pierce | 54 | 48 | 50% | -20.5 | -0.43 |
+| MES 3m | LTF EMA20 Pierce (late) | 22 | 21 | 43% | -16.3 | -0.77 |
+| MES 5m | HTF CBC Flip | 17 | 15 | 67% | +11.0 | +0.74 |
+| MES 5m | HTF EMA20 Pierce | 7 | 6 | 50% | -4.2 | -0.70 |
 | MES 5m | HTF EMA20 Pierce (late) | 2 | 2 | 100% | +9.1 | +4.56 |
-| MES 5m | HTF EMA9 Pierce | 2 | 1 | 0% | -8.0 | -8.00 |
+| MES 5m | HTF EMA9 Pierce | 4 | 2 | 50% | -3.2 | -1.60 |
 | MES 5m | HTF EMA9 Pierce (late) | 1 | 1 | 0% | -5.5 | -5.50 |
 | MES 5m | HTF Pullback Structure | 1 | 1 | 0% | -5.8 | -5.75 |
-| MES 5m | LTF EMA20 Pierce | 25 | 24 | 42% | -29.7 | -1.24 |
-| MES 5m | LTF EMA20 Pierce (late) | 11 | 9 | 44% | -4.7 | -0.53 |
-| MGC 2m | HTF CBC Flip | 41 | 38 | 50% | -16.0 | -0.42 |
-| MGC 2m | HTF EMA20 Pierce | 14 | 12 | 33% | -20.1 | -1.68 |
-| MGC 2m | HTF EMA20 Pierce (late) | 4 | 3 | 33% | -4.4 | -1.47 |
-| MGC 2m | HTF EMA9 Pierce | 13 | 11 | 64% | +5.9 | +0.54 |
-| MGC 2m | HTF EMA9 Pierce (late) | 5 | 5 | 40% | -3.2 | -0.63 |
+| MES 5m | LTF EMA20 Pierce | 31 | 29 | 48% | -12.4 | -0.43 |
+| MES 5m | LTF EMA20 Pierce (late) | 18 | 15 | 47% | -7.5 | -0.50 |
+| MGC 2m | HTF CBC Flip | 66 | 60 | 45% | -50.1 | -0.83 |
+| MGC 2m | HTF EMA20 Pierce | 17 | 15 | 33% | -24.3 | -1.62 |
+| MGC 2m | HTF EMA20 Pierce (late) | 5 | 4 | 25% | -9.4 | -2.35 |
+| MGC 2m | HTF EMA9 Pierce | 20 | 18 | 56% | +7.5 | +0.42 |
+| MGC 2m | HTF EMA9 Pierce (late) | 10 | 10 | 40% | -4.0 | -0.40 |
 | MGC 2m | HTF Pullback Structure | 1 | 1 | 0% | -5.0 | -5.00 |
-| MGC 2m | LTF EMA20 Pierce | 56 | 51 | 49% | +12.1 | +0.24 |
-| MGC 2m | LTF EMA20 Pierce (late) | 23 | 23 | 39% | -33.1 | -1.44 |
-| MGC 3m | HTF CBC Flip | 7 | 5 | 80% | +5.7 | +1.13 |
-| MGC 3m | HTF EMA20 Pierce | 11 | 10 | 50% | -5.9 | -0.59 |
-| MGC 3m | HTF EMA9 Pierce | 10 | 8 | 50% | +3.6 | +0.45 |
-| MGC 3m | HTF EMA9 Pierce (late) | 3 | 3 | 33% | -4.4 | -1.46 |
+| MGC 2m | LTF EMA20 Pierce | 94 | 88 | 45% | -0.4 | -0.00 |
+| MGC 2m | LTF EMA20 Pierce (late) | 34 | 33 | 42% | -40.9 | -1.24 |
+| MGC 3m | HTF CBC Flip | 15 | 13 | 54% | -14.7 | -1.13 |
+| MGC 3m | HTF EMA20 Pierce | 15 | 14 | 36% | -22.7 | -1.62 |
+| MGC 3m | HTF EMA9 Pierce | 13 | 11 | 64% | +15.4 | +1.40 |
+| MGC 3m | HTF EMA9 Pierce (late) | 4 | 4 | 50% | -1.6 | -0.40 |
 | MGC 3m | HTF Pullback Structure | 1 | 1 | 0% | -6.9 | -6.91 |
-| MGC 3m | LTF EMA20 Pierce | 37 | 32 | 34% | -18.6 | -0.58 |
-| MGC 3m | LTF EMA20 Pierce (late) | 10 | 10 | 40% | -10.6 | -1.06 |
-| MGC 5m | HTF CBC Flip | 13 | 13 | 62% | +5.9 | +0.45 |
-| MGC 5m | HTF EMA20 Pierce | 4 | 3 | 33% | -1.5 | -0.50 |
+| MGC 3m | LTF EMA20 Pierce | 43 | 39 | 46% | +19.2 | +0.49 |
+| MGC 3m | LTF EMA20 Pierce (late) | 13 | 13 | 54% | +35.7 | +2.75 |
+| MGC 5m | HTF CBC Flip | 18 | 18 | 56% | -1.2 | -0.07 |
+| MGC 5m | HTF EMA20 Pierce | 8 | 7 | 43% | -2.7 | -0.39 |
 | MGC 5m | HTF EMA20 Pierce (late) | 1 | 1 | 100% | +4.8 | +4.80 |
-| MGC 5m | HTF EMA9 Pierce | 6 | 6 | 83% | +18.4 | +3.06 |
-| MGC 5m | HTF EMA9 Pierce (late) | 2 | 2 | 0% | -8.7 | -4.36 |
-| MGC 5m | LTF EMA20 Pierce | 15 | 14 | 50% | +0.5 | +0.04 |
-| MGC 5m | LTF EMA20 Pierce (late) | 11 | 10 | 0% | -54.8 | -5.48 |
-| MNQ 2m | HTF CBC Flip | 52 | 47 | 45% | +24.1 | +0.51 |
-| MNQ 2m | HTF EMA20 Pierce | 15 | 15 | 33% | -93.2 | -6.22 |
+| MGC 5m | HTF EMA9 Pierce | 11 | 9 | 89% | +41.4 | +4.60 |
+| MGC 5m | HTF EMA9 Pierce (late) | 3 | 3 | 0% | -13.9 | -4.65 |
+| MGC 5m | HTF Pullback Structure | 1 | 1 | 0% | -2.7 | -2.70 |
+| MGC 5m | LTF EMA20 Pierce | 30 | 25 | 56% | +15.2 | +0.61 |
+| MGC 5m | LTF EMA20 Pierce (late) | 15 | 14 | 0% | -70.4 | -5.03 |
+| MGC 5m | LTF EMA20 Touch (mid-candle) | 1 | 1 | 100% | +5.6 | +5.58 |
+| MNQ 2m | HTF CBC Flip | 70 | 64 | 44% | -21.1 | -0.33 |
+| MNQ 2m | HTF EMA20 Pierce | 19 | 19 | 42% | -45.2 | -2.38 |
 | MNQ 2m | HTF EMA20 Pierce (late) | 3 | 3 | 33% | -21.9 | -7.30 |
-| MNQ 2m | HTF EMA9 Pierce | 21 | 20 | 45% | +49.5 | +2.48 |
+| MNQ 2m | HTF EMA9 Pierce | 25 | 23 | 43% | +32.7 | +1.42 |
 | MNQ 2m | HTF EMA9 Pierce (late) | 3 | 3 | 67% | +90.8 | +30.26 |
 | MNQ 2m | HTF Pullback Structure | 3 | 3 | 33% | -57.5 | -19.17 |
-| MNQ 2m | LTF EMA20 Pierce | 46 | 42 | 36% | -78.0 | -1.86 |
-| MNQ 2m | LTF EMA20 Pierce (late) | 13 | 13 | 46% | -41.5 | -3.19 |
-| MNQ 3m | HTF CBC Flip | 33 | 29 | 31% | -265.5 | -9.15 |
-| MNQ 3m | HTF EMA20 Pierce | 15 | 14 | 43% | -56.0 | -4.00 |
-| MNQ 3m | HTF EMA9 Pierce | 6 | 6 | 83% | +147.5 | +24.59 |
+| MNQ 2m | LTF EMA20 Pierce | 76 | 69 | 38% | -177.7 | -2.57 |
+| MNQ 2m | LTF EMA20 Pierce (late) | 23 | 22 | 32% | -238.9 | -10.86 |
+| MNQ 3m | HTF CBC Flip | 35 | 31 | 35% | -201.5 | -6.50 |
+| MNQ 3m | HTF EMA20 Pierce | 16 | 15 | 40% | -86.0 | -5.73 |
+| MNQ 3m | HTF EMA9 Pierce | 7 | 7 | 71% | +117.5 | +16.79 |
 | MNQ 3m | HTF EMA9 Pierce (late) | 3 | 3 | 33% | -25.3 | -8.43 |
-| MNQ 3m | LTF EMA20 Pierce | 47 | 43 | 16% | -748.8 | -17.41 |
-| MNQ 3m | LTF EMA20 Pierce (late) | 9 | 9 | 44% | +33.7 | +3.74 |
+| MNQ 3m | LTF EMA20 Pierce | 50 | 46 | 17% | -776.8 | -16.89 |
+| MNQ 3m | LTF EMA20 Pierce (late) | 11 | 11 | 36% | -23.1 | -2.10 |
 | MNQ 3m | LTF EMA20 Touch (mid-candle) | 1 | 1 | 0% | -30.0 | -30.00 |
-| MNQ 5m | HTF CBC Flip | 11 | 9 | 33% | -65.5 | -7.27 |
-| MNQ 5m | HTF EMA20 Pierce | 7 | 5 | 60% | +33.6 | +6.73 |
+| MNQ 5m | HTF CBC Flip | 13 | 10 | 30% | -95.5 | -9.55 |
+| MNQ 5m | HTF EMA20 Pierce | 8 | 6 | 67% | +65.7 | +10.94 |
 | MNQ 5m | HTF EMA9 Pierce | 10 | 10 | 50% | +73.6 | +7.36 |
-| MNQ 5m | HTF EMA9 Pierce (late) | 2 | 2 | 50% | +9.7 | +4.86 |
+| MNQ 5m | HTF EMA9 Pierce (late) | 3 | 3 | 33% | -20.3 | -6.76 |
 | MNQ 5m | HTF Pullback Structure | 1 | 1 | 100% | +32.0 | +32.00 |
-| MNQ 5m | LTF EMA20 Pierce | 27 | 23 | 57% | +362.6 | +15.76 |
-| MNQ 5m | LTF EMA20 Pierce (late) | 5 | 3 | 33% | +0.4 | +0.14 |
+| MNQ 5m | LTF EMA20 Pierce | 36 | 31 | 58% | +446.1 | +14.39 |
+| MNQ 5m | LTF EMA20 Pierce (late) | 7 | 5 | 60% | +64.4 | +12.88 |
 
-## MES 3m — current: 1719 setups, net +16
-
-**Per trigger (current settings)**
-
-| Trigger | Setups | Win % | Net | Avg | Net by third (Jan–Mar / Apr–Jun / Jul–Oct) |
-|---|---|---|---|---|---|
-| HTF CBC Flip | 313 | 56% | +84 | +0.27 | -81 / +18 / +146 |
-| LTF EMA20 Pierce | 943 | 49% | +70 | +0.07 | +188 / -132 / +14 |
-| HTF EMA9 Pierce | 285 | 45% | -137 | -0.48 | -18 / -67 / -51 |
-| HTF EMA20 Pierce | 178 | 48% | -1 | -0.01 | +34 / -33 / -2 |
-
-**Trigger turned OFF (one at a time)**
-
-| Trigger OFF | Setups | Net | Δ vs current | z | Δ by third | Verdict |
-|---|---|---|---|---|---|---|
-| HTF CBC Flip | 1559 | -146 | -162 | -1.5 | +33 / -49 / -146 | worse |
-| LTF EMA20 Pierce | 1105 | -38 | -54 | -0.4 | -63 / +40 / -31 | worse |
-| HTF EMA9 Pierce | 1533 | +161 | +145 | +1.6 | +25 / +55 / +65 | promising |
-| HTF EMA20 Pierce | 1588 | +10 | -6 | -0.1 | +13 / -10 / -9 | worse |
-
-## MGC 3m — current: 1180 setups, net +278
+## MES 3m — current: 1756 setups, net -3
 
 **Per trigger (current settings)**
 
 | Trigger | Setups | Win % | Net | Avg | Net by third (Jan–Mar / Apr–Jun / Jul–Oct) |
 |---|---|---|---|---|---|
-| HTF CBC Flip | 210 | 58% | +127 | +0.61 | +40 / +13 / +74 |
-| LTF EMA20 Pierce | 603 | 49% | +147 | +0.24 | +128 / -3 / +22 |
-| HTF EMA9 Pierce | 194 | 45% | -88 | -0.46 | -92 / +27 / -23 |
-| HTF EMA20 Pierce | 173 | 52% | +91 | +0.53 | +85 / -35 / +41 |
+| HTF CBC Flip | 320 | 55% | +50 | +0.16 | -81 / +18 / +112 |
+| LTF EMA20 Pierce | 962 | 50% | +119 | +0.12 | +188 / -132 / +62 |
+| HTF EMA9 Pierce | 292 | 44% | -171 | -0.59 | -18 / -67 / -86 |
+| HTF EMA20 Pierce | 182 | 48% | -0 | -0.00 | +34 / -33 / -1 |
 
 **Trigger turned OFF (one at a time)**
 
 | Trigger OFF | Setups | Net | Δ vs current | z | Δ by third | Verdict |
 |---|---|---|---|---|---|---|
-| HTF CBC Flip | 1066 | +259 | -18 | -0.2 | +12 / +8 / -38 | worse |
-| LTF EMA20 Pierce | 822 | +237 | -41 | -0.3 | -10 / -11 / -20 | worse |
-| HTF EMA9 Pierce | 1056 | +313 | +35 | +0.4 | +58 / -19 / -4 | noise |
-| HTF EMA20 Pierce | 1045 | +202 | -76 | -0.9 | -75 / +15 / -16 | worse |
+| HTF CBC Flip | 1592 | -136 | -133 | -1.2 | +33 / -49 / -117 | worse |
+| LTF EMA20 Pierce | 1133 | -99 | -96 | -0.6 | -63 / +40 / -73 | worse |
+| HTF EMA9 Pierce | 1566 | +161 | +164 | +1.7 | +25 / +55 / +83 | promising |
+| HTF EMA20 Pierce | 1622 | -4 | -1 | -0.0 | +13 / -10 / -4 | worse |
 
-## MES 2m — current: 1173 setups, net -186
+## MGC 3m — current: 1199 setups, net +320
+
+**Per trigger (current settings)**
+
+| Trigger | Setups | Win % | Net | Avg | Net by third (Jan–Mar / Apr–Jun / Jul–Oct) |
+|---|---|---|---|---|---|
+| HTF CBC Flip | 214 | 57% | +125 | +0.58 | +40 / +13 / +72 |
+| LTF EMA20 Pierce | 614 | 49% | +175 | +0.28 | +128 / -3 / +50 |
+| HTF EMA9 Pierce | 196 | 45% | -84 | -0.43 | -92 / +27 / -19 |
+| HTF EMA20 Pierce | 175 | 52% | +105 | +0.60 | +85 / -35 / +55 |
+
+**Trigger turned OFF (one at a time)**
+
+| Trigger OFF | Setups | Net | Δ vs current | z | Δ by third | Verdict |
+|---|---|---|---|---|---|---|
+| HTF CBC Flip | 1084 | +299 | -21 | -0.2 | +12 / +8 / -41 | worse |
+| LTF EMA20 Pierce | 837 | +267 | -54 | -0.4 | -10 / -11 / -33 | worse |
+| HTF EMA9 Pierce | 1073 | +351 | +31 | +0.4 | +58 / -19 / -8 | noise |
+| HTF EMA20 Pierce | 1062 | +231 | -89 | -1.1 | -75 / +15 / -30 | worse |
+
+## MES 2m — current: 1224 setups, net -217
 
 **Per trigger (current settings)**
 
 | Trigger | Setups | Win % | Net | Avg | Net by third (Jun–Jul / Aug / Sep–Oct) |
 |---|---|---|---|---|---|
-| HTF CBC Flip | 377 | 52% | -38 | -0.10 | -1 / +23 / -60 |
-| LTF EMA20 Pierce | 527 | 46% | -147 | -0.28 | -75 / +6 / -79 |
-| HTF EMA9 Pierce | 183 | 50% | +2 | +0.01 | +9 / +35 / -42 |
-| HTF EMA20 Pierce | 86 | 45% | -3 | -0.04 | -20 / +13 / +4 |
+| HTF CBC Flip | 391 | 51% | -64 | -0.16 | -1 / +23 / -86 |
+| LTF EMA20 Pierce | 552 | 47% | -155 | -0.28 | -75 / +6 / -86 |
+| HTF EMA9 Pierce | 191 | 48% | -10 | -0.05 | +9 / +35 / -54 |
+| HTF EMA20 Pierce | 90 | 48% | +11 | +0.13 | -20 / +13 / +18 |
 
 **Trigger turned OFF (one at a time)**
 
 | Trigger OFF | Setups | Net | Δ vs current | z | Δ by third | Verdict |
 |---|---|---|---|---|---|---|
-| HTF CBC Flip | 993 | -146 | +39 | +0.4 | +12 / -40 / +67 | noise |
-| LTF EMA20 Pierce | 820 | -76 | +109 | +1.1 | +32 / +20 / +58 | promising |
-| HTF EMA9 Pierce | 1055 | -162 | +24 | +0.4 | +17 / -37 / +44 | noise |
-| HTF EMA20 Pierce | 1100 | -208 | -22 | -0.5 | +7 / -7 / -22 | worse |
+| HTF CBC Flip | 1039 | -145 | +72 | +0.6 | +12 / -40 / +100 | noise |
+| LTF EMA20 Pierce | 853 | -88 | +129 | +1.2 | +32 / +20 / +77 | promising |
+| HTF EMA9 Pierce | 1099 | -182 | +34 | +0.5 | +17 / -37 / +54 | noise |
+| HTF EMA20 Pierce | 1149 | -257 | -40 | -0.8 | +7 / -7 / -40 | worse |
 
-## MGC 2m — current: 1499 setups, net +340
+## MGC 2m — current: 1353 setups, net +384
 
 **Per trigger (current settings)**
 
 | Trigger | Setups | Win % | Net | Avg | Net by third (Jun–Jul / Aug / Sep–Oct) |
 |---|---|---|---|---|---|
-| HTF CBC Flip | 490 | 51% | -3 | -0.01 | -110 / +94 / +13 |
-| LTF EMA20 Pierce | 641 | 53% | +352 | +0.55 | +196 / +40 / +117 |
-| HTF EMA9 Pierce | 239 | 50% | -1 | -0.00 | +25 / -21 / -4 |
-| HTF EMA20 Pierce | 129 | 50% | -8 | -0.06 | -28 / +18 / +2 |
+| HTF CBC Flip | 277 | 53% | +30 | +0.11 | -56 / +67 / +18 |
+| LTF EMA20 Pierce | 717 | 53% | +439 | +0.61 | +237 / +7 / +195 |
+| HTF EMA9 Pierce | 230 | 46% | -83 | -0.36 | +13 / -31 / -66 |
+| HTF EMA20 Pierce | 129 | 50% | -1 | -0.01 | -21 / +24 / -5 |
 
 **Trigger turned OFF (one at a time)**
 
 | Trigger OFF | Setups | Net | Δ vs current | z | Δ by third | Verdict |
 |---|---|---|---|---|---|---|
-| HTF CBC Flip | 1265 | +331 | -10 | -0.1 | +53 / -63 / +0 | worse |
-| LTF EMA20 Pierce | 1090 | +121 | -219 | -1.8 | -131 / -9 / -79 | worse |
-| HTF EMA9 Pierce | 1350 | +388 | +47 | +0.6 | -49 / +58 / +39 | noise |
-| HTF EMA20 Pierce | 1404 | +332 | -8 | -0.1 | +28 / -47 / +11 | worse |
+| HTF CBC Flip | 1216 | +325 | -59 | -0.6 | -16 / -43 / -1 | worse |
+| LTF EMA20 Pierce | 885 | +81 | -304 | -2.4 | -177 / +15 / -143 | worse |
+| HTF EMA9 Pierce | 1201 | +470 | +85 | +1.1 | -53 / +55 / +83 | noise |
+| HTF EMA20 Pierce | 1255 | +357 | -28 | -0.5 | +6 / -47 / +13 | worse |
 
-## MES 5m — current: 1183 setups, net -9
+## MES 5m — current: 1208 setups, net +18
 
 **Per trigger (current settings)**
 
 | Trigger | Setups | Win % | Net | Avg | Net by third (Jan–Mar / Apr–Jun / Jul–Oct) |
 |---|---|---|---|---|---|
-| HTF CBC Flip | 314 | 53% | -42 | -0.13 | -29 / +40 / -53 |
-| LTF EMA20 Pierce | 576 | 49% | -101 | -0.18 | -169 / +54 / +14 |
-| HTF EMA9 Pierce | 186 | 52% | +66 | +0.36 | +3 / +5 / +59 |
-| HTF EMA20 Pierce | 107 | 52% | +68 | +0.64 | +48 / -3 / +23 |
+| HTF CBC Flip | 317 | 53% | -34 | -0.11 | -29 / +40 / -45 |
+| LTF EMA20 Pierce | 591 | 49% | -83 | -0.14 | -169 / +54 / +32 |
+| HTF EMA9 Pierce | 191 | 52% | +70 | +0.37 | +3 / +5 / +62 |
+| HTF EMA20 Pierce | 109 | 52% | +66 | +0.60 | +48 / -3 / +20 |
 
 **Trigger turned OFF (one at a time)**
 
 | Trigger OFF | Setups | Net | Δ vs current | z | Δ by third | Verdict |
 |---|---|---|---|---|---|---|
-| HTF CBC Flip | 1015 | -101 | -93 | -0.7 | +10 / -116 / +13 | worse |
-| LTF EMA20 Pierce | 821 | +131 | +140 | +1.0 | +126 / +14 / -1 | noise |
-| HTF EMA9 Pierce | 1064 | -92 | -84 | -1.0 | -28 / -9 / -47 | worse |
-| HTF EMA20 Pierce | 1101 | -53 | -44 | -0.6 | -43 / -10 / +9 | worse |
+| HTF CBC Flip | 1039 | -85 | -104 | -0.8 | +10 / -116 / +2 | worse |
+| LTF EMA20 Pierce | 837 | +156 | +137 | +1.0 | +126 / +14 / -3 | noise |
+| HTF EMA9 Pierce | 1086 | -68 | -86 | -1.0 | -28 / -9 / -50 | worse |
+| HTF EMA20 Pierce | 1124 | -23 | -42 | -0.6 | -43 / -10 / +11 | worse |
 
-## MGC 5m — current: 1173 setups, net -117
+## MGC 5m — current: 1194 setups, net -107
 
 **Per trigger (current settings)**
 
 | Trigger | Setups | Win % | Net | Avg | Net by third (Jan–Mar / Apr–Jun / Jul–Oct) |
 |---|---|---|---|---|---|
-| HTF CBC Flip | 322 | 55% | +73 | +0.23 | +70 / +75 / -71 |
-| LTF EMA20 Pierce | 564 | 51% | -84 | -0.15 | -101 / -59 / +76 |
-| HTF EMA9 Pierce | 175 | 45% | -84 | -0.48 | -64 / +51 / -71 |
+| HTF CBC Flip | 326 | 55% | +71 | +0.22 | +70 / +75 / -74 |
+| LTF EMA20 Pierce | 579 | 51% | -66 | -0.11 | -101 / -59 / +94 |
+| HTF EMA9 Pierce | 177 | 45% | -90 | -0.51 | -64 / +51 / -77 |
 | HTF EMA20 Pierce | 112 | 50% | -23 | -0.20 | -30 / +12 / -4 |
 
 **Trigger turned OFF (one at a time)**
 
 | Trigger OFF | Setups | Net | Δ vs current | z | Δ by third | Verdict |
 |---|---|---|---|---|---|---|
-| HTF CBC Flip | 1006 | -59 | +59 | +0.4 | -55 / -41 / +155 | noise |
-| LTF EMA20 Pierce | 814 | -17 | +100 | +0.7 | +44 / +90 / -33 | noise |
-| HTF EMA9 Pierce | 1063 | -4 | +114 | +1.3 | +52 / -9 / +71 | noise |
-| HTF EMA20 Pierce | 1095 | -108 | +9 | +0.1 | +22 / -18 / +5 | noise |
+| HTF CBC Flip | 1024 | -51 | +56 | +0.4 | -55 / -41 / +152 | noise |
+| LTF EMA20 Pierce | 827 | -31 | +76 | +0.5 | +44 / +90 / -57 | noise |
+| HTF EMA9 Pierce | 1083 | +17 | +124 | +1.4 | +52 / -9 / +81 | noise |
+| HTF EMA20 Pierce | 1116 | -98 | +9 | +0.1 | +22 / -18 / +5 | noise |
 

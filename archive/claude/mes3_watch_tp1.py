@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """(B) TP1 1.5 / 1.75 / 2.0 x ATR on the real MES 3m setups since 10/19 (exit model of mes_sltp_grid.py + live time-of-day close).
-11/09: current = 1.75 (v10.82+); deltas vs 1.75."""
-import json, pickle, re, datetime as D
+11/09: current = 1.75 (v10.82+); deltas vs 1.75.
+11/13: argv[1] = 'tod' (80 % + BE + trail 1.7 inside 06:00-16:00 / 18:00-22:30, as in the task text) or 'all100'
+(v10.95+: 100 % at TP1 all day, the current live chart exit)."""
+import json, pickle, sys, datetime as D
 from zoneinfo import ZoneInfo
 TZ = ZoneInfo('America/New_York')
+MODE = sys.argv[1] if len(sys.argv) > 1 else 'tod'
 raw = json.load(open('dl/bars60.json'))['bars']
 seen = {}
 for b in raw:
@@ -32,7 +35,7 @@ def inside(t):  # candle open time ET
 def sim(tr, tpd):
     i, lg, en = tr['i'], tr['lg'], tr['en']; s = 1 if lg else -1
     sd = abs(en - tr['sl1']); sl = en - s * sd; tp1 = en + s * tpd
-    part = .8 if inside(tr['t']) else 1.0; hit = False
+    part = (.8 if inside(tr['t']) else 1.0) if MODE == 'tod' else 1.0; hit = False
     fin = lambda px: part * tpd + (1 - part) * (px - en) * s if hit else (px - en) * s
     for j in range(i + 1, min(len(B), i + 500)):
         x = B[j]
@@ -53,7 +56,9 @@ def sim(tr, tpd):
 n = len(T); h = n // 2; t3 = n // 3
 TH = lambda R: [sum(R[k * t3:(k + 1) * t3 if k < 2 else n]) for k in range(3)]
 J = {}
-L = ['### (B) TP1 on the real MES 3m setups (10/19 → %s, %d ended setups with bars + SL1; %d skipped: no bar / no SL1)' % (T[-1]['t'].strftime('%m/%d'), n, miss), '',
+L = ['### (B) TP1 on the real MES 3m setups — exit model %s (10/19 → %s, %d ended setups with bars + SL1; %d skipped: no bar / no SL1)' % (
+    'task text: 80 % + BE + trail 1.7 inside 06:00-16:00 / 18:00-22:30, 100 % outside' if MODE == 'tod' else 'v10.95+ live: 100 % at TP1 all day',
+    T[-1]['t'].strftime('%m/%d'), n, miss), '',
      '| TP1 | Net | Win % | Avg | Halves | Thirds |', '|---|---|---|---|---|---|']
 for m in (1.5, 1.75, 2.0):
     R = [sim(t, m * atr[t['i']]) for t in T]
@@ -67,9 +72,8 @@ for nm, a_, b_ in (('1.5 − 1.75', 1.5, 1.75), ('2.0 − 1.75', 2.0, 1.75)):
 own = [sim(t, abs(t['tp1'] - t['en'])) if t.get('tp1') else r for t, r in zip(T, J[1.75]['R'])]; act = [t['res'] for t in T]
 agree = sum((o > 0) == (a > 0) for o, a in zip(own, act))
 L += ['', 'Validation (own SL1 + own TP1 from the Trade Setup alert): replay %+.1f vs actual %+.1f; win/loss agreement %d / %d (%d%%).' % (
-    sum(own), sum(act), agree, n, round(100 * agree / n)),
-      'Note: live MES 3m TP1 was 1.75 (v10.54–10.66), 2.0 (v10.67–10.81) and 1.75 again from v10.82 (11/08), so actual results mix both targets.', '']
+    sum(own), sum(act), agree, n, round(100 * agree / n)), '']
 print('\n'.join(L))
 for m in (1.5, 1.75, 2.0): J[m].pop('R')
 J['n'] = n; J['agree'] = agree; J['d'] = D_
-json.dump(J, open('tp1_summary.json', 'w'))
+json.dump(J, open('tp1_summary_%s.json' % MODE, 'w'))
