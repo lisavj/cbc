@@ -6,6 +6,11 @@
 //                                        v9: ?from=YYYY-MM-DD[&to=YYYY-MM-DD] (ET dates) also reads the archive
 // - GET  /bars?sym=MES&days=5          <- BarFeed bars for the Chart tab (v9: &from=YYYY-MM-DD[&to=] reads the archive)
 // - GET  /archive                      <- v9: list of archived alert days and bar months
+//   v14: LIVE NEAR-DUPLICATE GUARD. Besides identical alerts (v10), a webhook alert that is a NEAR copy of one stored
+//        within DUP_WINDOW_SEC (same first line, same "Chart:" and "Time:" lines, same set of "•" alert names -- the same
+//        alert set up twice in TradingView, e.g. two alerts on one chart, or an old alert with different settings left
+//        running) is ignored too (200 "Near duplicate ignored", logged, counted in /health duplicates.nearIgnoredSinceStart).
+//        The FIRST copy is kept. Env DUP_NEAR_LIVE=0 turns this off (identical copies are still ignored).
 //   v13: /bars/undo refuses to undo an import/clean while a NEWER one on the same feed is still active (undo the newest
 //        first). Undoing out of order put back the values the newer import had replaced -- on 11/06 that left MGC 2m
 //        prices in M2K_2. Response 409 names the newer one(s).
@@ -429,6 +434,20 @@ function archiveAlerts() {
 const DUP_WINDOW_MS = Math.max(1, Number(process.env.DUP_WINDOW_SEC || 60)) * 1000;
 const recentRaw = new Map(); // raw text -> last receivedAt (ms) of a STORED alert with that text
 let duplicatesIgnored = 0;
+// v14: near-duplicate live guard
+const DUP_NEAR_LIVE = process.env.DUP_NEAR_LIVE !== '0';
+const recentNear = new Map(); // nearKey -> receivedAt (ms) of the stored alert
+let nearIgnored = 0;
+function isLiveNearDuplicate(raw, nowMs) {
+  if (!DUP_NEAR_LIVE) return false;
+  for (const [k, t] of recentNear) { if (nowMs - t > DUP_WINDOW_MS) recentNear.delete(k); else break; }
+  const k = nearKey(raw);
+  if (!k) return false;
+  const t = recentNear.get(k);
+  if (t !== undefined && nowMs - t <= DUP_WINDOW_MS) return true;
+  recentNear.delete(k); recentNear.set(k, nowMs);
+  return false;
+}
 let lastDedupe = null;
 
 function isLiveDuplicate(raw, nowMs) {
@@ -743,6 +762,11 @@ app.post('/webhook', (req, res) => {
     duplicatesIgnored++;
     console.log(`alert DUPLICATE ignored (identical within ${DUP_WINDOW_MS / 1000} s): ${(rawText.split('\n')[0] || '').slice(0, 60)}`);
     return res.status(200).send('Duplicate ignored');
+  }
+  if (isLiveNearDuplicate(rawText, nowMs)) { // v14
+    nearIgnored++;
+    console.log(`alert NEAR DUPLICATE ignored (same chart / time / alert names within ${DUP_WINDOW_MS / 1000} s): ${(rawText.split('\n')[0] || '').slice(0, 40)} | ${((/Chart: ([^\n]*)/.exec(rawText) || [])[1] || '')} | ${((/Time: ([^\n]*)/.exec(rawText) || [])[1] || '')}`);
+    return res.status(200).send('Near duplicate ignored');
   }
   rememberRaw(rawText, nowMs);
   const alert = {
@@ -1615,8 +1639,8 @@ app.get('/health', (req, res) => {
   const mem = process.memoryUsage(); // v8: watch this once the alert store grows toward 100000
   const archDays = listAlertArchiveDays();
   res.json({
-    serverVersion: 13,
-    duplicates: { windowSec: DUP_WINDOW_MS / 1000, ignoredSinceStart: duplicatesIgnored, lastDedupe },
+    serverVersion: 14,
+    duplicates: { windowSec: DUP_WINDOW_MS / 1000, ignoredSinceStart: duplicatesIgnored, nearLiveGuard: DUP_NEAR_LIVE, nearIgnoredSinceStart: nearIgnored, lastDedupe },
     serverStartedAt: SERVER_STARTED_AT,
     uptimeSeconds: Math.round(process.uptime()),
     pid: process.pid,
@@ -1642,7 +1666,7 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`TradingView webhook dashboard v13 running on port ${PORT}`);
+  console.log(`TradingView webhook dashboard v14 running on port ${PORT}`);
   console.log(`Webhook URL path: /webhook${SECRET ? '?token=' + SECRET : ''}`);
   console.log(`DATA_DIR: ${DATA_DIR} (${process.env.DATA_DIR ? 'from DATA_DIR env var' : 'default __dirname — set DATA_DIR to a mounted Disk to persist across redeploys'})`);
 });
