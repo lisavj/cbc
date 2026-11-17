@@ -1,100 +1,65 @@
-# Setup order (summary) since the HTF CBC flip -- MES + MGC 2m / 3m / 5m -- 2026-11-12 14:48 ET
+# Setup order since the HTF CBC flip -- 2026-11-15 13:23 ET
 
-Full tables (every chart, both counts, both exits, per setup type): flip_order_report.md, delivered in chat 11/12 (too large for the project). Script: claude/flip_order_study.py (`python3 flip_order_study.py MES:3 MGC:3 ...`, needs chop_sim.py, stretch_study.py, all_alerts_study.py).
+STUDY SETTINGS STALE: settings sync 11/13 lists chop_sim.py `EXIT` MISMATCHes for MES 3m (part 'tod' 80/100 % vs live 100 % at TP1 all day, v10.95) and MGC 3m (50 % + trail 3.5 vs live FLIP 0 % / no trail, v10.96). The CHART-exit rows for MES 3m and MGC 3m below still use the old exits; BOT-exit rows and 2m / 5m are unaffected. Fix (not applied, read-only run): settings_sync_report.md section C items 2-3.
 
-Signals in the HTF direction numbered from the flip candle; same-type repeats within 7 candles ignored unless the earlier trade had closed. SHARED count. Avg pts / trade after costs (n), replay Jan 5 -> 11/12 (2m Jun 1 ->), live alerts 10/19 -> 11/12 (every directional alert type).
+Script: claude/flip_order_study.py (unchanged, ran clean). Full report (~180 KB, every chart / both counts / both exits / per type) not saved to the project. Replay Jan 5 -> 11/13 (2m Jun 1 ->), live alerts 10/19 -> 11/13 (every directional alert type; duplicates collapse to one signal per candle / direction / type). Data notes: MGC 3m BarFeed gaps 11/08 22:12 -> 11/09 06:21 and 11/09 13:06 -> 11/10 01:33 -- live MGC 3m alerts in those hours have no candles and are dropped. Live alerts are re-scored with the study's own exits, so the old-exit second MGC 3m alert (11/09-11/12) does not affect the numbers.
+
+SHARED count, avg pts / trade after costs (n):
 
 | Chart | Exits | Data | #1 | #2 | #3 | #4 | #5 | #6+ |
 |---|---|---|---|---|---|---|---|---|
-| MES 3m | bot | replay | -0.45 (1645) | -0.38 (766) | +0.26 (294) | -0.03 (113) | -0.09 (43) | -2.81 (19) |
-| MES 3m | bot | live | +0.07 (286) | -0.69 (251) | -0.69 (203) | -0.14 (132) | -1.30 (122) | -0.87 (422) |
-| MES 3m | chart | replay | -0.45 (1645) | -0.32 (766) | +0.34 (292) | +0.10 (112) | -0.21 (42) | -3.17 (18) |
-| MES 3m | chart | live | +0.35 (286) | -0.19 (251) | -0.79 (203) | -0.05 (136) | -2.05 (120) | -1.20 (400) |
-| MGC 3m | bot | replay | +0.44 (1251) | +0.74 (489) | -0.59 (142) | -3.62 (44) | +5.06 (13) | -3.62 (4) |
-| MGC 3m | bot | live | -0.39 (364) | -0.29 (269) | -0.79 (229) | +0.46 (163) | +0.20 (122) | +0.30 (449) |
-| MGC 3m | chart | replay | +0.29 (1251) | +0.67 (488) | -1.48 (144) | -0.86 (43) | -1.25 (14) | -0.40 (4) |
-| MGC 3m | chart | live | -0.21 (364) | +0.72 (272) | -0.11 (229) | -0.33 (167) | +0.18 (123) | -0.07 (456) |
-| MES 2m | bot | replay | -0.36 (1135) | -0.53 (619) | -0.77 (266) | -0.40 (112) | -0.55 (50) | -0.75 (43) |
-| MES 2m | bot | live | -0.52 (544) | -0.51 (460) | -0.55 (323) | -0.97 (236) | -1.06 (199) | -1.20 (638) |
-| MES 2m | chart | replay | -0.72 (1135) | -0.52 (619) | -0.67 (268) | -0.37 (112) | -0.20 (50) | -0.07 (42) |
-| MES 2m | chart | live | -0.31 (544) | -0.61 (462) | -0.32 (325) | -0.60 (229) | -0.71 (198) | -1.09 (634) |
-| MGC 2m | bot | replay | +0.04 (1284) | +0.05 (569) | -0.30 (223) | -0.28 (72) | -1.05 (23) | +0.77 (19) |
-| MGC 2m | bot | live | +0.48 (454) | -0.27 (394) | +0.05 (295) | -0.48 (228) | -0.01 (196) | +0.17 (766) |
-| MGC 2m | chart | replay | +0.05 (1284) | -0.13 (564) | -0.05 (219) | -0.70 (73) | +0.23 (22) | +0.54 (17) |
-| MGC 2m | chart | live | +0.05 (454) | -0.66 (394) | -0.17 (298) | -0.43 (223) | +0.28 (193) | -0.13 (767) |
-| MES 5m | bot | replay | -0.36 (1095) | -1.00 (561) | -0.87 (228) | -1.17 (79) | +0.47 (43) | -1.19 (23) |
-| MES 5m | bot | live | -0.89 (187) | -0.24 (179) | -0.94 (131) | -0.82 (105) | -2.37 (97) | -0.87 (337) |
-| MES 5m | chart | replay | -0.32 (1095) | -0.76 (565) | -0.70 (227) | -1.36 (79) | +0.85 (43) | -0.26 (24) |
-| MES 5m | chart | live | -0.12 (188) | -0.93 (179) | -0.22 (140) | -0.14 (108) | -0.71 (99) | -0.84 (337) |
-| MGC 5m | bot | replay | +0.68 (1061) | +0.08 (573) | -0.39 (219) | +3.24 (81) | -6.31 (23) | -9.30 (19) |
-| MGC 5m | bot | live | +0.36 (202) | -1.98 (172) | +0.25 (115) | +1.12 (113) | +0.09 (83) | +0.05 (308) |
-| MGC 5m | chart | replay | -0.09 (1061) | -0.36 (577) | -0.86 (224) | -0.69 (82) | -1.19 (23) | -2.31 (19) |
-| MGC 5m | chart | live | +0.48 (202) | -0.98 (172) | +0.15 (120) | +0.32 (114) | +0.20 (86) | -0.56 (306) |
+| MES 3m | bot | replay | -0.49 (1649) | -0.41 (768) | +0.29 (295) | -0.03 (113) | -0.09 (43) | -2.81 (19) |
+| MES 3m | bot | live | +0.22 (296) | -0.91 (261) | -0.68 (208) | +0.09 (136) | -1.05 (125) | -0.85 (424) |
+| MES 3m | chart* | replay | -0.49 (1649) | -0.34 (768) | +0.36 (293) | +0.10 (112) | -0.21 (42) | -3.17 (18) |
+| MES 3m | chart* | live | +0.53 (296) | -0.33 (260) | -0.77 (207) | +0.15 (141) | -1.80 (123) | -1.15 (403) |
+| MGC 3m | bot | replay | +0.45 (1260) | +0.74 (491) | -0.59 (142) | -3.62 (44) | +5.06 (13) | -3.62 (4) |
+| MGC 3m | bot | live | -0.42 (379) | -0.16 (286) | -0.81 (243) | +0.31 (172) | +0.08 (133) | +0.36 (496) |
+| MGC 3m | chart* | replay | +0.29 (1260) | +0.66 (490) | -1.48 (144) | -0.86 (43) | -1.25 (14) | -0.40 (4) |
+| MGC 3m | chart* | live | -0.25 (379) | +0.69 (289) | -0.13 (243) | -0.36 (176) | -0.01 (134) | -0.04 (504) |
+| MES 2m | bot | replay | -0.34 (1137) | -0.54 (621) | -0.76 (268) | -0.31 (114) | -0.55 (50) | -0.75 (43) |
+| MES 2m | bot | live | -0.50 (563) | -0.56 (478) | -0.43 (338) | -0.97 (251) | -0.93 (215) | -1.05 (688) |
+| MES 2m | chart | replay | -0.72 (1137) | -0.54 (621) | -0.67 (270) | -0.30 (114) | -0.20 (50) | -0.07 (42) |
+| MES 2m | chart | live | -0.29 (562) | -0.59 (480) | -0.20 (340) | -0.71 (246) | -0.84 (211) | -0.97 (686) |
+| MGC 2m | bot | replay | +0.03 (1307) | +0.02 (581) | -0.27 (224) | -0.28 (72) | -1.05 (23) | +0.77 (19) |
+| MGC 2m | bot | live | +0.31 (497) | -0.24 (433) | -0.01 (321) | -0.46 (251) | +0.09 (210) | +0.20 (817) |
+| MGC 2m | chart | replay | +0.05 (1307) | -0.16 (576) | -0.02 (220) | -0.70 (73) | +0.23 (22) | +0.54 (17) |
+| MGC 2m | chart | live | -0.06 (496) | -0.54 (432) | -0.22 (324) | -0.37 (248) | +0.35 (207) | -0.16 (817) |
+| MES 5m | bot | replay | -0.41 (1099) | -1.04 (562) | -0.95 (229) | -1.17 (79) | +0.47 (43) | -1.19 (23) |
+| MES 5m | bot | live | -0.80 (190) | -0.25 (180) | -0.87 (132) | -0.22 (110) | -2.34 (98) | -0.88 (341) |
+| MES 5m | chart | replay | -0.34 (1099) | -0.78 (566) | -0.73 (228) | -1.36 (79) | +0.85 (43) | -0.26 (24) |
+| MES 5m | chart | live | -0.04 (190) | -0.89 (180) | -0.12 (142) | +0.17 (113) | -0.66 (100) | -0.85 (341) |
+| MGC 5m | bot | replay | +0.68 (1066) | +0.08 (573) | -0.39 (219) | +3.24 (81) | -6.31 (23) | -9.30 (19) |
+| MGC 5m | bot | live | +0.17 (213) | -2.17 (184) | +0.08 (123) | +1.04 (119) | +0.27 (89) | -0.02 (346) |
+| MGC 5m | chart | replay | -0.09 (1066) | -0.36 (577) | -0.86 (224) | -0.69 (82) | -1.19 (23) | -2.31 (19) |
+| MGC 5m | chart | live | +0.35 (213) | -1.20 (184) | +0.07 (128) | +0.22 (120) | +0.00 (91) | -0.69 (344) |
 
-## Verdict lines from the script
+\* chart exits for MES 3m / MGC 3m are the stale chop_sim EXIT values (see top).
 
-**MES 3m**
+## Verdict (rule checked for every N = 1..5; (a) replay #N+1+ negative in all 3 thirds under bot AND chart exits, (b) live #N+1+ (30+) net negative and below live 1..N, (c) kept 1..N avg beats all -- (b) and (c) required under both exits)
 
-- BOT exits / SHARED count: replay -- cut after #4: signals #5+ = 62 trades -57 (thirds -28 / -7 / -22), kept avg -0.34 vs all -0.36
--     live avg/trade: 1-1 +0.07, 1-2 -0.28, 1-3 -0.40, 1-4 -0.36, 1-5 -0.47; #6+ -0.87 (422); all -0.59 (1416)
-- BOT exits / PER-TYPE count: replay -- cut after #2: signals #3+ = 32 trades -47 (thirds -2 / -16 / -29), kept avg -0.34 vs all -0.36
--     live avg/trade: 1-1 -0.44, 1-2 -0.60, 1-3 -0.58, 1-4 -0.59, 1-5 -0.59; #6+ -; all -0.59 (1416)
-- CHART exits / SHARED count: replay -- cut after #4: signals #5+ = 60 trades -66 (thirds -28 / -10 / -28), kept avg -0.31 vs all -0.33
--     live avg/trade: 1-1 +0.35, 1-2 +0.10, 1-3 -0.14, 1-4 -0.13, 1-5 -0.36; #6+ -1.20 (400); all -0.60 (1396)
-- CHART exits / PER-TYPE count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 -0.35, 1-2 -0.58, 1-3 -0.59, 1-4 -0.60, 1-5 -0.60; #6+ -; all -0.60 (1396)
+- **MES 3m -- N=4 meets the rule this week.** Replay #5+ bot 62 trades -57 (thirds -28 / -7 / -22), chart 60 trades -66 (-28 / -10 / -28); live #5+ bot -0.89 (549) vs 1-4 -0.33, chart -1.30 (526) vs -0.07; kept 1-4 beats all by only +0.01 (bot -0.37 vs -0.38). Tiny replay sample (62 of ~2,870); chart-exit rows on stale exits.
+- **MGC 3m -- no.** Replay says "first 2 only" (#3+ bot -192, chart -269, all thirds negative) but live #3+ is positive under bot exits (+0.04, 1,044 trades vs 1-2 -0.31). Same disagreement as 11/12.
+- **MES 2m -- no** (near miss at N=1). Bot exits pass (replay #2+ -345 / -20 / -266; live #2+ -0.80 vs #1 -0.50), but under chart exits keeping only #1 is worse than all (-0.72 vs -0.62).
+- **MGC 2m -- no.** Replay #2+ positive in the middle and last thirds; live #N+1+ positive under bot exits for N >= 2.
+- **MES 5m -- N=1 meets the rule this week.** Replay #2+ bot 936 trades -899 (-448 / -391 / -60), chart 940 trades -682 (-370 / -149 / -164); live #2+ bot -0.83 (861) vs #1 -0.80, chart -0.59 vs -0.04; kept #1 beats all (bot -0.41 vs -0.66, chart -0.34 vs -0.52). Caveat: #1 alone is still negative -- the cut loses less, it does not make the chart profitable. The bot-exit live gap is small (-0.83 vs -0.80).
+- **MGC 5m -- no.** Replay agrees on N=2 (bot -103 / -36 / -5, chart -119 / -130 / -71) but live #3+ is positive under bot exits (+0.22 vs 1-2 -0.91).
 
-**MGC 3m**
+If adopted, it needs a CBC Pine change -- no input exists today. Sketch (not built): under ▶ Bot / Trade Setups, an input "Max setups per HTF flip (0 = off)" plus an optional per symbol/timeframe list (e.g. "MES 3m 4, MES 5m 1"); CBC keeps a counter reset on every HTF CBC flip, increments it on each setup drawn in the HTF direction (same-type repeats within 7 candles not counted unless the earlier trade closed), and blocks the setup / bot order when the counter exceeds N (with a "Setup Blocked: past Nth since flip" alert).
 
-- BOT exits / SHARED count: replay -- cut after #2: signals #3+ = 203 trades -192 (thirds -60 / -110 / -22), kept avg +0.53 vs all +0.37
--     live avg/trade: 1-1 -0.39, 1-2 -0.35, 1-3 -0.47, 1-4 -0.32, 1-5 -0.26; #6+ +0.30 (449); all -0.11 (1596)
-- BOT exits / PER-TYPE count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 -0.25, 1-2 -0.19, 1-3 -0.19, 1-4 -0.12, 1-5 -0.11; #6+ +1.02 (6); all -0.11 (1596)
-- CHART exits / SHARED count: replay -- cut after #2: signals #3+ = 205 trades -269 (thirds -123 / -91 / -55), kept avg +0.40 vs all +0.22
--     live avg/trade: 1-1 -0.21, 1-2 +0.19, 1-3 +0.11, 1-4 +0.04, 1-5 +0.05; #6+ -0.07 (456); all +0.02 (1611)
-- CHART exits / PER-TYPE count: replay -- cut after #1: signals #2+ = 125 trades -140 (thirds -62 / -62 / -16), kept avg +0.31 vs all +0.22
--     live avg/trade: 1-1 +0.06, 1-2 +0.03, 1-3 -0.00, 1-4 +0.01, 1-5 +0.01; #6+ +1.02 (7); all +0.02 (1611)
+## Tally (weeks qualifying, same N, consecutive runs; 3/3 needed)
 
-**MES 2m**
+| Chart | Weeks qualifying |
+|---|---|
+| MES 3m | N=4 1/3 (11/12 baseline numbers also fit the rule but the baseline did not count it -- 2/3 if counted) |
+| MGC 3m | 0/3 |
+| MES 2m | 0/3 |
+| MGC 2m | 0/3 |
+| MES 5m | N=1 1/3 (11/12 baseline numbers also fit the rule but the baseline did not count it -- 2/3 if counted) |
+| MGC 5m | 0/3 |
 
-- BOT exits / SHARED count: replay -- cut after #1: signals #2+ = 1090 trades -640 (thirds -345 / -20 / -275), kept avg -0.36 vs all -0.47
--     live avg/trade: 1-1 -0.52, 1-2 -0.52, 1-3 -0.52, 1-4 -0.59, 1-5 -0.64; #6+ -1.20 (638); all -0.79 (2400)
-- BOT exits / PER-TYPE count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 -0.66, 1-2 -0.76, 1-3 -0.79, 1-4 -0.79, 1-5 -0.79; #6+ +0.29 (4); all -0.79 (2400)
-- CHART exits / SHARED count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 -0.31, 1-2 -0.45, 1-3 -0.42, 1-4 -0.44, 1-5 -0.47; #6+ -1.09 (634); all -0.64 (2392)
-- CHART exits / PER-TYPE count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 -0.57, 1-2 -0.61, 1-3 -0.63, 1-4 -0.64, 1-5 -0.64; #6+ -1.12 (4); all -0.64 (2392)
+## History (shared count, bot exits unless noted)
 
-**MGC 2m**
-
-- BOT exits / SHARED count: replay -- cut after #4: signals #5+ = 42 trades -10 (thirds -1 / -9 / -0), kept avg -0.01 vs all -0.01
--     live avg/trade: 1-1 +0.48, 1-2 +0.13, 1-3 +0.11, 1-4 +0.01, 1-5 +0.01; #6+ +0.17 (766); all +0.06 (2333)
-- BOT exits / PER-TYPE count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 -0.09, 1-2 +0.04, 1-3 +0.05, 1-4 +0.05, 1-5 +0.06; #6+ +1.01 (5); all +0.06 (2333)
-- CHART exits / SHARED count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 +0.05, 1-2 -0.28, 1-3 -0.25, 1-4 -0.28, 1-5 -0.21; #6+ -0.13 (767); all -0.18 (2329)
-- CHART exits / PER-TYPE count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 -0.28, 1-2 -0.18, 1-3 -0.19, 1-4 -0.19, 1-5 -0.18; #6+ -0.42 (2); all -0.18 (2329)
-
-**MES 5m**
-
-- BOT exits / SHARED count: replay -- cut after #1: signals #2+ = 934 trades -855 (thirds -448 / -391 / -16), kept avg -0.36 vs all -0.61
--     live avg/trade: 1-1 -0.89, 1-2 -0.57, 1-3 -0.67, 1-4 -0.70, 1-5 -0.93; #6+ -0.87 (337); all -0.91 (1036)
-- BOT exits / PER-TYPE count: replay -- no cut-off where every later signal loses in all three thirds
--     live avg/trade: 1-1 -0.78, 1-2 -0.99, 1-3 -0.94, 1-4 -0.90, 1-5 -0.89; #6+ -5.56 (5); all -0.91 (1036)
-- CHART exits / SHARED count: replay -- cut after #1: signals #2+ = 938 trades -665 (thirds -370 / -149 / -147), kept avg -0.32 vs all -0.50
--     live avg/trade: 1-1 -0.12, 1-2 -0.51, 1-3 -0.43, 1-4 -0.38, 1-5 -0.43; #6+ -0.84 (337); all -0.56 (1051)
-- CHART exits / PER-TYPE count: replay -- cut after #1: signals #2+ = 219 trades -184 (thirds -113 / -10 / -60), kept avg -0.46 vs all -0.50
--     live avg/trade: 1-1 -0.52, 1-2 -0.61, 1-3 -0.57, 1-4 -0.53, 1-5 -0.52; #6+ -7.98 (5); all -0.56 (1051)
-
-**MGC 5m**
-
-- BOT exits / SHARED count: replay -- cut after #2: signals #3+ = 342 trades -144 (thirds -103 / -36 / -5), kept avg +0.47 vs all +0.31
--     live avg/trade: 1-1 +0.36, 1-2 -0.71, 1-3 -0.49, 1-4 -0.18, 1-5 -0.15; #6+ +0.05 (308); all -0.09 (993)
-- BOT exits / PER-TYPE count: replay -- cut after #1: signals #2+ = 216 trades -256 (thirds -37 / -176 / -44), kept avg +0.50 vs all +0.31
--     live avg/trade: 1-1 -0.16, 1-2 -0.17, 1-3 -0.09, 1-4 -0.10, 1-5 -0.09; #6+ -; all -0.09 (993)
-- CHART exits / SHARED count: replay -- cut after #1: signals #2+ = 925 trades -529 (thirds -307 / -130 / -92), kept avg -0.09 vs all -0.32
--     live avg/trade: 1-1 +0.48, 1-2 -0.19, 1-3 -0.11, 1-4 -0.03, 1-5 +0.00; #6+ -0.56 (306); all -0.17 (1000)
-- CHART exits / PER-TYPE count: replay -- cut after #1: signals #2+ = 226 trades -232 (thirds -84 / -138 / -10), kept avg -0.23 vs all -0.32
--     live avg/trade: 1-1 +0.08, 1-2 -0.05, 1-3 -0.13, 1-4 -0.15, 1-5 -0.17; #6+ -0.28 (2); all -0.17 (1000)
+| Run | Data to | Qualifying this run | Notes |
+|---|---|---|---|
+| 2026-11-12 14:48 ET (week 0 baseline) | 11/12 | none (as judged then) | MGC 3m "first 2" replay -192 bot / -269 chart, live #4+ positive; MES 3m live #1 +0.07 vs #6+ -0.87; MES 2m live -0.52 -> -1.20 after #3; MES 5m negative everywhere |
+| 2026-11-15 13:23 ET | 11/13 | MES 3m N=4; MES 5m N=1 | Settings stale (chop_sim EXIT MES 3m / MGC 3m). MES 3m live #1 +0.22 (bot) / +0.53 (chart) vs #6+ -0.85 / -1.15; MES 2m fails only on chart-exit (c); MGC 3m / MGC 5m replay vs live still disagree |

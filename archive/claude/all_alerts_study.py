@@ -9,6 +9,8 @@ same two outcome rules as claude/alert_param_sweep.py:
 Points per contract-point, before costs. ✱ = positive in both halves (by date) under both rules. Non-directional alerts
 (Approaching / Crossing / Setup Ended / TP1 Partial / Shadow ...) are counted only.
 Alert candle = the bar that closes at the alert's "Time:" (CBC alerts fire at the candle close).
+Duplicate alerts (DATA_NOTES note 1, 11/13): same "Chart:" line + same "Time:" line + same set of "•" names received within
+60 s count as ONE alert (longest text kept).
 Also: Trade Setups the setup engine would draw OUTSIDE CBC's alert sessions (Asia 18:00-22:30, London 03:00-07:45,
 NY 09:30-17:00 ET) never reach the feed -- replay counts / results for 3m and 5m (chop_sim, live gates, base exits).
 Usage: python3 all_alerts_study.py
@@ -40,6 +42,33 @@ def get(url):
 
 def et(ms):
     return D.datetime.fromtimestamp(ms / 1000, TZ)
+
+
+def dedupe(A):
+    """DATA_NOTES note 1: near copies (same Chart / Time / set of • names, received within 60 s) -> one alert, longest text."""
+    def rx(a):
+        return D.datetime.fromisoformat(a['receivedAt'].replace('Z', '+00:00')).timestamp()
+    keep, last = [], {}
+    for a in sorted(A, key=lambda a: a.get('receivedAt', '')):
+        r = a.get('raw', '')
+        if not isinstance(r, str):
+            keep.append(a); continue
+        ch = re.search(r'\nChart: [^\n]*', r); tm = re.search(r'\nTime: [^\n]*', r)
+        if not ch or not tm:
+            keep.append(a); continue
+        names = frozenset(ln[2:].split(':')[0].strip() for ln in r.split('\n') if ln.startswith('• '))
+        k = (ch.group(0), tm.group(0), names)
+        try:
+            t = rx(a)
+        except Exception:
+            keep.append(a); continue
+        if k in last and t - last[k][0] <= 60:
+            j = last[k][1]
+            if len(r) > len(keep[j].get('raw', '')):
+                keep[j] = a
+            continue
+        last[k] = (t, len(keep)); keep.append(a)
+    return keep
 
 
 def direction(line):
@@ -103,9 +132,10 @@ def outcome(B, atr, i, d, tf):
 
 def main():
     A = get(BASE + '/alerts?from=2000-01-01'); A = A if isinstance(A, list) else A.get('alerts', [])
+    n0 = len(A); A = dedupe(A)
     now = D.datetime.now(TZ)
     out = ['# Every CBC alert type, scored — %s' % now.strftime('%a %m/%d/%Y %H:%M ET'), '', __doc__.strip(), '',
-           'Alert Feed: %d alerts, %s to %s.' % (len(A), min(a['receivedAt'] for a in A)[:10], max(a['receivedAt'] for a in A)[:10]), '']
+           'Alert Feed: %d alerts (%d before removing %d near-duplicate copies), %s to %s.' % (len(A), n0, n0 - len(A), min(a['receivedAt'] for a in A)[:10], max(a['receivedAt'] for a in A)[:10]), '']
     for sym, tf in CHARTS:
         key = sym if tf == 3 else '%s_%d' % (sym, tf)
         sec = collections.defaultdict(list)   # type -> [(close_ms, dir)]

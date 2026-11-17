@@ -1,14 +1,15 @@
-## Week of 11/09/2026 summary
+## Week of 11/14/2026 summary
 
-- STUDY SETTINGS STALE: the 11/08 settings sync report lists 1 non-known MISMATCH (chop_sim GATE MGC 2m range gate R5=0) + late_study MES 3m tp=2.0 -- both already fixed in the project scripts used for this run, and neither affects these 3m studies.
-- MES watch 'TP 85 % after 18 min + half SL1 if negative at 18 min': **+275 TR, z 0.9** (thirds +132 / +128 / +15, last 4 wk -78) -- identical to 11/07 (+275, z 0.9). Still below z 1 and the last 4 weeks are negative -> not a candidate.
-- MGC watch 'TP 65 % after 21 min + cut if < 25 % at 18 min': **+145 T4R, z 0.6** (thirds +76 / +18 / +51, last 4 wk +10.9) -- same as 11/07 (+145). z < 1 -> not a candidate.
-- 18 min still stands out: MES best TP-alone = 85 % after 18 min (+215 TR), best SL-alone = cut < 50 % at 18 min (+177, third 3 -118), grid best row Xtp 18; every top MGC combination uses the 18-min SL check.
-- Combos positive: MES 870 / 1000 (14 better in all thirds), MGC 701 / 1000 (160 in all thirds, 36 T4R). Verdict: no change on either chart.
+- STUDY SETTINGS STALE: the 11/13 settings sync (v10.96) lists 3 non-known MISMATCHes, NOT yet fixed in the project scripts, and they touch the 3m studies -- mes3_ema_grid LIVE still closes MES 3m 80/100 % by time of day (live since v10.95: 100 % at TP1 all day), and MGC 3m live is now FLIP 0 % (v10.96: nothing closed at TP1, BE, no trail, exit on HTF flip) while these replays use 80 % / trail 1.7 (MGCX) or 50 % / 3.5. Bot replay (H) is unaffected (part 1.0). Also new: the 11/14 X4 fix in mes3_ema_grid.py makes the MGC 3m VWAP-stretch gate actually block setups (MGC 3m 1193 setups vs 1707 last week), so MGC 3m numbers are not like-for-like with 11/09.
+- MES 3m watch "TP 85 % after 18 min + half SL1 if negative at 18 min": **+226** (z 0.8; thirds +132 / +136 / -42; last 4 wk -104) vs +275 (z 0.9) on 11/07-11/09 -> WEAKER, third 3 now negative. Still the #1 combination by Δ, but no MES combination is better in all thirds (0 of 1000).
+- MES 3m TP rule alone (85 % after 18 min) +196 TR (thirds +84 / +87 / +25, last 4 wk -46) -- the steadier half of the pair; the SL half adds +30 but costs third 3.
+- MGC 3m watch "TP 65 % after 21 min + cut if < 25 % at 18 min": **+86** (z 0.45; thirds +72 / -10 / +23; last 4 wk +8) vs +145 T4R -> WEAKER (lost T). New top: "TP 70 % after 18 min + cut if negative at 18 min" +105 T4R (z 0.5); 169 combinations better in all thirds, 29 T+4+R, none with z >= 1.
+- 18 min still stands out alone: best SL-alone check is 18 min on MGC (+102 vs <= +43 at other times) and the best TP-alone cell on MES is 18 min (+196); MES SL-alone best is 15 min (+117) with 18 min close (+107).
+- Verdict: no change (nothing robust/promising; 0 weeks toward 3).
 
 ---
 
-# Combined TP-reduction + time-stop study — MES 3m and MGC 3m — 11/09/2026 13:58
+# Combined TP-reduction + time-stop study — MES 3m and MGC 3m — 11/14/2026 23:37
 
 Combined time-based TP reduction + time-based stop / cut, MES 3m and MGC 3m -- 11/07/2026.
 Both rules active together on the same trade (before TP1 only):
@@ -23,121 +24,112 @@ Cell = Δ net pts vs current exits. T = better in all three thirds, 4 = better i
 (Xtp ±1 grid step, Xsl ±3 min) better overall. z = Δ / (SD x sqrt(setups changed)). Also shown: what each rule gives alone,
 and whether the combination adds up (combo vs TP-alone + SL-alone).
 
-## MES 3m — current exits: 1705 setups to 11/09, net +6
+## MES 3m — current exits: 1738 setups to 11/13, net +47
 
-**Best TP rule alone:** TP 85% after 18 min + SL off: **+215** TR (z +0.7, thirds +84 / +91 / +40, last 4 wk -20.3, win 52 %)
+**Best TP rule alone:** TP 85% after 18 min + SL off: **+196** TR (z +0.7, thirds +84 / +87 / +25, last 4 wk -45.9, win 52 %)
 
-**Best SL rule alone:** TP off + cut if < 50 % at 18 min: **+177** (z +0.6, thirds +83 / +211 / -118, last 4 wk -150.8, win 47 %)
+**Best SL rule alone:** TP off + cut if < 50 % at 15 min: **+117** (z +0.4, thirds +73 / +229 / -186, last 4 wk -198.4, win 48 %)
 
-Combinations: 1000, positive 870, better in all thirds 14, T + neighbours (R) 14, T + 4 + R 0.
+Combinations: 1000, positive 688, better in all thirds 0, T + neighbours (R) 0, T + 4 + R 0.
 
 **Top 10 combinations by Δ**
 
-1. TP 85% after 18 min + half SL1 if negative at 18 min: **+275** TR (z +0.9, thirds +132 / +128 / +15, last 4 wk -77.7, win 49 %)
-2. TP 85% after 12 min + half SL1 if negative at 18 min: **+269** TR (z +0.9, thirds +102 / +136 / +31, last 4 wk -69.3, win 50 %)
-3. TP 85% after 21 min + half SL1 if negative at 18 min: **+267** TR (z +0.9, thirds +123 / +129 / +15, last 4 wk -66.0, win 49 %)
-4. TP 75% after 21 min + half SL1 if negative at 18 min: **+261** TR (z +0.9, thirds +103 / +156 / +2, last 4 wk -92.3, win 50 %)
-5. TP 75% after 18 min + half SL1 if negative at 18 min: **+245** TR (z +0.8, thirds +85 / +157 / +2, last 4 wk -106.6, win 50 %)
-6. TP 75% after 21 min + cut if < 25 % at 18 min: **+244** (z +0.8, thirds +74 / +262 / -92, last 4 wk -114.5, win 46 %)
-7. TP 75% after 21 min + cut if negative at 18 min: **+238** (z +0.8, thirds +51 / +244 / -58, last 4 wk -100.1, win 44 %)
-8. TP 85% after 15 min + half SL1 if negative at 18 min: **+238** TR (z +0.8, thirds +94 / +112 / +32, last 4 wk -60.2, win 49 %)
-9. TP 85% after 12 min + cut if < 50 % at 12 min: **+237** (z +0.8, thirds -2 / +284 / -45, last 4 wk -159.4, win 49 %)
-10. TP 85% after 18 min + half SL1 if < 50 % at 18 min: **+236** (z +0.8, thirds +174 / +118 / -56, last 4 wk -134.8, win 48 %)
+1. TP 85% after 18 min + half SL1 if negative at 18 min: **+226** (z +0.8, thirds +132 / +136 / -42, last 4 wk -103.6, win 49 %)
+2. TP 85% after 12 min + half SL1 if negative at 18 min: **+220** (z +0.7, thirds +102 / +142 / -25, last 4 wk -93.2, win 50 %)
+3. TP 85% after 21 min + half SL1 if negative at 18 min: **+217** (z +0.7, thirds +123 / +137 / -43, last 4 wk -92.4, win 49 %)
+4. TP 75% after 21 min + half SL1 if negative at 18 min: **+203** (z +0.7, thirds +103 / +162 / -63, last 4 wk -124.2, win 50 %)
+5. TP 85% after 12 min + cut if < 50 % at 12 min: **+189** (z +0.6, thirds -2 / +297 / -106, last 4 wk -173.4, win 49 %)
+6. TP 85% after 15 min + half SL1 if negative at 18 min: **+188** (z +0.6, thirds +94 / +118 / -24, last 4 wk -88.2, win 49 %)
+7. TP 85% after 18 min + half SL1 if < 50 % at 18 min: **+187** (z +0.6, thirds +174 / +126 / -114, last 4 wk -160.7, win 48 %)
+8. TP 85% after 12 min + half SL1 if < 50 % at 18 min: **+186** (z +0.6, thirds +145 / +129 / -87, last 4 wk -150.4, win 49 %)
+9. TP 75% after 18 min + half SL1 if negative at 18 min: **+186** (z +0.6, thirds +85 / +166 / -65, last 4 wk -137.8, win 50 %)
+10. TP 85% after 21 min + half SL1 if < 50 % at 18 min: **+182** (z +0.6, thirds +169 / +128 / -115, last 4 wk -149.5, win 48 %)
 
 **Steadiest combinations (all thirds better AND every neighbour better), top 10 by Δ**
 
-1. TP 85% after 18 min + half SL1 if negative at 18 min: **+275** TR (z +0.9, thirds +132 / +128 / +15, last 4 wk -77.7, win 49 %)
-2. TP 85% after 12 min + half SL1 if negative at 18 min: **+269** TR (z +0.9, thirds +102 / +136 / +31, last 4 wk -69.3, win 50 %)
-3. TP 85% after 21 min + half SL1 if negative at 18 min: **+267** TR (z +0.9, thirds +123 / +129 / +15, last 4 wk -66.0, win 49 %)
-4. TP 75% after 21 min + half SL1 if negative at 18 min: **+261** TR (z +0.9, thirds +103 / +156 / +2, last 4 wk -92.3, win 50 %)
-5. TP 75% after 18 min + half SL1 if negative at 18 min: **+245** TR (z +0.8, thirds +85 / +157 / +2, last 4 wk -106.6, win 50 %)
-6. TP 85% after 15 min + half SL1 if negative at 18 min: **+238** TR (z +0.8, thirds +94 / +112 / +32, last 4 wk -60.2, win 49 %)
-7. TP 65% after 30 min + half SL1 if negative at 18 min: **+225** TR (z +0.8, thirds +88 / +123 / +15, last 4 wk -80.0, win 50 %)
-8. TP 85% after 12 min + half SL1 if negative at 21 min: **+216** TR (z +0.7, thirds +91 / +117 / +7, last 4 wk -62.5, win 50 %)
-9. TP 85% after 27 min + half SL1 if negative at 18 min: **+199** TR (z +0.7, thirds +102 / +96 / +2, last 4 wk -61.7, win 48 %)
-10. TP 75% after 15 min + half SL1 if negative at 18 min: **+197** TR (z +0.7, thirds +21 / +152 / +23, last 4 wk -94.9, win 51 %)
+- none
 
 **Does adding the SL rule help the TP rule?** (top 5 TP rules; best SL partner; combo vs TP alone)
 
 | TP rule | TP alone | + best SL rule | Combo | SL adds | SL alone |
 |---|---|---|---|---|---|
-| TP 85% after 18 min | +215 | half SL1 if negative at 18 min | +275 | +60 | +115 |
-| TP 85% after 12 min | +210 | half SL1 if negative at 18 min | +269 | +60 | +115 |
-| TP 85% after 21 min | +206 | half SL1 if negative at 18 min | +267 | +61 | +115 |
-| TP 75% after 21 min | +192 | half SL1 if negative at 18 min | +261 | +69 | +115 |
-| TP 85% after 15 min | +178 | half SL1 if negative at 18 min | +238 | +60 | +115 |
+| TP 85% after 18 min | +196 | half SL1 if negative at 18 min | +226 | +30 | +66 |
+| TP 85% after 12 min | +191 | half SL1 if negative at 18 min | +220 | +29 | +66 |
+| TP 85% after 21 min | +187 | half SL1 if negative at 18 min | +217 | +30 | +66 |
+| TP 75% after 21 min | +162 | half SL1 if negative at 18 min | +203 | +40 | +66 |
+| TP 85% after 15 min | +159 | half SL1 if negative at 18 min | +188 | +30 | +66 |
 
 **Grid: best combo Δ per TP cell (any SL rule) / TP alone**
 
-| Xtp \\ Ytp | 65% | 70% | 75% | 85% |
+| Xtp \ Ytp | 65% | 70% | 75% | 85% |
 |---|---|---|---|---|
-| 12 | +196 / +61 | +194 / +73 | +193 / +119 | +269 / +210 |
-| 15 | +223 / +90 | +214 / +94 | +203 / +119 | +238 / +178 |
-| 18 | +226 / +114 | +215 / +115 | +245 / +176 | +275 / +215 |
-| 21 | +201 / +108 | +217 / +134 | +261 / +192 | +267 / +206 |
-| 24 | +206 / +100 | +231 / +133 | +225 / +154 | +224 / +159 |
-| 27 | +188 / +50 | +192 / +86 | +211 / +125 | +199 / +125 |
-| 30 | +225 / +137 | +223 / +142 | +216 / +135 | +198 / +126 |
-| 33 | +185 / +45 | +187 / +47 | +195 / +70 | +186 / +44 |
-| 36 | +180 / +45 | +187 / +50 | +193 / +60 | +192 / +36 |
-| 42 | +191 / +1 | +195 / +9 | +201 / -0 | +189 / +7 |
+| 12 | +120 / +20 | +128 / +38 | +137 / +89 | +220 / +191 |
+| 15 | +150 / +50 | +146 / +59 | +138 / +90 | +188 / +159 |
+| 18 | +153 / +74 | +143 / +80 | +186 / +146 | +226 / +196 |
+| 21 | +127 / +68 | +146 / +99 | +203 / +162 | +217 / +187 |
+| 24 | +132 / +62 | +160 / +100 | +168 / +126 | +175 / +140 |
+| 27 | +138 / +15 | +143 / +55 | +156 / +99 | +152 / +108 |
+| 30 | +165 / +104 | +166 / +112 | +162 / +109 | +149 / +108 |
+| 33 | +135 / +36 | +131 / +40 | +139 / +65 | +131 / +44 |
+| 36 | +125 / +38 | +132 / +44 | +138 / +57 | +137 / +37 |
+| 42 | +124 / -2 | +128 / +6 | +132 / -1 | +133 / +9 |
 
-## MGC 3m — current exits: 1707 setups to 11/09, net +247
+## MGC 3m — current exits: 1193 setups to 11/13, net +317
 
-**Best TP rule alone:** TP 65% after 21 min + SL off: **+7** (z +0.0, thirds +29 / -8 / -15, last 4 wk -10.0, win 52 %)
+**Best TP rule alone:** TP 70% after 18 min + SL off: **+71** T4R (z +0.4, thirds +28 / +11 / +32, last 4 wk +0.5, win 53 %)
 
-**Best SL rule alone:** TP off + cut if < 25 % at 18 min: **+124** T4 (z +0.5, thirds +49 / +8 / +67, last 4 wk +13.7, win 49 %)
+**Best SL rule alone:** TP off + cut if negative at 18 min: **+102** T4R (z +0.5, thirds +44 / +17 / +42, last 4 wk +24.6, win 47 %)
 
-Combinations: 1000, positive 701, better in all thirds 160, T + neighbours (R) 88, T + 4 + R 36.
+Combinations: 1000, positive 819, better in all thirds 169, T + neighbours (R) 153, T + 4 + R 29.
 
 **Top 10 combinations by Δ**
 
-1. TP 65% after 30 min + cut if < 25 % at 18 min: **+146** T4 (z +0.6, thirds +72 / +27 / +48, last 4 wk +1.8, win 50 %)
-2. TP 65% after 21 min + cut if < 25 % at 18 min: **+145** T4R (z +0.6, thirds +76 / +18 / +51, last 4 wk +10.9, win 50 %)
-3. TP 65% after 27 min + cut if < 25 % at 18 min: **+144** T4 (z +0.6, thirds +70 / +22 / +53, last 4 wk +8.5, win 50 %)
-4. TP 65% after 24 min + cut if < 25 % at 18 min: **+144** T4R (z +0.6, thirds +69 / +14 / +61, last 4 wk +17.2, win 50 %)
-5. TP 70% after 21 min + cut if < 25 % at 18 min: **+129** T4R (z +0.6, thirds +58 / +21 / +49, last 4 wk +12.8, win 50 %)
-6. TP 70% after 18 min + cut if < 25 % at 18 min: **+128** T4R (z +0.6, thirds +44 / +29 / +54, last 4 wk +8.0, win 50 %)
-7. TP 75% after 21 min + cut if < 50 % at 18 min: **+124** T4R (z +0.5, thirds +70 / +10 / +44, last 4 wk +7.6, win 51 %)
-8. TP 65% after 24 min + cut if < 50 % at 18 min: **+123** T4R (z +0.5, thirds +69 / +7 / +47, last 4 wk +7.0, win 51 %)
-9. TP 75% after 21 min + cut if < 25 % at 18 min: **+123** T4 (z +0.5, thirds +61 / +11 / +51, last 4 wk +15.0, win 50 %)
-10. TP 65% after 21 min + cut if < 50 % at 18 min: **+121** T4R (z +0.5, thirds +69 / +6 / +46, last 4 wk +5.5, win 51 %)
+1. TP 70% after 18 min + cut if negative at 18 min: **+105** T4R (z +0.5, thirds +52 / +8 / +45, last 4 wk +14.0, win 49 %)
+2. TP 75% after 27 min + cut if negative at 18 min: **+101** 4 (z +0.5, thirds +66 / -0 / +35, last 4 wk +10.2, win 48 %)
+3. TP 70% after 18 min + cut if < 25 % at 18 min: **+99** T4R (z +0.5, thirds +67 / +2 / +30, last 4 wk +7.8, win 51 %)
+4. TP 70% after 18 min + half SL1 if negative at 18 min: **+97** 4 (z +0.5, thirds +49 / -7 / +56, last 4 wk +12.7, win 51 %)
+5. TP 65% after 24 min + cut if negative at 18 min: **+96** T4R (z +0.5, thirds +54 / +6 / +36, last 4 wk +13.2, win 48 %)
+6. TP 75% after 24 min + cut if negative at 18 min: **+95** T4R (z +0.5, thirds +62 / +0 / +33, last 4 wk +18.2, win 48 %)
+7. TP 75% after 30 min + cut if negative at 18 min: **+93** T4R (z +0.5, thirds +66 / +3 / +23, last 4 wk +3.6, win 48 %)
+8. TP 65% after 27 min + cut if negative at 18 min: **+92** T4R (z +0.5, thirds +60 / +3 / +29, last 4 wk +6.2, win 48 %)
+9. TP 65% after 21 min + cut if negative at 18 min: **+92** T4R (z +0.5, thirds +57 / +1 / +35, last 4 wk +12.8, win 49 %)
+10. TP 70% after 24 min + cut if negative at 18 min: **+91** 4 (z +0.5, thirds +58 / -5 / +38, last 4 wk +15.5, win 48 %)
 
 **Steadiest combinations (all thirds better AND every neighbour better), top 10 by Δ**
 
-1. TP 65% after 21 min + cut if < 25 % at 18 min: **+145** T4R (z +0.6, thirds +76 / +18 / +51, last 4 wk +10.9, win 50 %)
-2. TP 65% after 24 min + cut if < 25 % at 18 min: **+144** T4R (z +0.6, thirds +69 / +14 / +61, last 4 wk +17.2, win 50 %)
-3. TP 70% after 21 min + cut if < 25 % at 18 min: **+129** T4R (z +0.6, thirds +58 / +21 / +49, last 4 wk +12.8, win 50 %)
-4. TP 70% after 18 min + cut if < 25 % at 18 min: **+128** T4R (z +0.6, thirds +44 / +29 / +54, last 4 wk +8.0, win 50 %)
-5. TP 75% after 21 min + cut if < 50 % at 18 min: **+124** T4R (z +0.5, thirds +70 / +10 / +44, last 4 wk +7.6, win 51 %)
-6. TP 65% after 24 min + cut if < 50 % at 18 min: **+123** T4R (z +0.5, thirds +69 / +7 / +47, last 4 wk +7.0, win 51 %)
-7. TP 65% after 21 min + cut if < 50 % at 18 min: **+121** T4R (z +0.5, thirds +69 / +6 / +46, last 4 wk +5.5, win 51 %)
-8. TP 85% after 21 min + cut if < 50 % at 18 min: **+120** T4R (z +0.5, thirds +71 / +15 / +33, last 4 wk +2.1, win 50 %)
-9. TP 70% after 24 min + cut if < 50 % at 18 min: **+119** T4R (z +0.5, thirds +70 / +1 / +48, last 4 wk +7.6, win 51 %)
-10. TP 70% after 21 min + cut if < 50 % at 18 min: **+118** T4R (z +0.5, thirds +70 / +8 / +41, last 4 wk +6.4, win 51 %)
+1. TP 70% after 18 min + cut if negative at 18 min: **+105** T4R (z +0.5, thirds +52 / +8 / +45, last 4 wk +14.0, win 49 %)
+2. TP 70% after 18 min + cut if < 25 % at 18 min: **+99** T4R (z +0.5, thirds +67 / +2 / +30, last 4 wk +7.8, win 51 %)
+3. TP 65% after 24 min + cut if negative at 18 min: **+96** T4R (z +0.5, thirds +54 / +6 / +36, last 4 wk +13.2, win 48 %)
+4. TP 75% after 24 min + cut if negative at 18 min: **+95** T4R (z +0.5, thirds +62 / +0 / +33, last 4 wk +18.2, win 48 %)
+5. TP 75% after 30 min + cut if negative at 18 min: **+93** T4R (z +0.5, thirds +66 / +3 / +23, last 4 wk +3.6, win 48 %)
+6. TP 65% after 27 min + cut if negative at 18 min: **+92** T4R (z +0.5, thirds +60 / +3 / +29, last 4 wk +6.2, win 48 %)
+7. TP 65% after 21 min + cut if negative at 18 min: **+92** T4R (z +0.5, thirds +57 / +1 / +35, last 4 wk +12.8, win 49 %)
+8. TP 85% after 18 min + cut if negative at 18 min: **+91** T4R (z +0.5, thirds +52 / +14 / +25, last 4 wk +10.9, win 48 %)
+9. TP 70% after 18 min + cut if negative at 15 min: **+90** TR (z +0.5, thirds +29 / +35 / +25, last 4 wk -9.8, win 48 %)
+10. TP 85% after 24 min + cut if negative at 18 min: **+89** T4R (z +0.5, thirds +59 / +2 / +27, last 4 wk +15.2, win 48 %)
 
 **Does adding the SL rule help the TP rule?** (top 5 TP rules; best SL partner; combo vs TP alone)
 
 | TP rule | TP alone | + best SL rule | Combo | SL adds | SL alone |
 |---|---|---|---|---|---|
-| TP 65% after 21 min | +7 | cut if < 25 % at 18 min | +145 | +138 | +124 |
-| TP 70% after 18 min | +3 | cut if < 25 % at 18 min | +128 | +125 | +124 |
-| TP 85% after 12 min | +1 | cut if < 50 % at 18 min | +88 | +87 | +109 |
-| TP 85% after 18 min | -0 | cut if < 50 % at 18 min | +108 | +108 | +109 |
-| TP 70% after 21 min | -0 | cut if < 25 % at 18 min | +129 | +129 | +124 |
+| TP 70% after 18 min | +71 | cut if negative at 18 min | +105 | +33 | +102 |
+| TP 65% after 21 min | +59 | cut if negative at 18 min | +92 | +34 | +102 |
+| TP 70% after 21 min | +57 | cut if negative at 18 min | +84 | +27 | +102 |
+| TP 75% after 27 min | +54 | cut if negative at 18 min | +101 | +47 | +102 |
+| TP 65% after 18 min | +53 | cut if negative at 18 min | +87 | +34 | +102 |
 
 **Grid: best combo Δ per TP cell (any SL rule) / TP alone**
 
-| Xtp \\ Ytp | 65% | 70% | 75% | 85% |
+| Xtp \ Ytp | 65% | 70% | 75% | 85% |
 |---|---|---|---|---|
-| 12 | +58 / -56 | +75 / -29 | +61 / -30 | +88 / +1 |
-| 15 | +83 / -34 | +98 / -10 | +92 / -3 | +88 / -12 |
-| 18 | +115 / -6 | +128 / +3 | +113 / -4 | +108 / -0 |
-| 21 | +145 / +7 | +129 / -0 | +124 / -1 | +120 / -7 |
-| 24 | +144 / -9 | +120 / -24 | +116 / -21 | +108 / -29 |
-| 27 | +144 / -6 | +110 / -24 | +118 / -3 | +112 / -25 |
-| 30 | +146 / -22 | +110 / -41 | +117 / -16 | +113 / -24 |
-| 33 | +119 / -53 | +92 / -55 | +91 / -44 | +101 / -34 |
-| 36 | +120 / -40 | +96 / -42 | +95 / -32 | +102 / -29 |
-| 42 | +121 / -36 | +107 / -29 | +109 / -18 | +113 / -16 |
+| 12 | +43 / -13 | +54 / +20 | +39 / +8 | +63 / +8 |
+| 15 | +37 / +2 | +57 / +29 | +51 / +24 | +66 / +6 |
+| 18 | +87 / +53 | +105 / +71 | +88 / +47 | +91 / +31 |
+| 21 | +92 / +59 | +84 / +57 | +88 / +53 | +85 / +29 |
+| 24 | +96 / +45 | +91 / +44 | +95 / +46 | +89 / +17 |
+| 27 | +92 / +38 | +89 / +42 | +101 / +54 | +87 / +12 |
+| 30 | +88 / +4 | +82 / +11 | +93 / +29 | +87 / +8 |
+| 33 | +73 / -19 | +69 / -12 | +68 / -5 | +74 / -5 |
+| 36 | +72 / -12 | +70 / -4 | +71 / +3 | +74 / -1 |
+| 42 | +77 / -14 | +74 / -5 | +76 / +4 | +79 / +2 |
 

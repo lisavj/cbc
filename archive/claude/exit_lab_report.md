@@ -1,22 +1,22 @@
-## Week of 11/09/2026 summary
+## Week of 11/14/2026 summary
 
-- STUDY SETTINGS STALE: the 11/08 settings sync report lists 1 non-known MISMATCH (chop_sim GATE MGC 2m range gate R5=0) + late_study MES 3m tp=2.0 -- both already fixed in the project scripts used for this run, and neither affects these 3m studies.
-- Current exits after costs: MES -847 / MGC -129 / MNQ -1627 / M2K -604 (11/07: -831 / -138 / -1646 / -595).
-- Walk-forward last third: MES -85 / MGC -14 / MNQ -92 / M2K -84 (11/07: -79 / -19 / -92 / -85) -- still negative on every chart.
-- MGC watch 'cut if wrong side of HTF EMA9 at 18 min': **+87 after costs, T4R, z 1.6** (thirds +25 / +18 / +44, last 4 wk +29) -- unchanged, promising for the 2nd week in a row (11/07, 11/09); not recommendable yet (needs 3 weeks and the walk-forward pick is still negative).
-- MES: best 'half SL1 if negative at 18 min + TP rule' +206 (z 1.0, no flags); 'half SL1 if wrong side of HTF EMA9 at 18 min + TP rule' +202 TR z 1.1 (promising) but last 4 wk -48. MNQ best +162 (z 0.6); M2K best +8.
-- Verdict: keep current exits on all four charts.
+- STUDY SETTINGS STALE: the 11/13 settings sync (v10.96) lists 3 non-known MISMATCHes, NOT yet fixed in the project scripts, and they touch the 3m studies -- mes3_ema_grid LIVE still closes MES 3m 80/100 % by time of day (live since v10.95: 100 % at TP1 all day), and MGC 3m live is now FLIP 0 % (v10.96: nothing closed at TP1, BE, no trail, exit on HTF flip) while these replays use 80 % / trail 1.7 (MGCX) or 50 % / 3.5. Bot replay (H) is unaffected (part 1.0). Also new: the 11/14 X4 fix in mes3_ema_grid.py makes the MGC 3m VWAP-stretch gate actually block setups (MGC 3m 1193 setups vs 1707 last week), so MGC 3m numbers are not like-for-like with 11/09.
+- Current exits after costs (to 11/13): MES -822 (11/09 -847) / MGC +55 (11/09 -129; stretch gate now applied) / MNQ -2075 (-1627) / M2K -598 (-604).
+- Walk-forward last third: MES -144 / MGC +9 (with TP rule; SL-only pick -19) / MNQ -92 / M2K -60 (11/09: -85 / -14 / -92 / -84).
+- MGC watch "cut if wrong side of HTF EMA9 at 18 min": **+63 after costs, z 1.25, thirds +26 / +6 / +31, last 4 wk +17, neighbours 15 / 21 min +14 / +45 -> T4R, promising** (11/09 +87 T4R z 1.6). Third week promising in a row (11/07, 11/09, 11/14), BUT the walk-forward pick is a different rule (SL-only last third -19) and the replay runs MGC 3m on 80 % / 1.7 exits, not the live FLIP 0 % -> NOT recommended yet; rerun on FLIP 0 % exits first.
+- Best per chart: MES half SL1 if wrong side of HTF EMA9 at 18 min + TP rule +180 (z 1.0, third 3 -1, no flags); MGC same rule +92 (z 1.1, third 2 -12); MNQ BE if never reached 25 % at 18 min +162 (third 1 -33); M2K +8 -- none robust.
+- Verdict per chart: keep current exits on all four.
 
 ---
 
-# Early-exit lab — 3m charts — 11/09/2026 13:58
+# Early-exit lab — 3m charts — 11/14/2026 23:37
 
 ## Summary
 
-- MES 3m: best half SL1 if negative at 18 min + TP rule → +206 after costs (z +1.0, no flags); walk-forward last third **-85**
-- MGC 3m: best cut if < 25 % of TP1 at 18 min + TP rule → +96 after costs (z +0.8, 4); walk-forward last third **-14**
+- MES 3m: best half SL1 if wrong side of HTF EMA9 at 18 min + TP rule → +180 after costs (z +1.0, no flags); walk-forward last third **-144**
+- MGC 3m: best half SL1 if wrong side of HTF EMA9 at 18 min + TP rule → +92 after costs (z +1.1, 4); walk-forward last third **+9**
 - MNQ 3m: best SL1 to BE if never reached 25 % at 18 min → +162 after costs (z +0.6, 4); walk-forward last third **-92**
-- M2K 3m: best half SL1 if wrong side of HTF EMA9 at 1st 15m close → +8 after costs (z +0.2, 4); walk-forward last third **-84**
+- M2K 3m: best half SL1 if wrong side of HTF EMA9 at 1st 15m close → +8 after costs (z +0.2, 4); walk-forward last third **-60**
 
 
 Early-exit lab -- 3m charts MES, MGC, MNQ, M2K -- 11/07/2026.
@@ -40,191 +40,191 @@ Replay = chop_sim rules (late window 1, NY OR block 30) on live exits: MES 3m SL
 of day; MGC 3m MGCX; MNQ / M2K 3m CBC defaults. Jan 5 -> now. Flags: T = better in all three thirds, 4 = better in the last
 4 weeks, R = T and both time neighbours (±3 min) better (fixed-time rows only). z = Δ / (SD x sqrt(setups changed)).
 
-## MES 3m — current exits: 1705 setups to 11/09, net +6 gross / -847 after costs (0.50 pts per trade)
+## MES 3m — current exits: 1738 setups to 11/13, net +47 gross / -822 after costs (0.50 pts per trade)
 
 **1. When to check — best rule per check time (after costs; no TP rule)**
 
 | Check | Best rule | Δ after costs | Gross | Thirds | Last 4 wk | Positive rules |
 |---|---|---|---|---|---|---|
-| 12 min | half SL1 if wrong side of HTF EMA9 | -20  | +3 | +45 / +2 / -67 | -62.7 | 0 / 17 |
-| 15 min | half SL1 if < 50 % of TP1 | -14  | +26 | +66 / -15 / -65 | -93.3 | 0 / 17 |
-| 18 min | half SL1 if negative | +80  | +115 | +34 / +60 / -14 | -38.5 | 6 / 17 |
-| 21 min | half SL1 if negative | +18  | +54 | +45 / +27 / -54 | -40.1 | 2 / 17 |
-| 24 min | half SL1 if never reached 25 % | +17  | +26 | +16 / +14 / -12 | -20.4 | 1 / 17 |
-| 1st 15m close | half SL1 if wrong side of HTF EMA9 | +11  | +35 | +22 / -1 / -10 | -26.5 | 1 / 17 |
-| 1st 15m close >= 12 min | half SL1 if never reached 25 % | -22  | -4 | +3 / +19 / -43 | -36.9 | 0 / 17 |
-| 2nd 15m close | half SL1 if never reached 25 % | +5  | +17 | +3 / +15 / -12 | -9.4 | 1 / 17 |
+| 12 min | half SL1 if wrong side of HTF EMA9 | -19  | +5 | +45 / +1 / -65 | -49.7 | 0 / 17 |
+| 15 min | half SL1 if wrong side of HTF EMA9 | -26  | -4 | -2 / +1 / -25 | -25.2 | 0 / 17 |
+| 18 min | half SL1 if wrong side of HTF EMA9 | +37 T4 | +54 | +16 / +18 / +3 | +7.5 | 3 / 17 |
+| 21 min | half SL1 if wrong side of HTF EMA9 | -7  | +13 | +10 / +16 / -33 | -8.9 | 0 / 17 |
+| 24 min | half SL1 if never reached 25 % | -30  | -22 | +16 / +14 / -59 | -55.8 | 0 / 17 |
+| 1st 15m close | half SL1 if wrong side of HTF EMA9 | +10  | +35 | +22 / +16 / -28 | -27.3 | 1 / 17 |
+| 1st 15m close >= 12 min | half SL1 if wrong side of HTF EMA9 | -33  | -5 | -14 / +10 / -29 | -31.6 | 0 / 17 |
+| 2nd 15m close | half SL1 if never reached 25 % | -7  | +6 | +3 / +15 / -24 | -21.3 | 0 / 17 |
 
 **4. Which condition — best per condition (any check time / action, no TP rule)**
 
 | Condition | Best rule | Δ after costs | Gross | Positive rules |
 |---|---|---|---|---|
-| negative | half SL1 if negative at 18 min | +80  | +115 | 2 / 16 |
-| < 25 % of TP1 | half SL1 if < 25 % of TP1 at 18 min | +68  | +102 | 1 / 24 |
-| < 50 % of TP1 | half SL1 if < 50 % of TP1 at 18 min | +41  | +77 | 1 / 24 |
-| wrong side of HTF EMA9 | half SL1 if wrong side of HTF EMA9 at 18 min | +38 T | +55 | 2 / 24 |
-| never reached 25 % | half SL1 if never reached 25 % at 18 min | +43  | +57 | 4 / 24 |
-| never reached 50 % | half SL1 if never reached 50 % at 18 min | +36  | +62 | 1 / 24 |
+| negative | half SL1 if negative at 18 min | +31  | +66 | 1 / 16 |
+| < 25 % of TP1 | half SL1 if < 25 % of TP1 at 18 min | +18  | +54 | 1 / 24 |
+| < 50 % of TP1 | half SL1 if < 50 % of TP1 at 18 min | -9  | +28 | 0 / 24 |
+| wrong side of HTF EMA9 | half SL1 if wrong side of HTF EMA9 at 18 min | +37 T4 | +54 | 2 / 24 |
+| never reached 25 % | half SL1 if never reached 25 % at 2nd 15m close | -7  | +6 | 0 / 24 |
+| never reached 50 % | half SL1 if never reached 50 % at 18 min | -17  | +10 | 0 / 24 |
 
-**2. Costs:** 46 of 136 rules are better gross, 11 after costs. Avg cost of the rules: -112 pts.
+**2. Costs:** 22 of 136 rules are better gross, 4 after costs. Avg cost of the rules: -115 pts.
 
 **Top 8 rules after costs** (incl. with the TP rule where run)
 
-1. half SL1 if negative at 18 min + TP rule: **+206** after costs (gross +275) (z +1.0, thirds +114 / +105 / -13, last 4 wk -85.9, 78 cuts, +100 trades)
-2. half SL1 if wrong side of HTF EMA9 at 18 min + TP rule: **+202** after costs (gross +255) TR (z +1.1, thirds +93 / +96 / +13, last 4 wk -47.9, 59 cuts, +76 trades) — promising
-3. half SL1 if < 25 % of TP1 at 18 min + TP rule: **+193** after costs (gross +263) (z +1.0, thirds +128 / +107 / -43, last 4 wk -106.9, 78 cuts, +101 trades)
-4. half SL1 if never reached 50 % at 18 min + TP rule: **+193** after costs (gross +255) (z +1.0, thirds +134 / +95 / -36, last 4 wk -102.1, 64 cuts, +92 trades)
-5. half SL1 if never reached 25 % at 18 min + TP rule: **+185** after costs (gross +234) (z +1.1, thirds +106 / +91 / -11, last 4 wk -57.9, 36 cuts, +80 trades)
-6. half SL1 if wrong side of HTF EMA9 at 1st 15m close + TP rule: **+180** after costs (gross +239) T (z +1.0, thirds +96 / +72 / +12, last 4 wk -46.2, 85 cuts, +76 trades)
-7. half SL1 if never reached 25 % at 24 min + TP rule: **+170** after costs (gross +214) TR (z +1.0, thirds +92 / +74 / +5, last 4 wk -61.6, 19 cuts, +77 trades) — promising
-8. half SL1 if < 50 % of TP1 at 18 min + TP rule: **+166** after costs (gross +236) (z +0.8, thirds +156 / +95 / -85, last 4 wk -143.0, 78 cuts, +102 trades)
+1. half SL1 if wrong side of HTF EMA9 at 18 min + TP rule: **+180** after costs (gross +234) (z +1.0, thirds +93 / +88 / -1, last 4 wk -57.3, 61 cuts, +78 trades)
+2. half SL1 if wrong side of HTF EMA9 at 1st 15m close + TP rule: **+159** after costs (gross +220) (z +0.9, thirds +96 / +85 / -22, last 4 wk -72.6, 87 cuts, +78 trades)
+3. half SL1 if negative at 18 min + TP rule: **+154** after costs (gross +226) (z +0.8, thirds +114 / +112 / -72, last 4 wk -113.1, 82 cuts, +103 trades)
+4. half SL1 if < 25 % of TP1 at 18 min + TP rule: **+140** after costs (gross +213) (z +0.7, thirds +128 / +114 / -102, last 4 wk -134.1, 82 cuts, +104 trades)
+5. half SL1 if wrong side of HTF EMA9 at 21 min + TP rule: **+138** after costs (gross +195) (z +0.8, thirds +89 / +82 / -32, last 4 wk -68.3, 72 cuts, +78 trades)
+6. half SL1 if never reached 50 % at 18 min + TP rule: **+138** after costs (gross +202) (z +0.7, thirds +134 / +102 / -98, last 4 wk -131.9, 66 cuts, +95 trades)
+7. half SL1 if wrong side of HTF EMA9 at 12 min + TP rule: **+132** after costs (gross +192) (z +0.7, thirds +126 / +55 / -49, last 4 wk -88.5, 84 cuts, +78 trades)
+8. half SL1 if never reached 25 % at 18 min + TP rule: **+132** after costs (gross +183) (z +0.7, thirds +106 / +87 / -61, last 4 wk -93.2, 38 cuts, +83 trades)
 
-TP rule alone (TP1 -> 85 % after 18 min): +180 after costs, thirds +75 / +80 / +25, last 4 wk -25.3.
+TP rule alone (TP1 -> 85 % after 18 min): +160 after costs, thirds +75 / +76 / +10, last 4 wk -50.9.
 
 **3. Walk-forward** (choose on the first two thirds, test on the last third, after costs)
 
-- SL rules only: picked on thirds 1-2 = **cut if < 50 % of TP1 at 18 min** (+131 in-sample) → last third **-218** (rank 127 of 136; median rule -102; current exits 0)
-- with TP rule: picked on thirds 1-2 = **half SL1 if < 50 % of TP1 at 18 min** (+251 in-sample) → last third **-85** (rank 72 of 136; median rule -80; current exits 0)
+- SL rules only: picked on thirds 1-2 = **half SL1 if < 50 % of TP1 at 18 min** (+129 in-sample) → last third **-138** (rank 66 of 136; median rule -143; current exits 0)
+- with TP rule: picked on thirds 1-2 = **half SL1 if < 50 % of TP1 at 18 min** (+258 in-sample) → last third **-144** (rank 75 of 136; median rule -132; current exits 0)
 
 **5. Split by session / trigger** (Δ after costs)
 
 | Rule | NY 09:30-16:00 | Other hours | HTF flip | Other triggers |
 |---|---|---|---|---|
-| half SL1 if negative at 18 min | +120 | -40 | +78 | +2 |
-| half SL1 if < 25 % of TP1 at 18 min | +113 | -45 | +102 | -34 |
-| half SL1 if never reached 25 % at 18 min | +40 | +4 | +59 | -15 |
+| half SL1 if wrong side of HTF EMA9 at 18 min | +63 | -27 | +26 | +10 |
+| half SL1 if negative at 18 min | +120 | -90 | +75 | -45 |
+| half SL1 if < 25 % of TP1 at 18 min | +113 | -95 | +99 | -81 |
 
 **6. Re-entry after a cut** (next same-direction trade starting within 30 min after the cut)
 
-- half SL1 if negative at 18 min: 75 cuts → 5 re-entries, net -18, avg -3.66 vs all trades -0.44
-- half SL1 if < 25 % of TP1 at 18 min: 75 cuts → 5 re-entries, net -18, avg -3.66 vs all trades -0.45
-- half SL1 if never reached 25 % at 18 min: 35 cuts → 4 re-entries, net -21, avg -5.28 vs all trades -0.47
+- half SL1 if wrong side of HTF EMA9 at 18 min: 58 cuts → 3 re-entries, net -19, avg -6.21 vs all trades -0.45
+- half SL1 if negative at 18 min: 79 cuts → 5 re-entries, net -18, avg -3.66 vs all trades -0.45
+- half SL1 if < 25 % of TP1 at 18 min: 79 cuts → 5 re-entries, net -18, avg -3.66 vs all trades -0.45
 
-**7. Session guards** (skip the rest of the session after K losses in a row or after −L pts; avg full SL1 loss 10.5 pts)
+**7. Session guards** (skip the rest of the session after K losses in a row or after −L pts; avg full SL1 loss 10.6 pts)
 
-| Guard | on current exits | beyond random skipping* | on best rule (half SL1 if negative at 18 min) |
+| Guard | on current exits | beyond random skipping* | on best rule (half SL1 if wrong side of HTF EMA9 at 18 min) |
 |---|---|---|---|
-| 2 losses in a row | +568 T (thirds +49 / +460 / +58, last 4 wk -80.0, 676 skipped) | **+232** | +585 vs rule alone |
-| 2 losses in a row + −3 x SL1 (31 pts) | +568 T (thirds +49 / +460 / +58, last 4 wk -80.0, 676 skipped) | **+232** | +585 vs rule alone |
-| 2 losses in a row + −2 x SL1 (21 pts) | +532 T (thirds +22 / +452 / +58, last 4 wk -80.0, 684 skipped) | **+193** | +565 vs rule alone |
-| 3 losses in a row + −3 x SL1 (31 pts) | +310 T (thirds +21 / +257 / +32, last 4 wk -120.3, 315 skipped) | **+153** | +335 vs rule alone |
-| 2 losses in a row + −1 x SL1 (10 pts) | +504  (thirds -5 / +462 / +48, last 4 wk -95.2, 718 skipped) | **+148** | +552 vs rule alone |
-| 3 losses in a row | +298 T (thirds +9 / +257 / +32, last 4 wk -120.3, 313 skipped) | **+142** | +331 vs rule alone |
-| −3 x SL1 (31 pts) | +161 T (thirds +50 / +83 / +28, last 4 wk +0.0, 41 skipped) | **+141** | +40 vs rule alone |
-| 3 losses in a row + −2 x SL1 (21 pts) | +213  (thirds -64 / +261 / +17, last 4 wk -115.3, 336 skipped) | **+46** | +308 vs rule alone |
-| 4 losses in a row + −3 x SL1 (31 pts) | +75  (thirds -10 / +61 / +24, last 4 wk -45.0, 142 skipped) | **+5** | +8 vs rule alone |
-| −2 x SL1 (21 pts) | +55  (thirds -22 / +73 / +3, last 4 wk -26.3, 132 skipped) | **-11** | +66 vs rule alone |
-| 3 losses in a row + −1 x SL1 (10 pts) | +214  (thirds -53 / +320 / -53, last 4 wk -154.0, 456 skipped) | **-12** | +284 vs rule alone |
-| 4 losses in a row | +23  (thirds -57 / +66 / +14, last 4 wk -45.0, 131 skipped) | **-42** | +24 vs rule alone |
-| −1 x SL1 (10 pts) | +132  (thirds -54 / +260 / -74, last 4 wk -154.0, 393 skipped) | **-63** | +113 vs rule alone |
-| 4 losses in a row + −1 x SL1 (10 pts) | +109  (thirds -62 / +236 / -64, last 4 wk -154.0, 404 skipped) | **-91** | +95 vs rule alone |
-| 4 losses in a row + −2 x SL1 (21 pts) | -16  (thirds -87 / +82 / -10, last 4 wk -71.3, 196 skipped) | **-113** | -15 vs rule alone |
+| 2 losses in a row | +493  (thirds +49 / +450 / -6, last 4 wk -141.1, 696 skipped) | **+164** | +444 vs rule alone |
+| 2 losses in a row + −3 x SL1 (32 pts) | +493  (thirds +49 / +450 / -6, last 4 wk -141.1, 696 skipped) | **+164** | +444 vs rule alone |
+| −3 x SL1 (32 pts) | +161 T (thirds +50 / +83 / +28, last 4 wk +0.0, 41 skipped) | **+142** | +127 vs rule alone |
+| 2 losses in a row + −2 x SL1 (21 pts) | +458  (thirds +22 / +442 / -6, last 4 wk -141.1, 704 skipped) | **+125** | +408 vs rule alone |
+| 2 losses in a row + −1 x SL1 (11 pts) | +445  (thirds -5 / +454 / -4, last 4 wk -141.9, 739 skipped) | **+95** | +411 vs rule alone |
+| 3 losses in a row + −3 x SL1 (32 pts) | +212  (thirds +21 / +259 / -68, last 4 wk -217.9, 330 skipped) | **+56** | +213 vs rule alone |
+| 3 losses in a row | +200  (thirds +9 / +259 / -68, last 4 wk -217.9, 328 skipped) | **+45** | +201 vs rule alone |
+| 4 losses in a row + −3 x SL1 (32 pts) | +30  (thirds -10 / +61 / -21, last 4 wk -90.3, 149 skipped) | **-40** | -24 vs rule alone |
+| 3 losses in a row + −2 x SL1 (21 pts) | +115  (thirds -64 / +262 / -82, last 4 wk -212.9, 351 skipped) | **-51** | +117 vs rule alone |
+| −2 x SL1 (21 pts) | -1  (thirds -22 / +75 / -55, last 4 wk -82.2, 139 skipped) | **-67** | -3 vs rule alone |
+| 4 losses in a row | -22  (thirds -57 / +66 / -32, last 4 wk -90.3, 138 skipped) | **-87** | -63 vs rule alone |
+| 3 losses in a row + −1 x SL1 (11 pts) | +132  (thirds -35 / +266 / -99, last 4 wk -219.3, 470 skipped) | **-90** | +162 vs rule alone |
+| −1 x SL1 (11 pts) | +88  (thirds -7 / +206 / -111, last 4 wk -219.3, 400 skipped) | **-101** | +36 vs rule alone |
+| 4 losses in a row + −1 x SL1 (11 pts) | +66  (thirds -15 / +181 / -101, last 4 wk -219.3, 411 skipped) | **-128** | +28 vs rule alone |
+| 4 losses in a row + −2 x SL1 (21 pts) | -117  (thirds -87 / +83 / -113, last 4 wk -172.5, 210 skipped) | **-216** | -149 vs rule alone |
 
-*Current exits lose 0.50 pts per trade after costs, so skipping ANY trades looks good. This column = guard result minus what skipping the same number of random trades would give; positive = the guard picks the bad trades.
+*Current exits lose 0.47 pts per trade after costs, so skipping ANY trades looks good. This column = guard result minus what skipping the same number of random trades would give; positive = the guard picks the bad trades.
 
-## MGC 3m — current exits: 1707 setups to 11/09, net +247 gross / -129 after costs (0.22 pts per trade)
+## MGC 3m — current exits: 1193 setups to 11/13, net +317 gross / +55 after costs (0.22 pts per trade)
 
 **1. When to check — best rule per check time (after costs; no TP rule)**
 
 | Check | Best rule | Δ after costs | Gross | Thirds | Last 4 wk | Positive rules |
 |---|---|---|---|---|---|---|
-| 12 min | half SL1 if negative | +62  | +75 | -1 / +16 / +47 | -17.4 | 6 / 17 |
-| 15 min | half SL1 if wrong side of HTF EMA9 | +75 T4R | +82 | +35 / +25 / +15 | +14.2 | 9 / 17 |
-| 18 min | cut if wrong side of HTF EMA9 | +87 T4R | +98 | +25 / +18 / +44 | +29.1 | 16 / 17 |
-| 21 min | cut if wrong side of HTF EMA9 | +53 T4R | +63 | +18 / +1 / +34 | +20.2 | 7 / 17 |
-| 24 min | cut if wrong side of HTF EMA9 | +25 T4R | +31 | +18 / +1 / +6 | +0.2 | 11 / 17 |
-| 1st 15m close | half SL1 if never reached 50 % | +71 T | +85 | +9 / +35 / +27 | -25.0 | 4 / 17 |
-| 1st 15m close >= 12 min | half SL1 if never reached 50 % | +16  | +25 | -11 / -8 / +35 | -12.7 | 3 / 17 |
-| 2nd 15m close | cut if never reached 50 % | +2  | +16 | -14 / -1 / +17 | -14.7 | 3 / 17 |
+| 12 min | half SL1 if negative | +21 TR | +30 | +10 / +4 / +8 | -14.4 | 3 / 17 |
+| 15 min | half SL1 if wrong side of HTF EMA9 | +41 T4 | +46 | +29 / +10 / +1 | +6.3 | 9 / 17 |
+| 18 min | cut if negative | +81 T4R | +102 | +38 / +8 / +35 | +23.8 | 16 / 17 |
+| 21 min | cut if wrong side of HTF EMA9 | +45 T4R | +52 | +7 / +2 / +37 | +12.3 | 11 / 17 |
+| 24 min | half SL1 if negative | +25  | +29 | -4 / +21 / +9 | -24.5 | 13 / 17 |
+| 1st 15m close | half SL1 if never reached 25 % | +37 T | +43 | +4 / +6 / +27 | -0.9 | 4 / 17 |
+| 1st 15m close >= 12 min | half SL1 if never reached 25 % | +7 4 | +9 | -3 / -16 / +26 | +8.1 | 1 / 17 |
+| 2nd 15m close | cut if never reached 25 % | +24  | +26 | -1 / +10 / +15 | -0.1 | 6 / 17 |
 
 **4. Which condition — best per condition (any check time / action, no TP rule)**
 
 | Condition | Best rule | Δ after costs | Gross | Positive rules |
 |---|---|---|---|---|
-| negative | cut if negative at 18 min | +82 T4 | +112 | 5 / 16 |
-| < 25 % of TP1 | cut if < 25 % of TP1 at 18 min | +78 4 | +124 | 5 / 24 |
-| < 50 % of TP1 | SL1 to BE if < 50 % of TP1 at 18 min | +57  | +94 | 8 / 24 |
-| wrong side of HTF EMA9 | cut if wrong side of HTF EMA9 at 18 min | +87 T4R | +98 | 15 / 24 |
-| never reached 25 % | half SL1 if never reached 25 % at 1st 15m close | +42 4 | +51 | 11 / 24 |
-| never reached 50 % | half SL1 if never reached 50 % at 1st 15m close | +71 T | +85 | 15 / 24 |
+| negative | cut if negative at 18 min | +81 T4R | +102 | 11 / 16 |
+| < 25 % of TP1 | cut if < 25 % of TP1 at 18 min | +58 4 | +88 | 9 / 24 |
+| < 50 % of TP1 | half SL1 if < 50 % of TP1 at 18 min | +51  | +59 | 8 / 24 |
+| wrong side of HTF EMA9 | cut if wrong side of HTF EMA9 at 18 min | +63 T4R | +71 | 13 / 24 |
+| never reached 25 % | half SL1 if never reached 25 % at 1st 15m close | +37 T | +43 | 14 / 24 |
+| never reached 50 % | half SL1 if never reached 50 % at 1st 15m close | +20  | +30 | 8 / 24 |
 
-**2. Costs:** 83 of 136 rules are better gross, 59 after costs. Avg cost of the rules: -23 pts.
+**2. Costs:** 78 of 136 rules are better gross, 63 after costs. Avg cost of the rules: -16 pts.
 
 **Top 8 rules after costs** (incl. with the TP rule where run)
 
-1. cut if < 25 % of TP1 at 18 min + TP rule: **+96** after costs (gross +145) 4 (z +0.8, thirds +63 / -1 / +34, last 4 wk +5.3, 348 cuts, +64 trades)
-2. SL1 to BE if < 25 % of TP1 at 18 min + TP rule: **+90** after costs (gross +129) T4 (z +0.7, thirds +52 / +12 / +25, last 4 wk +2.8, 250 cuts, +64 trades)
-3. cut if wrong side of HTF EMA9 at 18 min: **+87** after costs (gross +98) T4R (z +1.6, thirds +25 / +18 / +44, last 4 wk +29.1, 91 cuts, +8 trades) — promising
-4. SL1 to BE if wrong side of HTF EMA9 at 18 min: **+84** after costs (gross +95) T4R (z +1.5, thirds +25 / +18 / +42, last 4 wk +28.9, 87 cuts, +8 trades) — promising
-5. cut if negative at 18 min: **+82** after costs (gross +112) T4 (z +0.9, thirds +23 / +10 / +48, last 4 wk +31.2, 244 cuts, +26 trades)
-6. cut if < 25 % of TP1 at 18 min: **+78** after costs (gross +124) 4 (z +0.7, thirds +36 / -9 / +51, last 4 wk +8.7, 347 cuts, +51 trades)
-7. half SL1 if wrong side of HTF EMA9 at 15 min: **+75** after costs (gross +82) T4R (z +1.3, thirds +35 / +25 / +15, last 4 wk +14.2, 50 cuts, +8 trades) — promising
-8. half SL1 if never reached 50 % at 1st 15m close: **+71** after costs (gross +85) T (z +0.7, thirds +9 / +35 / +27, last 4 wk -25.0, 101 cuts, +19 trades)
+1. half SL1 if wrong side of HTF EMA9 at 18 min + TP rule: **+92** after costs (gross +101) 4 (z +1.1, thirds +57 / -12 / +47, last 4 wk +9.0, 26 cuts, +28 trades)
+2. SL1 to BE if wrong side of HTF EMA9 at 18 min + TP rule: **+89** after costs (gross +103) 4 (z +1.0, thirds +54 / -11 / +46, last 4 wk +10.6, 71 cuts, +30 trades)
+3. cut if wrong side of HTF EMA9 at 18 min + TP rule: **+85** after costs (gross +99) 4 (z +1.0, thirds +54 / -11 / +41, last 4 wk +6.9, 75 cuts, +30 trades)
+4. half SL1 if wrong side of HTF EMA9 at 21 min + TP rule: **+84** after costs (gross +92) 4 (z +1.0, thirds +38 / -2 / +47, last 4 wk +9.0, 22 cuts, +28 trades)
+5. cut if negative at 18 min: **+81** after costs (gross +102) T4R (z +1.0, thirds +38 / +8 / +35, last 4 wk +23.8, 173 cuts, +17 trades) — promising
+6. cut if wrong side of HTF EMA9 at 21 min + TP rule: **+75** after costs (gross +88) 4 (z +0.9, thirds +40 / -12 / +47, last 4 wk +7.3, 65 cuts, +28 trades)
+7. cut if wrong side of HTF EMA9 at 24 min + TP rule: **+75** after costs (gross +86) (z +0.9, thirds +46 / -3 / +33, last 4 wk -0.3, 45 cuts, +30 trades)
+8. SL1 to BE if wrong side of HTF EMA9 at 24 min + TP rule: **+75** after costs (gross +86) (z +0.9, thirds +46 / -4 / +33, last 4 wk -0.3, 44 cuts, +30 trades)
 
-TP rule alone (TP1 -> 65 % after 21 min): -2 after costs, thirds +28 / -11 / -19, last 4 wk -11.1.
+TP rule alone (TP1 -> 65 % after 21 min): +53 after costs, thirds +35 / +0 / +18, last 4 wk +0.2.
 
 **3. Walk-forward** (choose on the first two thirds, test on the last third, after costs)
 
-- SL rules only: picked on thirds 1-2 = **SL1 to BE if < 50 % of TP1 at 18 min** (+66 in-sample) → last third **-10** (rank 108 of 136; median rule +14; current exits 0)
-- with TP rule: picked on thirds 1-2 = **half SL1 if wrong side of HTF EMA9 at 15 min** (+69 in-sample) → last third **-14** (rank 104 of 136; median rule +3; current exits 0)
+- SL rules only: picked on thirds 1-2 = **SL1 to BE if < 50 % of TP1 at 18 min** (+64 in-sample) → last third **-19** (rank 111 of 136; median rule +7; current exits 0)
+- with TP rule: picked on thirds 1-2 = **half SL1 if wrong side of HTF EMA9 at 15 min** (+65 in-sample) → last third **+9** (rank 96 of 136; median rule +21; current exits 0)
 
 **5. Split by session / trigger** (Δ after costs)
 
 | Rule | NY 09:30-16:00 | Other hours | HTF flip | Other triggers |
 |---|---|---|---|---|
-| cut if wrong side of HTF EMA9 at 18 min | +24 | +63 | +23 | +64 |
-| SL1 to BE if wrong side of HTF EMA9 at 18 min | +21 | +63 | +23 | +61 |
-| cut if negative at 18 min | +27 | +55 | +68 | +14 |
+| cut if negative at 18 min | +30 | +51 | +44 | +37 |
+| half SL1 if negative at 18 min | +12 | +61 | +31 | +41 |
+| cut if wrong side of HTF EMA9 at 18 min | +15 | +48 | +5 | +58 |
 
 **6. Re-entry after a cut** (next same-direction trade starting within 30 min after the cut)
 
-- cut if wrong side of HTF EMA9 at 18 min: 91 cuts → 8 re-entries, net -2, avg -0.24 vs all trades -0.02
-- SL1 to BE if wrong side of HTF EMA9 at 18 min: 87 cuts → 8 re-entries, net -2, avg -0.24 vs all trades -0.03
-- cut if negative at 18 min: 244 cuts → 24 re-entries, net +11, avg +0.45 vs all trades -0.03
+- cut if negative at 18 min: 173 cuts → 16 re-entries, net +5, avg +0.31 vs all trades +0.11
+- half SL1 if negative at 18 min: 41 cuts → 1 re-entries, net +5, avg +4.96 vs all trades +0.11
+- cut if wrong side of HTF EMA9 at 18 min: 72 cuts → 6 re-entries, net -5, avg -0.91 vs all trades +0.10
 
-**7. Session guards** (skip the rest of the session after K losses in a row or after −L pts; avg full SL1 loss 6.5 pts)
+**7. Session guards** (skip the rest of the session after K losses in a row or after −L pts; avg full SL1 loss 6.6 pts)
 
-| Guard | on current exits | beyond random skipping* | on best rule (cut if wrong side of HTF EMA9 at 18 min) |
+| Guard | on current exits | beyond random skipping* | on best rule (cut if negative at 18 min) |
 |---|---|---|---|
-| 2 losses in a row + −1 x SL1 (7 pts) | +107  (thirds +126 / -95 / +77, last 4 wk -10.0, 852 skipped) | **+43** | +75 vs rule alone |
-| 2 losses in a row + −2 x SL1 (13 pts) | +96  (thirds +101 / -101 / +96, last 4 wk +26.1, 725 skipped) | **+41** | +67 vs rule alone |
-| 2 losses in a row | +84  (thirds +89 / -101 / +96, last 4 wk +26.1, 721 skipped) | **+30** | +56 vs rule alone |
-| 2 losses in a row + −3 x SL1 (20 pts) | +84  (thirds +89 / -101 / +96, last 4 wk +26.1, 721 skipped) | **+30** | +56 vs rule alone |
-| 3 losses in a row + −1 x SL1 (7 pts) | +58  (thirds +78 / -42 / +22, last 4 wk -46.2, 714 skipped) | **+4** | +23 vs rule alone |
-| −1 x SL1 (7 pts) | +46  (thirds +76 / -40 / +10, last 4 wk -61.8, 678 skipped) | **-5** | +10 vs rule alone |
-| 4 losses in a row + −1 x SL1 (7 pts) | +43  (thirds +76 / -45 / +12, last 4 wk -60.6, 682 skipped) | **-9** | +9 vs rule alone |
-| 3 losses in a row + −2 x SL1 (13 pts) | +18  (thirds -1 / -2 / +21, last 4 wk +4.4, 417 skipped) | **-13** | -13 vs rule alone |
-| 3 losses in a row + −3 x SL1 (20 pts) | +10  (thirds +25 / +9 / -24, last 4 wk +4.4, 312 skipped) | **-14** | -15 vs rule alone |
-| −3 x SL1 (20 pts) | -10  (thirds +12 / -21 / -0, last 4 wk +11.4, 109 skipped) | **-18** | -22 vs rule alone |
-| 3 losses in a row | -1  (thirds +33 / +4 / -37, last 4 wk +4.4, 303 skipped) | **-24** | -6 vs rule alone |
-| −2 x SL1 (13 pts) | -9  (thirds -36 / +1 / +26, last 4 wk -6.0, 311 skipped) | **-33** | -28 vs rule alone |
-| 4 losses in a row + −2 x SL1 (13 pts) | -9  (thirds -31 / -15 / +36, last 4 wk +4.7, 331 skipped) | **-34** | -36 vs rule alone |
-| 4 losses in a row + −3 x SL1 (20 pts) | -27  (thirds +10 / -27 / -10, last 4 wk +15.9, 174 skipped) | **-40** | -39 vs rule alone |
-| 4 losses in a row | -48  (thirds -6 / -35 / -6, last 4 wk +15.9, 123 skipped) | **-57** | -42 vs rule alone |
+| 3 losses in a row + −3 x SL1 (20 pts) | +38  (thirds +68 / +20 / -50, last 4 wk -26.3, 160 skipped) | **+46** | +46 vs rule alone |
+| 4 losses in a row | +30  (thirds +37 / -5 / -2, last 4 wk +5.2, 58 skipped) | **+32** | +23 vs rule alone |
+| 3 losses in a row | +24  (thirds +61 / +20 / -57, last 4 wk -26.3, 158 skipped) | **+31** | +46 vs rule alone |
+| 4 losses in a row + −3 x SL1 (20 pts) | -2  (thirds +21 / -5 / -18, last 4 wk +5.2, 86 skipped) | **+2** | -27 vs rule alone |
+| 2 losses in a row + −1 x SL1 (7 pts) | -27  (thirds +83 / -79 / -31, last 4 wk -56.9, 494 skipped) | **-4** | -35 vs rule alone |
+| −3 x SL1 (20 pts) | -8  (thirds +16 / -4 / -20, last 4 wk +0.0, 55 skipped) | **-6** | -37 vs rule alone |
+| −1 x SL1 (7 pts) | -30  (thirds +51 / -49 / -32, last 4 wk -57.9, 418 skipped) | **-11** | -18 vs rule alone |
+| 4 losses in a row + −1 x SL1 (7 pts) | -30  (thirds +51 / -49 / -32, last 4 wk -57.9, 418 skipped) | **-11** | -20 vs rule alone |
+| 3 losses in a row + −1 x SL1 (7 pts) | -42  (thirds +48 / -42 / -48, last 4 wk -56.7, 432 skipped) | **-22** | -11 vs rule alone |
+| 2 losses in a row + −2 x SL1 (13 pts) | -41  (thirds +48 / -87 / -2, last 4 wk -24.4, 403 skipped) | **-23** | -39 vs rule alone |
+| 2 losses in a row | -46  (thirds +44 / -87 / -2, last 4 wk -24.4, 400 skipped) | **-27** | -43 vs rule alone |
+| 2 losses in a row + −3 x SL1 (20 pts) | -46  (thirds +44 / -87 / -2, last 4 wk -24.4, 400 skipped) | **-27** | -43 vs rule alone |
+| 3 losses in a row + −2 x SL1 (13 pts) | -80  (thirds -24 / -7 / -49, last 4 wk -26.3, 231 skipped) | **-69** | -35 vs rule alone |
+| 4 losses in a row + −2 x SL1 (13 pts) | -90  (thirds -49 / -20 / -21, last 4 wk -9.5, 189 skipped) | **-82** | -69 vs rule alone |
+| −2 x SL1 (13 pts) | -96  (thirds -55 / -20 / -21, last 4 wk -9.5, 183 skipped) | **-87** | -69 vs rule alone |
 
-*Current exits lose 0.08 pts per trade after costs, so skipping ANY trades looks good. This column = guard result minus what skipping the same number of random trades would give; positive = the guard picks the bad trades.
+*Current exits lose -0.05 pts per trade after costs, so skipping ANY trades looks good. This column = guard result minus what skipping the same number of random trades would give; positive = the guard picks the bad trades.
 
-## MNQ 3m — current exits: 1937 setups to 11/09, net +58 gross / -1627 after costs (0.87 pts per trade)
+## MNQ 3m — current exits: 1969 setups to 11/13, net -362 gross / -2075 after costs (0.87 pts per trade)
 
 **1. When to check — best rule per check time (after costs; no TP rule)**
 
 | Check | Best rule | Δ after costs | Gross | Thirds | Last 4 wk | Positive rules |
 |---|---|---|---|---|---|---|
-| 12 min | half SL1 if never reached 25 % | +130 4 | +155 | -69 / +149 / +50 | +51.0 | 1 / 17 |
-| 15 min | half SL1 if never reached 25 % | +38 4 | +59 | -36 / +96 / -22 | +30.0 | 1 / 17 |
-| 18 min | SL1 to BE if never reached 25 % | +162 4 | +195 | -33 / +164 / +32 | +28.7 | 8 / 17 |
-| 21 min | cut if never reached 50 % | +38 4 | +122 | -56 / +125 / -31 | +138.1 | 1 / 17 |
-| 24 min | cut if never reached 50 % | +160 4 | +226 | -24 / +253 / -69 | +81.2 | 5 / 17 |
-| 1st 15m close | cut if wrong side of HTF EMA9 | -129  | -68 | +94 / +82 / -305 | -107.9 | 0 / 17 |
-| 1st 15m close >= 12 min | cut if wrong side of HTF EMA9 | +46  | +79 | -108 / +110 / +44 | -18.0 | 2 / 17 |
-| 2nd 15m close | cut if never reached 50 % | +152 4 | +213 | +22 / +223 / -92 | +39.0 | 6 / 17 |
+| 12 min | half SL1 if never reached 25 % | +130 4 | +155 | -69 / +174 / +25 | +36.0 | 1 / 17 |
+| 15 min | half SL1 if never reached 25 % | +38 4 | +59 | -36 / +109 / -35 | +30.0 | 1 / 17 |
+| 18 min | SL1 to BE if never reached 25 % | +162 4 | +195 | -33 / +164 / +32 | +28.8 | 8 / 17 |
+| 21 min | cut if never reached 50 % | +38 4 | +122 | -56 / +125 / -31 | +146.2 | 1 / 17 |
+| 24 min | cut if never reached 50 % | +160 4 | +226 | -24 / +253 / -69 | +78.3 | 5 / 17 |
+| 1st 15m close | half SL1 if wrong side of HTF EMA9 | -100  | -78 | +13 / +103 / -216 | -45.9 | 0 / 17 |
+| 1st 15m close >= 12 min | cut if wrong side of HTF EMA9 | +46  | +79 | -108 / +121 / +33 | -0.7 | 2 / 17 |
+| 2nd 15m close | cut if never reached 50 % | +152 4 | +213 | +22 / +223 / -92 | +56.3 | 6 / 17 |
 
 **4. Which condition — best per condition (any check time / action, no TP rule)**
 
 | Condition | Best rule | Δ after costs | Gross | Positive rules |
 |---|---|---|---|---|
-| negative | half SL1 if negative at 15 min | -30 4 | +19 | 0 / 16 |
-| < 25 % of TP1 | half SL1 if < 25 % of TP1 at 18 min | -260 4 | -208 | 0 / 24 |
+| negative | half SL1 if negative at 15 min | -21 4 | +27 | 0 / 16 |
+| < 25 % of TP1 | half SL1 if < 25 % of TP1 at 18 min | -230 4 | -178 | 0 / 24 |
 | < 50 % of TP1 | cut if < 50 % of TP1 at 24 min | -228 4 | -47 | 0 / 24 |
 | wrong side of HTF EMA9 | cut if wrong side of HTF EMA9 at 18 min | +79 4 | +111 | 7 / 24 |
 | never reached 25 % | SL1 to BE if never reached 25 % at 18 min | +162 4 | +195 | 7 / 24 |
@@ -234,18 +234,18 @@ TP rule alone (TP1 -> 65 % after 21 min): -2 after costs, thirds +28 / -11 / -19
 
 **Top 8 rules after costs** (incl. with the TP rule where run)
 
-1. SL1 to BE if never reached 25 % at 18 min: **+162** after costs (gross +195) 4 (z +0.6, thirds -33 / +164 / +32, last 4 wk +28.7, 68 cuts, +18 trades)
-2. cut if never reached 50 % at 24 min: **+160** after costs (gross +226) 4 (z +0.4, thirds -24 / +253 / -69, last 4 wk +81.2, 148 cuts, +33 trades)
-3. cut if never reached 25 % at 18 min: **+153** after costs (gross +189) 4 (z +0.5, thirds -21 / +171 / +4, last 4 wk +28.7, 81 cuts, +18 trades)
-4. cut if never reached 50 % at 2nd 15m close: **+152** after costs (gross +213) 4 (z +0.4, thirds +22 / +223 / -92, last 4 wk +39.0, 143 cuts, +29 trades)
-5. half SL1 if never reached 25 % at 12 min: **+130** after costs (gross +155) 4 (z +0.4, thirds -69 / +149 / +50, last 4 wk +51.0, 44 cuts, +16 trades)
-6. half SL1 if never reached 50 % at 2nd 15m close: **+114** after costs (gross +133) T4 (z +0.4, thirds +22 / +75 / +16, last 4 wk +22.2, 33 cuts, +13 trades)
-7. cut if never reached 50 % at 18 min: **+91** after costs (gross +203) 4 (z +0.2, thirds -46 / +123 / +13, last 4 wk +163.6, 262 cuts, +54 trades)
-8. SL1 to BE if never reached 50 % at 2nd 15m close: **+89** after costs (gross +139) 4 (z +0.2, thirds -44 / +224 / -91, last 4 wk +22.3, 108 cuts, +27 trades)
+1. SL1 to BE if never reached 25 % at 18 min: **+162** after costs (gross +195) 4 (z +0.6, thirds -33 / +164 / +32, last 4 wk +28.8, 68 cuts, +18 trades)
+2. cut if never reached 50 % at 24 min: **+160** after costs (gross +226) 4 (z +0.4, thirds -24 / +253 / -69, last 4 wk +78.3, 148 cuts, +33 trades)
+3. cut if never reached 25 % at 18 min: **+153** after costs (gross +189) 4 (z +0.5, thirds -21 / +171 / +4, last 4 wk +28.8, 81 cuts, +18 trades)
+4. cut if never reached 50 % at 2nd 15m close: **+152** after costs (gross +213) 4 (z +0.4, thirds +22 / +223 / -92, last 4 wk +56.3, 143 cuts, +29 trades)
+5. half SL1 if never reached 25 % at 12 min: **+130** after costs (gross +155) 4 (z +0.4, thirds -69 / +174 / +25, last 4 wk +36.0, 44 cuts, +16 trades)
+6. half SL1 if never reached 50 % at 2nd 15m close: **+114** after costs (gross +133) T4 (z +0.4, thirds +22 / +75 / +16, last 4 wk +47.8, 33 cuts, +13 trades)
+7. cut if never reached 50 % at 18 min: **+111** after costs (gross +223) 4 (z +0.2, thirds -46 / +127 / +30, last 4 wk +166.7, 263 cuts, +54 trades)
+8. half SL1 if never reached 50 % at 18 min: **+99** after costs (gross +136) 4 (z +0.2, thirds +13 / +106 / -19, last 4 wk +113.8, 56 cuts, +27 trades)
 
 **3. Walk-forward** (choose on the first two thirds, test on the last third, after costs)
 
-- SL rules only: picked on thirds 1-2 = **cut if never reached 50 % at 2nd 15m close** (+244 in-sample) → last third **-92** (rank 59 of 136; median rule -108; current exits 0)
+- SL rules only: picked on thirds 1-2 = **cut if never reached 50 % at 2nd 15m close** (+244 in-sample) → last third **-92** (rank 64 of 136; median rule -106; current exits 0)
 
 **5. Split by session / trigger** (Δ after costs)
 
@@ -257,74 +257,74 @@ TP rule alone (TP1 -> 65 % after 21 min): -2 after costs, thirds +28 / -11 / -19
 
 **6. Re-entry after a cut** (next same-direction trade starting within 30 min after the cut)
 
-- SL1 to BE if never reached 25 % at 18 min: 68 cuts → 13 re-entries, net -20, avg -1.53 vs all trades -0.75
-- cut if never reached 50 % at 24 min: 148 cuts → 29 re-entries, net -174, avg -5.99 vs all trades -0.74
-- cut if never reached 25 % at 18 min: 81 cuts → 17 re-entries, net -26, avg -1.55 vs all trades -0.75
+- SL1 to BE if never reached 25 % at 18 min: 68 cuts → 13 re-entries, net -20, avg -1.53 vs all trades -0.96
+- cut if never reached 50 % at 24 min: 148 cuts → 29 re-entries, net -174, avg -5.99 vs all trades -0.96
+- cut if never reached 25 % at 18 min: 81 cuts → 17 re-entries, net -26, avg -1.55 vs all trades -0.97
 
 **7. Session guards** (skip the rest of the session after K losses in a row or after −L pts; avg full SL1 loss 29.6 pts)
 
 | Guard | on current exits | beyond random skipping* | on best rule (SL1 to BE if never reached 25 % at 18 min) |
 |---|---|---|---|
-| 2 losses in a row + −1 x SL1 (30 pts) | +1441 T (thirds +187 / +439 / +815, last 4 wk +206.5, 1062 skipped) | **+549** | +1179 vs rule alone |
-| 3 losses in a row + −3 x SL1 (89 pts) | +931 T (thirds +46 / +362 / +523, last 4 wk +262.2, 512 skipped) | **+501** | +1015 vs rule alone |
-| 3 losses in a row + −1 x SL1 (30 pts) | +1221 T (thirds +161 / +297 / +763, last 4 wk +224.5, 889 skipped) | **+475** | +1053 vs rule alone |
-| 3 losses in a row | +900 T (thirds +46 / +331 / +523, last 4 wk +262.2, 511 skipped) | **+471** | +985 vs rule alone |
-| −1 x SL1 (30 pts) | +1138 T (thirds +208 / +197 / +732, last 4 wk +262.4, 848 skipped) | **+426** | +920 vs rule alone |
-| 4 losses in a row + −1 x SL1 (30 pts) | +1076 T (thirds +94 / +197 / +784, last 4 wk +262.4, 860 skipped) | **+354** | +900 vs rule alone |
-| 4 losses in a row + −3 x SL1 (89 pts) | +575  (thirds -174 / +501 / +249, last 4 wk +67.9, 276 skipped) | **+344** | +553 vs rule alone |
-| −3 x SL1 (89 pts) | +415  (thirds -77 / +260 / +232, last 4 wk +90.7, 199 skipped) | **+248** | +248 vs rule alone |
-| 4 losses in a row | +337  (thirds -185 / +357 / +166, last 4 wk +42.0, 232 skipped) | **+142** | +378 vs rule alone |
-| 4 losses in a row + −2 x SL1 (59 pts) | +483  (thirds +232 / -19 / +271, last 4 wk +162.9, 479 skipped) | **+81** | +737 vs rule alone |
-| 2 losses in a row | +883 T (thirds +280 / +6 / +598, last 4 wk +182.4, 970 skipped) | **+69** | +731 vs rule alone |
-| 2 losses in a row + −2 x SL1 (59 pts) | +883 T (thirds +280 / +6 / +598, last 4 wk +182.4, 970 skipped) | **+69** | +731 vs rule alone |
-| 2 losses in a row + −3 x SL1 (89 pts) | +883 T (thirds +280 / +6 / +598, last 4 wk +182.4, 970 skipped) | **+69** | +731 vs rule alone |
-| −2 x SL1 (59 pts) | +406  (thirds +382 / -163 / +188, last 4 wk +162.9, 451 skipped) | **+27** | +632 vs rule alone |
-| 3 losses in a row + −2 x SL1 (59 pts) | +505  (thirds +129 / -25 / +401, last 4 wk +189.5, 596 skipped) | **+5** | +916 vs rule alone |
+| 2 losses in a row + −1 x SL1 (30 pts) | +1800 T (thirds +187 / +532 / +1081, last 4 wk +674.6, 1088 skipped) | **+653** | +1538 vs rule alone |
+| 3 losses in a row + −1 x SL1 (30 pts) | +1607 T (thirds +161 / +390 / +1055, last 4 wk +663.6, 910 skipped) | **+647** | +1438 vs rule alone |
+| −1 x SL1 (30 pts) | +1523 T (thirds +208 / +291 / +1024, last 4 wk +701.4, 869 skipped) | **+607** | +1306 vs rule alone |
+| 3 losses in a row + −3 x SL1 (89 pts) | +1149 T (thirds +46 / +348 / +755, last 4 wk +456.9, 521 skipped) | **+600** | +1233 vs rule alone |
+| 3 losses in a row | +1087 T (thirds +46 / +317 / +724, last 4 wk +426.1, 519 skipped) | **+540** | +1172 vs rule alone |
+| 4 losses in a row + −1 x SL1 (30 pts) | +1461 T (thirds +94 / +291 / +1076, last 4 wk +701.4, 881 skipped) | **+533** | +1285 vs rule alone |
+| 4 losses in a row + −3 x SL1 (89 pts) | +762  (thirds -174 / +483 / +454, last 4 wk +293.4, 284 skipped) | **+463** | +771 vs rule alone |
+| −3 x SL1 (89 pts) | +602  (thirds -77 / +242 / +437, last 4 wk +316.2, 207 skipped) | **+384** | +466 vs rule alone |
+| 4 losses in a row + −2 x SL1 (59 pts) | +758  (thirds +232 / -0 / +526, last 4 wk +432.5, 488 skipped) | **+243** | +1012 vs rule alone |
+| 4 losses in a row | +463  (thirds -185 / +308 / +339, last 4 wk +174.9, 238 skipped) | **+212** | +503 vs rule alone |
+| −2 x SL1 (59 pts) | +681  (thirds +382 / -144 / +443, last 4 wk +432.5, 460 skipped) | **+196** | +906 vs rule alone |
+| 3 losses in a row + −2 x SL1 (59 pts) | +798  (thirds +129 / -8 / +677, last 4 wk +459.1, 612 skipped) | **+153** | +1209 vs rule alone |
+| 2 losses in a row | +1150 T (thirds +280 / +54 / +816, last 4 wk +569.5, 991 skipped) | **+105** | +997 vs rule alone |
+| 2 losses in a row + −2 x SL1 (59 pts) | +1150 T (thirds +280 / +54 / +816, last 4 wk +569.5, 991 skipped) | **+105** | +997 vs rule alone |
+| 2 losses in a row + −3 x SL1 (89 pts) | +1150 T (thirds +280 / +54 / +816, last 4 wk +569.5, 991 skipped) | **+105** | +997 vs rule alone |
 
-*Current exits lose 0.84 pts per trade after costs, so skipping ANY trades looks good. This column = guard result minus what skipping the same number of random trades would give; positive = the guard picks the bad trades.
+*Current exits lose 1.05 pts per trade after costs, so skipping ANY trades looks good. This column = guard result minus what skipping the same number of random trades would give; positive = the guard picks the bad trades.
 
-## M2K 3m — current exits: 1948 setups to 11/09, net +78 gross / -604 after costs (0.35 pts per trade)
+## M2K 3m — current exits: 1970 setups to 11/13, net +92 gross / -598 after costs (0.35 pts per trade)
 
 **1. When to check — best rule per check time (after costs; no TP rule)**
 
 | Check | Best rule | Δ after costs | Gross | Thirds | Last 4 wk | Positive rules |
 |---|---|---|---|---|---|---|
-| 12 min | cut if wrong side of HTF EMA9 | +5 4 | +26 | -5 / +17 / -6 | +2.6 | 3 / 17 |
-| 15 min | cut if wrong side of HTF EMA9 | +7 4 | +26 | -2 / +16 / -7 | +4.7 | 3 / 17 |
-| 18 min | cut if negative | -37  | +30 | -6 / +20 / -51 | -14.4 | 0 / 17 |
-| 21 min | half SL1 if never reached 25 % | -26  | -19 | +1 / -9 / -18 | -4.7 | 0 / 17 |
-| 24 min | cut if wrong side of HTF EMA9 | -22  | -7 | +0 / +4 / -26 | -4.2 | 0 / 17 |
-| 1st 15m close | half SL1 if wrong side of HTF EMA9 | +8 4 | +17 | +2 / +14 / -8 | +1.5 | 1 / 17 |
-| 1st 15m close >= 12 min | half SL1 if wrong side of HTF EMA9 | -1 4 | +7 | -2 / +6 / -5 | +3.2 | 0 / 17 |
-| 2nd 15m close | half SL1 if wrong side of HTF EMA9 | -19  | -13 | -5 / -0 / -13 | -6.0 | 0 / 17 |
+| 12 min | half SL1 if wrong side of HTF EMA9 | +3 4 | +11 | -7 / +6 / +3 | +9.2 | 3 / 17 |
+| 15 min | cut if wrong side of HTF EMA9 | +7 4 | +26 | -2 / +16 / -7 | +5.4 | 3 / 17 |
+| 18 min | cut if wrong side of HTF EMA9 | -37 4 | -17 | -14 / +10 / -33 | +0.8 | 0 / 17 |
+| 21 min | half SL1 if never reached 25 % | -29  | -22 | +1 / -7 / -23 | -9.4 | 0 / 17 |
+| 24 min | cut if wrong side of HTF EMA9 | -21  | -6 | +0 / +4 / -25 | -2.0 | 0 / 17 |
+| 1st 15m close | half SL1 if wrong side of HTF EMA9 | +8 4 | +17 | +2 / +15 / -9 | +5.7 | 1 / 17 |
+| 1st 15m close >= 12 min | half SL1 if wrong side of HTF EMA9 | -1 4 | +7 | -2 / +6 / -5 | +7.4 | 0 / 17 |
+| 2nd 15m close | half SL1 if wrong side of HTF EMA9 | -19  | -13 | -5 / -0 / -14 | -2.9 | 0 / 17 |
 
 **4. Which condition — best per condition (any check time / action, no TP rule)**
 
 | Condition | Best rule | Δ after costs | Gross | Positive rules |
 |---|---|---|---|---|
-| negative | half SL1 if negative at 1st 15m close | -20 4 | +8 | 0 / 16 |
-| < 25 % of TP1 | half SL1 if < 25 % of TP1 at 21 min | -49  | -27 | 0 / 24 |
-| < 50 % of TP1 | SL1 to BE if < 50 % of TP1 at 24 min | -34  | +30 | 0 / 24 |
+| negative | half SL1 if negative at 1st 15m close | -22 4 | +5 | 0 / 16 |
+| < 25 % of TP1 | half SL1 if < 25 % of TP1 at 21 min | -54  | -31 | 0 / 24 |
+| < 50 % of TP1 | SL1 to BE if < 50 % of TP1 at 24 min | -40  | +26 | 0 / 24 |
 | wrong side of HTF EMA9 | half SL1 if wrong side of HTF EMA9 at 1st 15m close | +8 4 | +17 | 7 / 24 |
 | never reached 25 % | SL1 to BE if never reached 25 % at 2nd 15m close | -24  | -9 | 0 / 24 |
-| never reached 50 % | cut if never reached 50 % at 2nd 15m close | -38  | -1 | 0 / 24 |
+| never reached 50 % | cut if never reached 50 % at 2nd 15m close | -44  | -6 | 0 / 24 |
 
-**2. Costs:** 35 of 136 rules are better gross, 7 after costs. Avg cost of the rules: -44 pts.
+**2. Costs:** 29 of 136 rules are better gross, 7 after costs. Avg cost of the rules: -45 pts.
 
 **Top 8 rules after costs** (incl. with the TP rule where run)
 
-1. half SL1 if wrong side of HTF EMA9 at 1st 15m close: **+8** after costs (gross +17) 4 (z +0.2, thirds +2 / +14 / -8, last 4 wk +1.5, 67 cuts, +7 trades)
-2. cut if wrong side of HTF EMA9 at 15 min: **+7** after costs (gross +26) 4 (z +0.2, thirds -2 / +16 / -7, last 4 wk +4.7, 147 cuts, +14 trades)
-3. SL1 to BE if wrong side of HTF EMA9 at 15 min: **+7** after costs (gross +25) 4 (z +0.2, thirds -2 / +16 / -7, last 4 wk +4.7, 141 cuts, +13 trades)
-4. cut if wrong side of HTF EMA9 at 12 min: **+5** after costs (gross +26) 4 (z +0.1, thirds -5 / +17 / -6, last 4 wk +2.6, 162 cuts, +14 trades)
-5. SL1 to BE if wrong side of HTF EMA9 at 12 min: **+3** after costs (gross +24) 4 (z +0.1, thirds -7 / +17 / -6, last 4 wk +2.6, 158 cuts, +14 trades)
-6. half SL1 if wrong side of HTF EMA9 at 12 min: **+3** after costs (gross +11) 4 (z +0.1, thirds -7 / +5 / +4, last 4 wk +8.8, 60 cuts, +8 trades)
-7. half SL1 if wrong side of HTF EMA9 at 15 min: **+0** after costs (gross +8) 4 (z +0.0, thirds +0 / +11 / -12, last 4 wk +0.5, 49 cuts, +8 trades)
-8. half SL1 if wrong side of HTF EMA9 at 1st 15m close >= 12 min: **-1** after costs (gross +7) 4 (z -0.0, thirds -2 / +6 / -5, last 4 wk +3.2, 55 cuts, +7 trades)
+1. half SL1 if wrong side of HTF EMA9 at 1st 15m close: **+8** after costs (gross +17) 4 (z +0.2, thirds +2 / +15 / -9, last 4 wk +5.7, 67 cuts, +7 trades)
+2. cut if wrong side of HTF EMA9 at 15 min: **+7** after costs (gross +26) 4 (z +0.2, thirds -2 / +16 / -7, last 4 wk +5.4, 147 cuts, +14 trades)
+3. SL1 to BE if wrong side of HTF EMA9 at 15 min: **+7** after costs (gross +25) 4 (z +0.2, thirds -2 / +16 / -7, last 4 wk +5.4, 141 cuts, +13 trades)
+4. half SL1 if wrong side of HTF EMA9 at 12 min: **+3** after costs (gross +11) 4 (z +0.1, thirds -7 / +6 / +3, last 4 wk +9.2, 60 cuts, +8 trades)
+5. cut if wrong side of HTF EMA9 at 12 min: **+2** after costs (gross +23) 4 (z +0.1, thirds -5 / +18 / -10, last 4 wk +0.8, 164 cuts, +14 trades)
+6. SL1 to BE if wrong side of HTF EMA9 at 12 min: **+0** after costs (gross +21) 4 (z +0.0, thirds -7 / +18 / -10, last 4 wk +0.8, 160 cuts, +14 trades)
+7. half SL1 if wrong side of HTF EMA9 at 15 min: **+0** after costs (gross +8) 4 (z +0.0, thirds +0 / +11 / -12, last 4 wk +4.0, 49 cuts, +8 trades)
+8. half SL1 if wrong side of HTF EMA9 at 1st 15m close >= 12 min: **-1** after costs (gross +7) 4 (z -0.0, thirds -2 / +6 / -5, last 4 wk +7.4, 55 cuts, +7 trades)
 
 **3. Walk-forward** (choose on the first two thirds, test on the last third, after costs)
 
-- SL rules only: picked on thirds 1-2 = **cut if < 50 % of TP1 at 1st 15m close >= 12 min** (+16 in-sample) → last third **-84** (rank 134 of 136; median rule -37; current exits 0)
+- SL rules only: picked on thirds 1-2 = **SL1 to BE if < 50 % of TP1 at 24 min** (+20 in-sample) → last third **-60** (rank 99 of 136; median rule -43; current exits 0)
 
 **5. Split by session / trigger** (Δ after costs)
 
@@ -344,21 +344,21 @@ TP rule alone (TP1 -> 65 % after 21 min): -2 after costs, thirds +28 / -11 / -19
 
 | Guard | on current exits | beyond random skipping* | on best rule (half SL1 if wrong side of HTF EMA9 at 1st 15m close) |
 |---|---|---|---|
-| 4 losses in a row + −3 x SL1 (12 pts) | +120 T (thirds +36 / +79 / +5, last 4 wk +5.8, 169 skipped) | **+67** | +127 vs rule alone |
-| 4 losses in a row | +95 T (thirds +38 / +57 / +1, last 4 wk +6.8, 127 skipped) | **+56** | +97 vs rule alone |
-| −3 x SL1 (12 pts) | +86 T (thirds +29 / +50 / +7, last 4 wk +8.6, 117 skipped) | **+50** | +89 vs rule alone |
-| 3 losses in a row + −3 x SL1 (12 pts) | +111  (thirds +33 / +83 / -5, last 4 wk +9.3, 361 skipped) | **-1** | +115 vs rule alone |
-| 4 losses in a row + −2 x SL1 (8 pts) | +96  (thirds -6 / +74 / +28, last 4 wk +18.7, 314 skipped) | **-2** | +79 vs rule alone |
-| 3 losses in a row | +101  (thirds +28 / +78 / -5, last 4 wk +9.3, 357 skipped) | **-10** | +104 vs rule alone |
-| −2 x SL1 (8 pts) | +79  (thirds -14 / +70 / +23, last 4 wk +18.7, 299 skipped) | **-14** | +54 vs rule alone |
-| 3 losses in a row + −2 x SL1 (8 pts) | +111 T (thirds +7 / +91 / +13, last 4 wk +12.7, 422 skipped) | **-20** | +105 vs rule alone |
-| 3 losses in a row + −1 x SL1 (4 pts) | +150 T (thirds +9 / +112 / +29, last 4 wk +37.2, 708 skipped) | **-69** | +183 vs rule alone |
-| −1 x SL1 (4 pts) | +145 T (thirds +9 / +112 / +25, last 4 wk +37.2, 705 skipped) | **-73** | +181 vs rule alone |
-| 4 losses in a row + −1 x SL1 (4 pts) | +145 T (thirds +9 / +112 / +25, last 4 wk +37.2, 705 skipped) | **-73** | +181 vs rule alone |
-| 2 losses in a row | +194 T (thirds +70 / +117 / +8, last 4 wk +19.0, 921 skipped) | **-91** | +213 vs rule alone |
-| 2 losses in a row + −2 x SL1 (8 pts) | +194 T (thirds +70 / +117 / +8, last 4 wk +19.0, 921 skipped) | **-91** | +213 vs rule alone |
-| 2 losses in a row + −3 x SL1 (12 pts) | +194 T (thirds +70 / +117 / +8, last 4 wk +19.0, 921 skipped) | **-91** | +213 vs rule alone |
-| 2 losses in a row + −1 x SL1 (4 pts) | +184 T (thirds +40 / +122 / +23, last 4 wk +26.3, 968 skipped) | **-116** | +221 vs rule alone |
+| 4 losses in a row + −3 x SL1 (12 pts) | +118 T (thirds +36 / +72 / +10, last 4 wk +4.5, 171 skipped) | **+66** | +125 vs rule alone |
+| 4 losses in a row | +94 T (thirds +38 / +50 / +6, last 4 wk +5.5, 129 skipped) | **+55** | +96 vs rule alone |
+| −3 x SL1 (12 pts) | +78  (thirds +29 / +50 / -1, last 4 wk +0.4, 120 skipped) | **+41** | +81 vs rule alone |
+| 3 losses in a row + −3 x SL1 (12 pts) | +114 T (thirds +33 / +78 / +3, last 4 wk +17.2, 364 skipped) | **+4** | +118 vs rule alone |
+| 4 losses in a row + −2 x SL1 (8 pts) | +100  (thirds -6 / +69 / +37, last 4 wk +19.3, 317 skipped) | **+4** | +83 vs rule alone |
+| 3 losses in a row | +104 T (thirds +28 / +73 / +3, last 4 wk +17.2, 360 skipped) | **-5** | +108 vs rule alone |
+| −2 x SL1 (8 pts) | +83  (thirds -14 / +65 / +32, last 4 wk +19.3, 302 skipped) | **-9** | +58 vs rule alone |
+| 3 losses in a row + −2 x SL1 (8 pts) | +114 T (thirds +7 / +86 / +21, last 4 wk +20.5, 425 skipped) | **-15** | +109 vs rule alone |
+| 3 losses in a row + −1 x SL1 (4 pts) | +155 T (thirds +9 / +108 / +38, last 4 wk +45.0, 711 skipped) | **-60** | +188 vs rule alone |
+| −1 x SL1 (4 pts) | +151 T (thirds +9 / +108 / +34, last 4 wk +45.0, 708 skipped) | **-64** | +186 vs rule alone |
+| 4 losses in a row + −1 x SL1 (4 pts) | +151 T (thirds +9 / +108 / +34, last 4 wk +45.0, 708 skipped) | **-64** | +186 vs rule alone |
+| 2 losses in a row | +204 T (thirds +70 / +116 / +18, last 4 wk +31.3, 928 skipped) | **-77** | +222 vs rule alone |
+| 2 losses in a row + −2 x SL1 (8 pts) | +204 T (thirds +70 / +116 / +18, last 4 wk +31.3, 928 skipped) | **-77** | +222 vs rule alone |
+| 2 losses in a row + −3 x SL1 (12 pts) | +204 T (thirds +70 / +116 / +18, last 4 wk +31.3, 928 skipped) | **-77** | +222 vs rule alone |
+| 2 losses in a row + −1 x SL1 (4 pts) | +194 T (thirds +40 / +121 / +33, last 4 wk +38.5, 975 skipped) | **-102** | +231 vs rule alone |
 
-*Current exits lose 0.31 pts per trade after costs, so skipping ANY trades looks good. This column = guard result minus what skipping the same number of random trades would give; positive = the guard picks the bad trades.
+*Current exits lose 0.30 pts per trade after costs, so skipping ANY trades looks good. This column = guard result minus what skipping the same number of random trades would give; positive = the guard picks the bad trades.
 

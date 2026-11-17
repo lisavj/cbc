@@ -1,11 +1,11 @@
-## Week of 11/09/2026 summary
+## Week of 11/14/2026 summary
 
-- STUDY SETTINGS STALE: the 11/08 settings sync report lists 1 non-known MISMATCH (chop_sim GATE MGC 2m range gate R5=0) + late_study MES 3m tp=2.0 -- both already fixed in the project scripts used for this run, and neither affects these 3m studies.
-- MGC 3m 'London stop after 1st loss' alone (— / stop / current exits): net **+97**, beyond random +84 / +92 / +31, last 4 wk +55 vs +38 -> **HELD** (11/08: +89; +83 / +98 / +24).
-- MGC 3m VWAP + London stop (filter / stop / current exits): net **+202**, beyond random +103 / +89 / +108, last 4 wk +68 vs +38 -> **HELD** (11/08 +193). MGC filter / stop / TP + SL rules +275 (11/08 +266).
-- MES 3m balanced (filter / stop / SL rule): net **-4** (thirds +112 / -144 / +29; beyond random +50 / +439 / **+2**), last 4 wk +89 vs current +160 (44 % below, limit 40 %) -> **WEAKER** (11/08: +11, last 4 wk +106 vs +176).
-- **Weeks held: MGC London stop 1/3, MGC VWAP+London 1/3, MES balanced set 0/3.**
-- Also rewritten this run (read skip_why.pkl): skip_fix.md and sess_loss_report.md (local working copies only).
+- STUDY SETTINGS STALE: the 11/13 settings sync (v10.96) lists 3 non-known MISMATCHes, NOT yet fixed in the project scripts, and they touch the 3m studies -- mes3_ema_grid LIVE still closes MES 3m 80/100 % by time of day (live since v10.95: 100 % at TP1 all day), and MGC 3m live is now FLIP 0 % (v10.96: nothing closed at TP1, BE, no trail, exit on HTF flip) while these replays use 80 % / trail 1.7 (MGCX) or 50 % / 3.5. Bot replay (H) is unaffected (part 1.0). Also new: the 11/14 X4 fix in mes3_ema_grid.py makes the MGC 3m VWAP-stretch gate actually block setups (MGC 3m 1193 setups vs 1707 last week), so MGC 3m numbers are not like-for-like with 11/09.
+- MGC 3m "London stop after 1st loss" alone (— / stop / current exits): net +139, beyond random **+91** (thirds +66 / +24 / +1; last 4 wk +94 vs +101) -> **HELD, barely** (third 3 only +1, last 4 weeks slightly worse).
+- MGC 3m "VWAP + London stop" (filter / stop / current exits): net +274, beyond random **+234** (thirds +95 / +50 / +88; last 4 wk +117 vs +101) ✓↑ -> **HELD**. With TP + SL rules: net +315 (beyond random +274) ✓↑.
+- MES 3m balanced "filter / stop / SL rule": net **-36** (thirds +112 / -116 / -31; beyond random +54 / +474 / -82; last 4 wk +7 vs +124) -> **WEAKER** (third 3 beyond random negative, last 4 weeks far behind).
+- **Weeks held: MGC London stop 2/3, MGC VWAP+London 2/3, MES balanced set 0/3.**
+- MES 3m: only "filter / stop / current exits" is ✓ (beyond random +16 / +403 / +0), last 4 wk +75 vs +124.
 
 ---
 
@@ -24,32 +24,32 @@ Filter / session stop / exits. ✓ = beyond random positive in all three thirds;
 
 | Filter / stop / exits | Third 1 | Third 2 | Third 3 | Last 4 wk | Whole | Trades | |
 |---|---|---|---|---|---|---|---|
-| filter / stop / TP + SL rules | +140 (+88) | -131 (+457) | -9 (-28) | +46 (-124) | -0 (+517) | 1042 |  |
-| filter / stop / SL rule | +112 (+50) | -144 (+439) | +29 (+2) | +89 (-86) | -4 (+491) | 997 | ✓ |
-| filter / stop / TP rule | +97 (+44) | -184 (+402) | +45 (+24) | +98 (-74) | -42 (+471) | 1032 | ✓ |
-| — / stop / TP + SL rules | +147 (+126) | -173 (+428) | -36 (-34) | +42 (-120) | -61 (+520) | 1171 |  |
-| filter / stop / current exits | +74 (+12) | -217 (+364) | +67 (+39) | +128 (-48) | -76 (+415) | 988 | ✓ |
-| — / stop / TP rule | +128 (+103) | -220 (+379) | +4 (+7) | +96 (-68) | -88 (+490) | 1163 | ✓ |
-| — / stop / SL rule | +94 (+64) | -154 (+438) | -36 (-42) | +85 (-83) | -96 (+460) | 1121 |  |
-| — / stop / current exits | +75 (+41) | -245 (+345) | -10 (-15) | +126 (-43) | -180 (+372) | 1112 |  |
-| filter / — / TP rule | +79 (+63) | -440 (+234) | -31 (+18) | +133 (-30) | -393 (+314) | 1424 | ✓ |
-| filter / — / TP + SL rules | +128 (+113) | -445 (+232) | -94 (-39) | +75 (-87) | -411 (+306) | 1445 |  |
-| filter / — / SL rule | +63 (+40) | -497 (+171) | -62 (-16) | +121 (-44) | -496 (+195) | 1391 |  |
-| filter / — / current exits | +23 (-1) | -523 (+141) | -10 (+29) | +158 (-9) | -510 (+169) | 1368 |  |
-| — / — / TP + SL rules | +94 (+126) | -628 (+121) | -107 (+8) | +74 (-79) | -641 (+256) | 1805 | ✓ |
-| — / — / TP rule | +55 (+84) | -653 (+91) | -69 (+40) | +135 (-20) | -667 (+215) | 1775 | ✓ |
-| — / — / SL rule | +15 (+37) | -673 (+65) | -108 (-6) | +122 (-37) | -766 (+96) | 1736 |  |
-| — / — / current exits | -20 (+0) | -732 (+0) | -94 (+0) | +160 (+0) | -847 (+0) | 1705 | ↑ |
+| filter / stop / TP + SL rules | +140 (+92) | -108 (+489) | -63 (-107) | -26 (-161) | -31 (+474) | 1067 |  |
+| filter / stop / SL rule | +112 (+54) | -116 (+474) | -31 (-82) | +7 (-132) | -36 (+447) | 1021 |  |
+| filter / stop / TP rule | +97 (+48) | -157 (+437) | +18 (-26) | +27 (-110) | -41 (+458) | 1056 |  |
+| filter / stop / current exits | +74 (+16) | -185 (+403) | +53 (+0) | +75 (-66) | -59 (+419) | 1011 | ✓ |
+| — / stop / TP rule | +128 (+105) | -225 (+382) | +15 (-4) | +38 (-89) | -83 (+484) | 1198 |  |
+| — / stop / TP + SL rules | +147 (+128) | -167 (+442) | -69 (-88) | -17 (-143) | -89 (+482) | 1207 |  |
+| — / stop / SL rule | +94 (+66) | -144 (+456) | -71 (-98) | +23 (-107) | -121 (+425) | 1155 |  |
+| — / stop / current exits | +75 (+44) | -246 (+352) | +16 (-10) | +94 (-38) | -155 (+386) | 1145 |  |
+| filter / — / TP rule | +79 (+64) | -413 (+264) | -58 (-36) | +62 (-67) | -392 (+292) | 1448 |  |
+| filter / — / TP + SL rules | +128 (+115) | -422 (+259) | -148 (-121) | +3 (-124) | -442 (+253) | 1470 |  |
+| filter / — / current exits | +23 (+1) | -492 (+176) | -25 (-13) | +105 (-28) | -493 (+165) | 1391 |  |
+| filter / — / SL rule | +63 (+42) | -469 (+203) | -122 (-104) | +39 (-92) | -528 (+141) | 1415 |  |
+| — / — / TP rule | +55 (+84) | -658 (+87) | -59 (+24) | +73 (-46) | -662 (+194) | 1810 | ✓ |
+| — / — / TP + SL rules | +94 (+126) | -622 (+128) | -140 (-52) | +11 (-107) | -668 (+202) | 1841 |  |
+| — / — / SL rule | +15 (+37) | -663 (+76) | -143 (-68) | +56 (-66) | -791 (+46) | 1770 |  |
+| — / — / current exits | -20 (+0) | -733 (+0) | -68 (+0) | +124 (+0) | -822 (+0) | 1738 | ↑ |
 
 **Full stats** (after costs): trades / net / win %% / profit factor / max drawdown
 
 | Period | Current exits | All four (filter + stop + TP + SL) | Best row (filter / stop / TP + SL rules) |
 |---|---|---|---|
 | Third 1 | 520 / -20 / 51 % / 0.99 / 222 | 375 / +140 / 53 % / 1.13 / 102 | 375 / +140 / 53 % / 1.13 / 102 |
-| Third 2 | 570 / -732 / 42 % / 0.63 / 808 | 280 / -131 / 44 % / 0.81 / 219 | 280 / -131 / 44 % / 0.81 / 219 |
-| Third 3 | 615 / -94 / 51 % / 0.94 / 344 | 387 / -9 / 51 % / 0.99 / 117 | 387 / -9 / 51 % / 0.99 / 117 |
-| Last 4 wk | 150 / +160 / 58 % / 1.37 / 80 | 130 / +46 / 52 % / 1.12 / 97 | 130 / +46 / 52 % / 1.12 / 97 |
-| Whole | 1705 / -847 / 48 % / 0.84 / 1088 | 1042 / -0 / 50 % / 1.00 / 249 | 1042 / -0 / 50 % / 1.00 / 249 |
+| Third 2 | 587 / -733 / 42 % / 0.64 / 808 | 297 / -108 / 45 % / 0.85 / 219 | 297 / -108 / 45 % / 0.85 / 219 |
+| Third 3 | 631 / -68 / 51 % / 0.96 / 308 | 395 / -63 / 50 % / 0.94 / 117 | 395 / -63 / 50 % / 0.94 / 117 |
+| Last 4 wk | 149 / +124 / 56 % / 1.24 / 80 | 126 / -26 / 49 % / 0.95 / 97 | 126 / -26 / 49 % / 0.95 / 97 |
+| Whole | 1738 / -822 / 48 % / 0.85 / 1088 | 1067 / -31 / 50 % / 0.99 / 249 | 1067 / -31 / 50 % / 0.99 / 249 |
 
 ## MGC 3m
 
@@ -57,29 +57,29 @@ Filter / session stop / exits. ✓ = beyond random positive in all three thirds;
 
 | Filter / stop / exits | Third 1 | Third 2 | Third 3 | Last 4 wk | Whole | Trades | |
 |---|---|---|---|---|---|---|---|
-| filter / stop / TP + SL rules | +99 (+157) | +80 (+89) | +96 (+130) | +82 (+41) | +275 (+375) | 1333 | ✓↑ |
-| filter / stop / SL rule | +83 (+141) | +59 (+68) | +102 (+135) | +81 (+40) | +244 (+344) | 1321 | ✓↑ |
-| filter / stop / current exits | +46 (+103) | +81 (+89) | +75 (+108) | +68 (+27) | +202 (+300) | 1298 | ✓↑ |
-| filter / stop / TP rule | +67 (+125) | +45 (+54) | +57 (+91) | +65 (+25) | +170 (+270) | 1326 | ✓↑ |
-| — / stop / TP + SL rules | +68 (+130) | +60 (+72) | +33 (+70) | +68 (+28) | +161 (+273) | 1475 | ✓↑ |
-| — / stop / SL rule | +54 (+116) | +51 (+64) | +38 (+74) | +71 (+32) | +143 (+254) | 1462 | ✓↑ |
-| filter / — / TP + SL rules | +39 (+103) | +28 (+42) | +41 (+80) | +59 (+20) | +109 (+226) | 1547 | ✓↑ |
-| — / stop / current exits | +22 (+84) | +80 (+92) | -5 (+31) | +55 (+15) | +97 (+206) | 1440 | ✓↑ |
-| filter / — / SL rule | +8 (+72) | +13 (+27) | +60 (+98) | +59 (+19) | +81 (+197) | 1535 | ✓↑ |
-| — / stop / TP rule | +35 (+97) | +42 (+55) | -7 (+30) | +54 (+15) | +71 (+182) | 1470 | ✓↑ |
-| filter / — / current exits | -9 (+54) | +21 (+34) | +26 (+63) | +58 (+18) | +38 (+151) | 1489 | ✓↑ |
-| filter / — / TP rule | +23 (+86) | +4 (+18) | -8 (+30) | +45 (+6) | +18 (+134) | 1526 | ✓↑ |
-| — / — / TP + SL rules | -6 (+64) | -19 (+1) | -8 (+36) | +43 (+6) | -33 (+101) | 1771 | ✓↑ |
-| — / — / SL rule | -32 (+37) | -28 (-8) | +9 (+52) | +47 (+9) | -51 (+82) | 1758 | ↑ |
-| — / — / current exits | -69 (+0) | -18 (+0) | -42 (+0) | +38 (+0) | -129 (+0) | 1707 | ↑ |
-| — / — / TP rule | -41 (+28) | -29 (-10) | -61 (-17) | +27 (-11) | -131 (+1) | 1747 |  |
+| filter / stop / TP + SL rules | +143 (+159) | +28 (+39) | +144 (+75) | +116 (+16) | +315 (+274) | 901 | ✓↑ |
+| filter / stop / SL rule | +136 (+151) | +21 (+33) | +157 (+88) | +123 (+22) | +314 (+273) | 892 | ✓↑ |
+| filter / stop / TP rule | +107 (+123) | +21 (+33) | +154 (+86) | +113 (+13) | +283 (+242) | 891 | ✓↑ |
+| filter / stop / current exits | +79 (+95) | +38 (+50) | +157 (+88) | +117 (+17) | +274 (+234) | 873 | ✓↑ |
+| filter / — / TP rule | +89 (+102) | +31 (+41) | +144 (+74) | +116 (+15) | +263 (+217) | 996 | ✓↑ |
+| filter / — / SL rule | +86 (+99) | +21 (+31) | +146 (+76) | +119 (+18) | +253 (+207) | 1000 | ✓↑ |
+| filter / — / TP + SL rules | +98 (+111) | +22 (+33) | +130 (+61) | +112 (+11) | +251 (+204) | 1010 | ✓↑ |
+| filter / — / current exits | +50 (+64) | +36 (+47) | +148 (+79) | +125 (+24) | +234 (+190) | 972 | ✓↑ |
+| — / stop / SL rule | +118 (+130) | -15 (-6) | +93 (+22) | +116 (+15) | +196 (+147) | 1062 | ↑ |
+| — / stop / TP + SL rules | +123 (+136) | -22 (-13) | +89 (+18) | +112 (+11) | +191 (+141) | 1072 | ↑ |
+| — / stop / TP rule | +73 (+86) | -7 (+2) | +92 (+21) | +101 (-0) | +157 (+108) | 1063 | ✓ |
+| — / stop / current exits | +53 (+66) | +14 (+24) | +72 (+1) | +94 (-7) | +139 (+91) | 1043 | ✓ |
+| — / — / SL rule | +45 (+55) | -24 (-17) | +91 (+18) | +111 (+10) | +113 (+56) | 1226 | ↑ |
+| — / — / TP rule | +25 (+35) | -7 (-0) | +90 (+17) | +102 (+0) | +108 (+51) | 1220 | ↑ |
+| — / — / TP + SL rules | +52 (+62) | -29 (-22) | +84 (+11) | +107 (+5) | +107 (+50) | 1237 | ↑ |
+| — / — / current exits | -10 (+0) | -7 (+0) | +72 (+0) | +101 (+0) | +55 (+0) | 1193 | ↑ |
 
 **Full stats** (after costs): trades / net / win %% / profit factor / max drawdown
 
 | Period | Current exits | All four (filter + stop + TP + SL) | Best row (filter / stop / TP + SL rules) |
 |---|---|---|---|
-| Third 1 | 597 / -69 / 51 % / 0.96 / 170 | 453 / +99 / 52 % / 1.09 / 69 | 453 / +99 / 52 % / 1.09 / 69 |
-| Third 2 | 565 / -18 / 49 % / 0.99 / 111 | 447 / +80 / 50 % / 1.09 / 59 | 447 / +80 / 50 % / 1.09 / 59 |
-| Third 3 | 545 / -42 / 48 % / 0.97 / 143 | 433 / +96 / 49 % / 1.11 / 92 | 433 / +96 / 49 % / 1.11 / 92 |
-| Last 4 wk | 152 / +38 / 49 % / 1.11 / 59 | 120 / +82 / 54 % / 1.39 / 29 | 120 / +82 / 54 % / 1.39 / 29 |
-| Whole | 1707 / -129 / 49 % / 0.97 / 285 | 1333 / +275 / 50 % / 1.10 / 145 | 1333 / +275 / 50 % / 1.10 / 145 |
+| Third 1 | 447 / -10 / 51 % / 0.99 / 137 | 325 / +143 / 53 % / 1.19 / 51 | 325 / +143 / 53 % / 1.19 / 51 |
+| Third 2 | 378 / -7 / 49 % / 0.99 / 131 | 283 / +28 / 48 % / 1.05 / 74 | 283 / +28 / 48 % / 1.05 / 74 |
+| Third 3 | 368 / +72 / 50 % / 1.08 / 82 | 293 / +144 / 53 % / 1.26 / 52 | 293 / +144 / 53 % / 1.26 / 52 |
+| Last 4 wk | 102 / +101 / 54 % / 1.48 / 34 | 85 / +116 / 61 % / 1.93 / 21 | 85 / +116 / 61 % / 1.93 / 21 |
+| Whole | 1193 / +55 / 50 % / 1.02 / 189 | 901 / +315 / 51 % / 1.17 / 86 | 901 / +315 / 51 % / 1.17 / 86 |
